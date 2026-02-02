@@ -15,7 +15,7 @@ contains
   !> Either `nu_0` or `nu_v` must be given.
 
   module subroutine FAS_MG_Start_X( this, bc, lambda, nu_0, nu_v, bv, f, u &
-                                  , r, v, n_cyc )
+                                  , n_cyc )
 
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
 
@@ -29,14 +29,10 @@ contains
       !< variable diffusivity
     class(ML_BoundaryVariable_3D), intent(in) :: bv
       !< boundary values
-    class(ML_MeshVariable_3D), intent(inout) :: f
+    class(ML_MeshVariable_3D), intent(in) :: f
       !< RHS
     class(ML_MeshVariable_3D), intent(inout) :: u
       !< approx/final solution
-    class(ML_MeshVariable_3D), intent(inout) :: r
-      !< work space for residual
-    class(ML_MeshVariable_3D), intent(inout) :: v
-      !< work space for solution or correction
     integer, intent(in) :: n_cyc
       !< number of V-cycles before advancing to next level,
       !! `n_cyc = 0` yields cascade and
@@ -55,35 +51,41 @@ contains
                  , u_l  => u  % level(l)   % val(:,:,:,:,1) &
                  , u_c  => u  % level(l+1) % val(:,:,:,:,1) )
 
-          if (n_cyc > 0) then
+          if (l == 1) then
+
+            ! coarse solver ....................................................
+
+            if (present(nu_0)) then
+              call this % CoarseSolver(bc, lambda, nu_0, u_l, f_l, bv_l)
+              call this % Monitoring(l, 's', bc, lambda, nu_0, f_l, bv_l, u_l)
+            else
+              associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
+                call this % CoarseSolver(bc, lambda, nu_l, u_l, f_l, bv_l)
+                call this % Monitoring(l, 's', bc, lambda, nu_l, f_l, bv_l, u_l)
+              end associate
+            end if
+
+          else if (n_cyc == 0) then
 
             ! cascade ..........................................................
 
-            n = this % ns_0
-
+            n = this % NumSmoothingSteps(l, stage = 0)
             if (present(nu_0)) then
-              select case(l)
-              case(1)
-                call this % CoarseSolver(bc, lambda, nu_0, u_l, f_l, bv_l)
-              case default
-                call this % Smoother(l, bc, lambda, nu_0, u_l, f_l, bv_l, n)
-              end select
-
+              call this % Smoother(l, bc, lambda, nu_0, u_l, f_l, bv_l, n)
+              call this % Monitoring(l, 's', bc, lambda, nu_0, f_l, bv_l, u_l)
             else
               associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
-                select case(l)
-                case(1)
-                  call this % CoarseSolver(bc, lambda, nu_l, u_l, f_l, bv_l)
-                case default
-                  call this % Smoother(l, bc, lambda, nu_l, u_l, f_l, bv_l, n)
-                end select
+                call this % Smoother(l, bc, lambda, nu_l, u_l, f_l, bv_l, n)
+                call this % Monitoring(l, 's', bc, lambda, nu_l, f_l, bv_l, u_l)
               end associate
             end if
+
+          else
 
             ! full multigrid ...................................................
 
             call this % FAS_MG_Cycle_X( bc, lambda, nu_0, nu_v, bv, f, u &
-                                      , r, v, n_cyc, l )
+                                      , n_cyc, l )
 
           end if
 

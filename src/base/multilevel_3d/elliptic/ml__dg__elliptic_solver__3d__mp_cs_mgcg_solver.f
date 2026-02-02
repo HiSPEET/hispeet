@@ -106,6 +106,11 @@ contains
       l_top_ = size(this%ml_op%sem)
     end if
 
+    ! top level MPI group must be a superset of all lower levels
+    if (this%ml_op%sem(l_top_)%mesh%part < 0) then
+      return
+    end if
+
     if (present(i_max)) then
       i_max_ = i_max
     else
@@ -141,7 +146,9 @@ contains
                      .and. all(bc /= 'D') &
                      .and. mesh_top % n_elem_frozen == 0
 
-      call XMPI_Allreduce(singular_loc, singular, MPI_LAND, comm_top)
+      if (mesh_top % part >= 0) then
+        call XMPI_Allreduce(singular_loc, singular, MPI_LAND, comm_top)
+      end if
 
       !$omp end master
       !$omp barrier
@@ -152,7 +159,7 @@ contains
 
       ! r = f - Au
       if (present(nu_0)) then
-        call ell_top % Residual( bc, lambda, nu_0, f_top, bv_top, u_top, r_top )
+        call ell_top % Residual(bc, lambda, nu_0, f_top, bv_top, u_top, r_top)
       else
         call ell_top % Residual( bc, lambda                                 &
                                , nu = nu_v % level(l_top_) % val(:,:,:,:,1) &
@@ -232,16 +239,6 @@ contains
         alpha = delta / ScalarProduct(p, q, comm_top)       ! α = δ / (p,Ap)
         call MergeArrays(ONE, u_top,  alpha, p)             ! u = u + α p
         call MergeArrays(ONE, r_top, -alpha, q)             ! r = r - α Ap
-!### CHECK
-print '(99(G0,X))', 'delta =',delta
-print '(99(G0,X))', 'alpha =',alpha
-print '(99(G0,X))', 'max|p| =',maxval(abs(p))
-print '(99(G0,X))', 'max|q| =',maxval(abs(q))
-print '(99(G0,X))', 'any(ieee_is_nan(p)) =',any(ieee_is_nan(p))
-print '(99(G0,X))', 'any(ieee_is_nan(q)) =',any(ieee_is_nan(q))
-print '(99(G0,X))', 'any(ieee_is_nan(u_top)) =',any(ieee_is_nan(u_top))
-print '(99(G0,X))', 'any(ieee_is_nan(r_top)) =',any(ieee_is_nan(r_top))
-!### CHECK END
 
         if (check_convergence) then
 

@@ -15,7 +15,7 @@ contains
     real(RNP), intent(in) :: nu     !< diffusivity
 
     class(ML_BoundaryVariable_3D), intent(in)    :: bv !< boundary values
-    class(ML_MeshVariable_3D),     intent(inout) :: f  !< RHS
+    class(ML_MeshVariable_3D),     intent(in)    :: f  !< RHS
     class(ML_MeshVariable_3D),     intent(inout) :: u  !< approx/final solution
 
     integer,   optional, intent(out) :: ni    !< num executed cycles
@@ -37,7 +37,7 @@ contains
 
     class(ML_MeshVariable_3D),     intent(in)    :: nu !< diffusivity
     class(ML_BoundaryVariable_3D), intent(in)    :: bv !< boundary values
-    class(ML_MeshVariable_3D),     intent(inout) :: f  !< RHS
+    class(ML_MeshVariable_3D),     intent(in)    :: f  !< RHS
     class(ML_MeshVariable_3D),     intent(inout) :: u  !< approx/final solution
 
     integer,   optional, intent(out) :: ni    !< num executed cycles
@@ -67,7 +67,7 @@ contains
       !< variable diffusivity
     class(ML_BoundaryVariable_3D), intent(in) :: bv
       !< boundary values
-    class(ML_MeshVariable_3D), intent(inout) :: f
+    class(ML_MeshVariable_3D), intent(in) :: f
       !< RHS
     class(ML_MeshVariable_3D), intent(inout) :: u
       !< approx/final solution
@@ -78,38 +78,43 @@ contains
 
     ! internal variables .......................................................
 
-    type(ML_MeshVariable_3D), allocatable, save :: r, v
-
+    type(ML_MeshVariable_3D), allocatable, save :: r
+    real(RNP), allocatable, save :: r0_2
     integer :: l_top
 
     ! initialization ...........................................................
 
     l_top = size(this % ml_op % sem)
 
-    !$omp master
-    allocate(r, v)
-    call r % Init(this%ml_op, nc = 1, l_top = l_top)
-    call v % Init(this%ml_op, nc = 1, l_top = l_top)
-    !$omp end master
+    ! initial residual
+    if (this%r_red > 0) then
+      !$omp master
+      allocate(r)
+      call r % Init(this%ml_op, nc = 1, l_top = l_top)
+      !$omp end master
+      call this % FAS_MG_Residual_X(bc, lambda, nu_0, nu_v, bv, f, u, r)
+      r0_2 = sqrt(ML_ScalarProduct_3D(r,r))
+      !$omp master
+      deallocate(r)
+      !$omp end master
+    end if
 
     ! start ....................................................................
 
     select case(this % start_method)
     case(START_CASC)
-      call this % FAS_MG_Start_X(bc, lambda, nu_0, nu_v, bv, f, u, r, v, 0)
+      call this % FAS_MG_Start_X(bc, lambda, nu_0, nu_v, bv, f, u, n_cyc = 0)
     case(START_FMG)
-      call this % FAS_MG_Start_X(bc, lambda, nu_0, nu_v, bv, f, u, r, v, 1)
+      call this % FAS_MG_Start_X(bc, lambda, nu_0, nu_v, bv, f, u, n_cyc = 1)
     end select
 
     ! V cycles .................................................................
 
-    call this % FAS_MG_Cycle_X( bc, lambda, nu_0, nu_v, bv, f, u, r, v &
-                              , ni = ni, r_2 = r_2                     )
-
-    ! finalization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    call this % FAS_MG_Cycle_X( bc, lambda, nu_0, nu_v, bv, f, u &
+                              , r0_2 = r0_2, ni = ni, r_2 = r_2  )
 
     !$omp master
-    deallocate(r, v)
+    if (allocated(r0_2)) deallocate(r0_2)
     !$omp end master
 
   end subroutine FAS_MG_Solver_X

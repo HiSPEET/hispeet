@@ -15,7 +15,7 @@ contains
   !> Either `nu_0` or `nu_v` must be given.
 
   module subroutine FAS_MG_Cycle_X( this, bc, lambda, nu_0, nu_v, bv, f, u &
-                                  , r, v, n_cyc, l_top, ni, r_2 )
+                                  , n_cyc, l_top, r0_2, ni, r_2 )
 
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
 
@@ -29,18 +29,16 @@ contains
       !< variable diffusivity
     class(ML_BoundaryVariable_3D), target, optional, intent(in) :: bv
       !< boundary values
-    class(ML_MeshVariable_3D), intent(inout) :: f
+    class(ML_MeshVariable_3D), intent(in) :: f
       !< RHS
     class(ML_MeshVariable_3D), intent(inout) :: u
       !< approx/final solution
-    class(ML_MeshVariable_3D), intent(inout) :: r
-      !< work space for residual
-    class(ML_MeshVariable_3D), intent(inout) :: v
-      !< work space for solution or correction
-    integer,  optional, intent(in) :: n_cyc
+    integer, optional, intent(in) :: n_cyc
       !< number of cycles  [this%i_max]
-    integer,  optional, intent(in) :: l_top
+    integer, optional, intent(in) :: l_top
       !< top level  [auto]
+    real(RNP), optional, intent(in) :: r0_2
+      !< initial Euclidian residual norm, if < 0
     integer, optional, intent(out) :: ni
       !< num executed cycles
     real(RNP), optional, intent(out) :: r_2
@@ -48,7 +46,9 @@ contains
 
     ! internal variables :::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
+    type(ML_MeshVariable_3D), allocatable, save :: g, r, v
     type(BoundaryVariable_3D), pointer, save :: bv_l(:) => null()
+    type(BoundaryVariable_3D), pointer, save :: bv_p(:) => null()
     logical, save :: converged
 
     real(RNP) :: rr, r_max, r_new, r_old
@@ -56,21 +56,22 @@ contains
     integer   :: l_top_, n_cyc_
     integer   :: e, l, m, n
 
-    associate( sem     => this % ml_op % sem      &
-             , iop_cf  => this % ml_op % iop_cf_x &
-             , iop_fc  => this % ml_op % iop_fc_x &
-             , pop_fc  => this % ml_op % pop_fc_x &
-             , ell_op  => this % elliptic_op      )
+    associate( sem    => this % ml_op % sem      &
+             , iop_cf => this % ml_op % iop_cf_x &
+             , iop_fc => this % ml_op % iop_fc_x &
+             , pop_fc => this % ml_op % pop_fc_x &
+             , ell    => this % elliptic_op      )
 
       ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       if (present(n_cyc)) then
         n_cyc_ = n_cyc
-        check_convergence = max(this%r_red, this%r_max) > 0
+        check_convergence = .false.
       else
         n_cyc_ = this % i_max
-        check_convergence = .false.
+        check_convergence = max(this%r_red, this%r_max) > 0
       end if
+      if (n_cyc_ < 1) return
 
       if (present(l_top)) then
         l_top_ = min(l_top, size(sem))
@@ -78,13 +79,27 @@ contains
         l_top_ = size(sem)
       end if
 
-      ! termination conditions
+      !$omp master
+      allocate(g, r, v)
+      call g % Init(this%ml_op, nc = 1, l_top = l_top_)
+      call r % Init(this%ml_op, nc = 1, l_top = l_top_)
+      call v % Init(this%ml_op, nc = 1, l_top = l_top_)
+      !$omp end master
+      !$omp barrier
+
+      call ML_SetArray_3D(g, f, l_top = l_top_)
+
+      ! termination condition
       if (check_convergence) then
-        call this % FAS_MG_Residual_X( bc, lambda, nu_0, nu_v, bv, f &
-                                     , u, r, l_top_ )
-        rr = ML_ScalarProduct_3D(r, r, l_top = l_top_)
-        r_old  = sqrt(rr)
-        r_max  = max(r_old * this%r_red, this%r_max)
+        if (present(r0_2)) then
+          r_old = r0_2
+        else
+          call this % FAS_MG_Residual_X( bc, lambda, nu_0, nu_v, bv, f, u, r &
+                                       , l_top_ )
+          rr = ML_ScalarProduct_3D(r, r, l_top = l_top_)
+          r_old = sqrt(rr)
+        end if
+        r_max = max(r_old * this%r_red, this%r_max)
         !$omp master
         converged = r_old < r_max
         call XMPI_Bcast(converged, root = 0, comm = sem(1)%mesh%comm_world)
@@ -112,11 +127,10 @@ contains
 
           associate( mesh_l => sem(l  ) % mesh                  &
                    , mesh_p => sem(l-1) % mesh                  &
-                   , f_l    => f  % level(l  ) % val(:,:,:,:,1) &
+                   , g_l    => g  % level(l  ) % val(:,:,:,:,1) &
                    , u_l    => u  % level(l  ) % val(:,:,:,:,1) &
                    , r_l    => r  % level(l  ) % val(:,:,:,:,1) &
-                   , bv_p   => bv % level(l-1) % var            &
-                   , f_p    => f  % level(l-1) % val(:,:,:,:,1) &
+                   , g_p    => g  % level(l-1) % val(:,:,:,:,1) &
                    , u_p    => u  % level(l-1) % val(:,:,:,:,1) &
                    , r_p    => r  % level(l-1) % val(:,:,:,:,1) &
                    , v_p    => v  % level(l-1) % val(:,:,:,:,1) )
@@ -125,28 +139,30 @@ contains
 
             !$omp master
             if (present(bv)) then
-              bv_l => bv % level(l) % var
+              bv_l => bv % level(l ) % var
+              bv_p => bv % level(l-1) % var
             end if
             !$omp end master
 
             ! pre-smoothing and residual computation ...........................
 
             if (present(nu_0)) then
-              call this % Monitoring(l, '0', bc, lambda, nu_0, f_l, bv_l, u_l)
+              call this % Monitoring(l, '0', bc, lambda, nu_0, g_l, bv_l, u_l)
             else
               associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
-                call this % Monitoring(l, '0', bc, lambda, nu_l, f_l, bv_l, u_l)
+                call this % Monitoring(l, '0', bc, lambda, nu_l, g_l, bv_l, u_l)
               end associate
             end if
 
-            n = this % ns_1
+            n = this % NumSmoothingSteps(l, stage = 1)
+
             if (present(nu_0)) then
-              call this % Smoother(l, bc, lambda, nu_0, u_l, f_l, bv_l, n)
-              call this % Residual(l, bc, lambda, nu_0, f_l, bv_l, u_l, r_l)
+              call this % Smoother(l, bc, lambda, nu_0, u_l, g_l, bv_l, n)
+              call this % Residual(l, bc, lambda, nu_0, g_l, bv_l, u_l, r_l)
             else
               associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
-                call this % Smoother(l, bc, lambda, nu_l, u_l, f_l, bv_l, n)
-                call this % Residual(l, bc, lambda, nu_l, f_l, bv_l, u_l, r_l)
+                call this % Smoother(l, bc, lambda, nu_l, u_l, g_l, bv_l, n)
+                call this % Residual(l, bc, lambda, nu_l, g_l, bv_l, u_l, r_l)
               end associate
             end if
             call this % Monitoring(l, '1', r_l)
@@ -169,34 +185,37 @@ contains
             call ChildToParentRestriction_3D &
                      (mesh_l, mesh_p, iop_cf(l-1), r_l, r_p)
 
-            ! parent RHS .....................................................
+            ! parent FAS-RHS .................................................
 
             do e = 1, mesh_p % n_elem
               if (mesh_p % element(e) % adaptation % refinement >= 1000) then
-                f_p(:,:,:,e) = r_p(:,:,:,e)
+                ! residual contribution to FAS-RHS in parent twigs
+                g_p(:,:,:,e) = r_p(:,:,:,e)
               else
+              ! set v_p to solution in leaves
                 v_p(:,:,:,e) = u_p(:,:,:,e)
               end if
             end do
 
+            ! apply parent operator to projected solution
             if (present(nu_0)) then
-              call ell_op(l-1) % Apply(bc, lambda, nu_0, bv_p, v_p, r_p)
+              call ell(l-1) % Apply(bc, lambda, nu_0, bv_p, v_p, r_p)
             else
               associate(nu_p => nu_v % level(l-1) % val(:,:,:,:,1))
-                call ell_op(l-1) % Apply(bc, lambda, nu_p, bv_p, v_p, r_p)
+                call ell(l-1) % Apply(bc, lambda, nu_p, bv_p, v_p, r_p)
               end associate
             end if
 
             do e = 1, mesh_p % n_elem
               if (mesh_p % element(e) % adaptation % refinement >= 1000) then
-                f_p(:,:,:,e) = f_p(:,:,:,e) + r_p(:,:,:,e)
+                g_p(:,:,:,e) = g_p(:,:,:,e) + r_p(:,:,:,e)
               end if
             end do
 
           end associate
         end do V_DOWN
 
-        associate( f_l  => f % level(1) % val(:,:,:,:,1) &
+        associate( g_l  => g % level(1) % val(:,:,:,:,1) &
                  , u_l  => u % level(1) % val(:,:,:,:,1) )
 
           ! coarse grid solver .................................................
@@ -208,14 +227,14 @@ contains
           !$omp end master
 
           if (present(nu_0)) then
-            call this % Monitoring(1, '0', bc, lambda, nu_0, f_l, bv_l, u_l)
-            call this % CoarseSolver(bc, lambda, nu_0, u_l, f_l, bv_l)
-            call this % Monitoring(1, 's', bc, lambda, nu_0, f_l, bv_l, u_l)
+            call this % Monitoring(1, '0', bc, lambda, nu_0, g_l, bv_l, u_l)
+            call this % CoarseSolver(bc, lambda, nu_0, u_l, g_l, bv_l)
+            call this % Monitoring(1, 's', bc, lambda, nu_0, g_l, bv_l, u_l)
           else
             associate(nu_l => nu_v % level(1) % val(:,:,:,:,1))
-              call this % Monitoring(1, '0', bc, lambda, nu_l, f_l, bv_l, u_l)
-              call this % CoarseSolver(bc, lambda, nu_l, u_l, f_l, bv_l)
-              call this % Monitoring(1, 's', bc, lambda, nu_l, f_l, bv_l, u_l)
+              call this % Monitoring(1, '0', bc, lambda, nu_l, g_l, bv_l, u_l)
+              call this % CoarseSolver(bc, lambda, nu_l, u_l, g_l, bv_l)
+              call this % Monitoring(1, 's', bc, lambda, nu_l, g_l, bv_l, u_l)
             end associate
           end if
 
@@ -223,13 +242,13 @@ contains
 
         V_UP: do l = 2, l_top_
 
-          associate( mesh_l => sem(l  ) % mesh                    &
-                   , mesh_p => sem(l-1) % mesh                    &
-                   , f_l    => f    % level(l  ) % val(:,:,:,:,1) &
-                   , u_l    => u    % level(l  ) % val(:,:,:,:,1) &
-                   , w_l    => r    % level(l  ) % val(:,:,:,:,1) &
-                   , u_p    => u    % level(l-1) % val(:,:,:,:,1) &
-                   , v_p    => v    % level(l-1) % val(:,:,:,:,1) )
+          associate( mesh_l => sem(l  ) % mesh                 &
+                   , mesh_p => sem(l-1) % mesh                 &
+                   , g_l    => g % level(l  ) % val(:,:,:,:,1) &
+                   , u_l    => u % level(l  ) % val(:,:,:,:,1) &
+                   , w_l    => r % level(l  ) % val(:,:,:,:,1) &
+                   , u_p    => u % level(l-1) % val(:,:,:,:,1) &
+                   , v_p    => v % level(l-1) % val(:,:,:,:,1) )
 
             ! boundary values ..................................................
 
@@ -266,7 +285,7 @@ contains
             ! post-smoothing ...................................................
 
             if (l < l_top_) then
-              n = this % ns_2
+              n = this % NumSmoothingSteps(l, stage = 2)
             else if (m < n_cyc_) then
               n = this % ns_c
             else
@@ -274,14 +293,14 @@ contains
             end if
 
             if (present(nu_0)) then
-              call this % Monitoring(l, 'c', bc, lambda, nu_0, f_l, bv_l, u_l)
-              call this % Smoother(l, bc, lambda, nu_0, u_l, f_l, bv_l, n)
-              call this % Monitoring(l, '2', bc, lambda, nu_0, f_l, bv_l, u_l)
+              call this % Monitoring(l, 'c', bc, lambda, nu_0, g_l, bv_l, u_l)
+              call this % Smoother(l, bc, lambda, nu_0, u_l, g_l, bv_l, n)
+              call this % Monitoring(l, '2', bc, lambda, nu_0, g_l, bv_l, u_l)
             else
               associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
-                call this % Monitoring(l, 'c', bc, lambda, nu_l, f_l, bv_l, u_l)
-                call this % Smoother(l, bc, lambda, nu_l, u_l, f_l, bv_l, n)
-                call this % Monitoring(l, '2', bc, lambda, nu_l, f_l, bv_l, u_l)
+                call this % Monitoring(l, 'c', bc, lambda, nu_l, g_l, bv_l, u_l)
+                call this % Smoother(l, bc, lambda, nu_l, u_l, g_l, bv_l, n)
+                call this % Monitoring(l, '2', bc, lambda, nu_l, g_l, bv_l, u_l)
               end associate
             end if
 
@@ -292,8 +311,8 @@ contains
 
         if (check_convergence .and. m < this%i_max) then
 
-          call this % FAS_MG_Residual_X( bc, lambda, nu_0, nu_v, bv, f &
-                                       , u, r, l_top_)
+          call this % FAS_MG_Residual_X( bc, lambda, nu_0, nu_v, bv, f, u, r &
+                                       , l_top_ )
           rr = ML_ScalarProduct_3D(r, r, l_top = l_top_)
           r_new = sqrt(rr)
 
@@ -336,7 +355,9 @@ contains
       ! finalization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       !$omp master
+      deallocate(g, r, v)
       bv_l => null()
+      bv_p => null()
       !$omp end master
 
     end associate

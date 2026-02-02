@@ -59,19 +59,24 @@ module ML__DG__Elliptic_Solver__3D
     integer   :: coarse_solver  !< coarse grid solver
     character :: fc_projection  !< fine-to-coarse projection method
 
-    integer   :: i_crs  !< max number of coarse solver iterations
-    integer   :: i_max  !< max number of multigrid iterations (cycles)
-    integer   :: ns_0   !< number of smoothing steps in starting cascade
-    integer   :: ns_1   !< number of pre-smoothing steps
-    integer   :: ns_2   !< number of post-smoothing steps
-    integer   :: ns_c   !< number of continuation smoothing steps
-    integer   :: ns_f   !< number of final smoothing steps on top level
-    real(RNP) :: r_red  !< min residual reduction,  if > 0
-    real(RNP) :: r_max  !< max admissible residual, if > 0
+    integer   :: i_crs   !< max number of coarse solver iterations
+    integer   :: i_max   !< max number of multigrid iterations (cycles)
+    integer   :: ns_0    !< num smoothing steps in starting cascade
+    integer   :: ns_1    !< num pre-smoothing steps
+    integer   :: ns_2    !< num post-smoothing steps
+    integer   :: ns_c    !< num continuation smoothing steps
+    integer   :: ns_f    !< num final smoothing steps on top level
+    integer   :: vs_mode !< variable smoothing mode, 0/1/2: none/p/hp
+    integer   :: vs_lmin !< variable smoothing minimum level
+    integer   :: vs_lmax !< variable smoothing maximum level
+    real(RNP) :: r_red   !< min residual reduction,  if > 0
+    real(RNP) :: r_max   !< max admissible residual, if > 0
 
   contains
 
     procedure, public  :: Init_ML_DG_EllipticSolver_3D
+
+    procedure, public  :: NumSmoothingSteps
 
     generic,   public  :: CS_MG_Solver => CS_MG_Solver_C, CS_MG_Solver_V
     procedure, private :: CS_MG_Solver_C, CS_MG_Solver_V, CS_MG_Solver_X
@@ -82,11 +87,11 @@ module ML__DG__Elliptic_Solver__3D
     generic,   public  :: FAS_MG_Residual => FAS_MG_Residual_C, FAS_MG_Residual_V
     procedure, private :: FAS_MG_Residual_C, FAS_MG_Residual_V, FAS_MG_Residual_X
 
-    generic,   public  :: FAS_MG_Solver => FAS_MG_Solver_C, FAS_MG_Solver_V
-    procedure, private :: FAS_MG_Solver_C, FAS_MG_Solver_V, FAS_MG_Solver_X
-
     procedure, private :: FAS_MG_Cycle_X
     procedure, private :: FAS_MG_Start_X
+
+    generic,   public  :: FAS_MG_Solver => FAS_MG_Solver_C, FAS_MG_Solver_V
+    procedure, private :: FAS_MG_Solver_C, FAS_MG_Solver_V, FAS_MG_Solver_X
 
     generic,   private :: Residual => Residual_C, Residual_V
     procedure, private :: Residual_C, Residual_V
@@ -122,15 +127,18 @@ module ML__DG__Elliptic_Solver__3D
     character :: fc_projection = 'I' !< projection method {'I','P'}
     character :: interior_bc   = ' ' !< coupling with frozen elements {' ','D'}
 
-    integer   :: i_crs =  1 !< max num coarse solver iterations
-    integer   :: i_max =  1 !< max num multigrid iterations (cycles)
-    integer   :: ns_0  =  1 !< num smoothing steps in starting cascade
-    integer   :: ns_1  =  1 !< num pre-smoothing steps
-    integer   :: ns_2  =  1 !< num post-smoothing steps
-    integer   :: ns_c  = -1 !< num continuation smoothing steps        [auto]
-    integer   :: ns_f  = -1 !< num final smoothing steps on top level  [auto]
-    real(RNP) :: r_red = -1 !< min residual reduction,  if > 0
-    real(RNP) :: r_max = -1 !< max admissible residual, if > 0
+    integer   :: i_crs   =  1 !< max num coarse solver iterations
+    integer   :: i_max   =  1 !< max num multigrid iterations (cycles)
+    integer   :: ns_0    =  1 !< num smoothing steps in starting cascade
+    integer   :: ns_1    =  1 !< num pre-smoothing steps
+    integer   :: ns_2    =  1 !< num post-smoothing steps
+    integer   :: ns_c    = -1 !< num continuation smoothing steps         [auto]
+    integer   :: ns_f    = -1 !< num final smoothing steps on top level   [auto]
+    integer   :: vs_mode =  0 !< variable smoothing mode, 0/1/2: none/p/hp
+    integer   :: vs_lmin =  1 !< variable smoothing minimum level
+    integer   :: vs_lmax = -1 !< variable smoothing maximum level        [l_top]
+    real(RNP) :: r_red   = -1 !< min residual reduction,  if > 0
+    real(RNP) :: r_max   = -1 !< max admissible residual, if > 0
 
   contains
 
@@ -277,7 +285,7 @@ module ML__DG__Elliptic_Solver__3D
       real(RNP),                             optional, intent(in)    :: nu_0
       class(ML_MeshVariable_3D),             optional, intent(in)    :: nu_v
       class(ML_BoundaryVariable_3D), target, optional, intent(in)    :: bv
-      class(ML_MeshVariable_3D),                       intent(in)    :: f
+      class(ML_MeshVariable_3D),             optional, intent(in)    :: f
       class(ML_MeshVariable_3D),                       intent(in)    :: u
       class(ML_MeshVariable_3D),                       intent(inout) :: r
       integer,                               optional, intent(in)    :: l_top
@@ -287,19 +295,18 @@ module ML__DG__Elliptic_Solver__3D
     !> Generic FAS-MG V-cycle for problems with constant or variable diffusivity
 
     module subroutine FAS_MG_Cycle_X( this, bc, lambda, nu_0, nu_v, bv, f, u &
-                                    , r, v, n_cyc, l_top, ni, r_2 )
+                                    , n_cyc, l_top, r0_2, ni, r_2 )
       class(ML_DG_EllipticSolver_3D),                  intent(in)    :: this
       character,                                       intent(in)    :: bc(:)
       real(RNP),                                       intent(in)    :: lambda
       real(RNP),                             optional, intent(in)    :: nu_0
       class(ML_MeshVariable_3D),             optional, intent(in)    :: nu_v
       class(ML_BoundaryVariable_3D), target, optional, intent(in)    :: bv
-      class(ML_MeshVariable_3D),                       intent(inout) :: f
+      class(ML_MeshVariable_3D),                       intent(in)    :: f
       class(ML_MeshVariable_3D),                       intent(inout) :: u
-      class(ML_MeshVariable_3D),                       intent(inout) :: r
-      class(ML_MeshVariable_3D),                       intent(inout) :: v
       integer,                               optional, intent(in)    :: n_cyc
       integer,                               optional, intent(in)    :: l_top
+      real(RNP),                             optional, intent(in)    :: r0_2
       integer,                               optional, intent(out)   :: ni
       real(RNP),                             optional, intent(out)   :: r_2
     end subroutine FAS_MG_Cycle_X
@@ -313,7 +320,7 @@ module ML__DG__Elliptic_Solver__3D
       real(RNP),                      intent(in)    :: lambda
       real(RNP),                      intent(in)    :: nu
       class(ML_BoundaryVariable_3D),  intent(in)    :: bv
-      class(ML_MeshVariable_3D),      intent(inout) :: f
+      class(ML_MeshVariable_3D),      intent(in)    :: f
       class(ML_MeshVariable_3D),      intent(inout) :: u
       integer,              optional, intent(out)   :: ni
       real(RNP),            optional, intent(out)   :: r_2
@@ -328,7 +335,7 @@ module ML__DG__Elliptic_Solver__3D
       real(RNP),                      intent(in)    :: lambda
       class(ML_MeshVariable_3D),      intent(in)    :: nu
       class(ML_BoundaryVariable_3D),  intent(in)    :: bv
-      class(ML_MeshVariable_3D),      intent(inout) :: f
+      class(ML_MeshVariable_3D),      intent(in)    :: f
       class(ML_MeshVariable_3D),      intent(inout) :: u
       integer,              optional, intent(out)   :: ni
       real(RNP),            optional, intent(out)   :: r_2
@@ -345,7 +352,7 @@ module ML__DG__Elliptic_Solver__3D
       real(RNP),                 optional, intent(in)    :: nu_0
       class(ML_MeshVariable_3D), optional, intent(in)    :: nu_v
       class(ML_BoundaryVariable_3D),       intent(in)    :: bv
-      class(ML_MeshVariable_3D),           intent(inout) :: f
+      class(ML_MeshVariable_3D),           intent(in)    :: f
       class(ML_MeshVariable_3D),           intent(inout) :: u
       integer,                   optional, intent(out)   :: ni
       real(RNP),                 optional, intent(out)   :: r_2
@@ -355,17 +362,15 @@ module ML__DG__Elliptic_Solver__3D
     !> Cascade and FMG start for problems with constant or variable diffusivity
 
     module subroutine FAS_MG_Start_X( this, bc, lambda, nu_0, nu_v, bv, f, u &
-                                    , r, v, n_cyc )
+                                    , n_cyc )
       class(ML_DG_EllipticSolver_3D),      intent(in)    :: this
       character,                           intent(in)    :: bc(:)
       real(RNP),                           intent(in)    :: lambda
       real(RNP),                 optional, intent(in)    :: nu_0
       class(ML_MeshVariable_3D), optional, intent(in)    :: nu_v
       class(ML_BoundaryVariable_3D),       intent(in)    :: bv
-      class(ML_MeshVariable_3D),           intent(inout) :: f
+      class(ML_MeshVariable_3D),           intent(in)    :: f
       class(ML_MeshVariable_3D),           intent(inout) :: u
-      class(ML_MeshVariable_3D),           intent(inout) :: r
-      class(ML_MeshVariable_3D),           intent(inout) :: v
       integer,                             intent(in)    :: n_cyc
     end subroutine FAS_MG_Start_X
 
@@ -569,10 +574,55 @@ contains
       this % ns_f = opt % ns_f
     end if
 
-    this % r_red  = opt % r_red
-    this % r_max  = opt % r_max
+    this % vs_mode = opt % vs_mode
+    this % vs_lmin = opt % vs_lmin
+    if (opt % vs_lmax > 0) then
+      this % vs_lmax = opt % vs_lmax
+    else
+      this % vs_lmax = l_top
+    end if
+
+    this % r_red   = opt % r_red
+    this % r_max   = opt % r_max
 
   end subroutine Init_ML_DG_EllipticSolver_3D
+
+  !-----------------------------------------------------------------------------
+  !> Number of pre-smoothing steps on level l accounting for possible variation
+
+  pure integer function NumSmoothingSteps(this, level, stage) result(n)
+    class(ML_DG_EllipticSolver_3D), intent(in)  :: this
+    integer, intent(in) :: level !< current level
+    integer, intent(in) :: stage !< 0/1/2: cascade/pre/post-smoothing
+
+    integer :: l, m, p, q
+
+    select case(stage)
+    case(0)
+      n = this % ns_0
+    case(1)
+      n = this % ns_1
+    case(2)
+      n = this % ns_2
+    case default
+      error stop 'NumSmoothingSteps: invalid stage'
+    end select
+
+    if (this % vs_mode == 0 .or. this % vs_lmax <= level) return
+
+    l = max(this % vs_lmin, level)
+    m = this % vs_lmax
+
+    select case(this % vs_mode)
+    case(1)
+      ! polynomial coarsening
+      n = n * this%elliptic_op(m)%eop%po / this%elliptic_op(l)%eop%po
+    case(2)
+      ! arbitrary coarsening
+      n = n * 2 ** (m-l)
+    end select
+
+  end function NumSmoothingSteps
 
   !=============================================================================
   ! ML_DG_EllipticOptions_3D: constructor type bound procedures
@@ -597,6 +647,9 @@ contains
     call XMPI_Bcast(this % ns_2          , root, comm)
     call XMPI_Bcast(this % ns_c          , root, comm)
     call XMPI_Bcast(this % ns_f          , root, comm)
+    call XMPI_Bcast(this % vs_mode       , root, comm)
+    call XMPI_Bcast(this % vs_lmin       , root, comm)
+    call XMPI_Bcast(this % vs_lmax       , root, comm)
     call XMPI_Bcast(this % r_red         , root, comm)
     call XMPI_Bcast(this % r_max         , root, comm)
 

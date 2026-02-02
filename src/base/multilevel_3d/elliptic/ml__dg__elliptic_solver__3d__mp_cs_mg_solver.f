@@ -204,7 +204,7 @@ contains
               end associate
             end if
 
-            n = this % ns_1
+            n = this % NumSmoothingSteps(l, 1)
             if (present(nu_0)) then
               call this % Smoother(l, bc, lambda, nu_0, u_l, f_l, bv_l, n)
               call this % Residual(l, bc, lambda, nu_0, f_l, bv_l, u_l, r_l)
@@ -280,7 +280,7 @@ contains
             ! post-smoothing ...................................................
 
             if (l < l_top_) then
-              n = this % ns_2
+              n = this % NumSmoothingSteps(l, 2)
             else if (m < i_max_) then
               n = this % ns_c
             else
