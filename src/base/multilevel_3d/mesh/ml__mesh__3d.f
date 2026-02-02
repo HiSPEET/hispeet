@@ -398,17 +398,18 @@ contains
     integer :: n_box   =  0         ! number of boxes to be adapted
 
     ! partitioning
-    logical :: split = .false.      ! use parent subdivision for child mesh
-    integer :: n_parts_root   = -1  ! number of partitions at root level
-    integer :: n_parts_growth = -1  ! partition number growth rate
-    integer :: n_con_root     =  1  ! num constraints for root  partitioning ≤ 3
-    integer :: n_con_child    =  1  ! num constraints for child partitioning ≤ 2
-    integer :: n_con_sub      = 10  ! max num sublevels to be weighted
+    integer :: n_parts_root   = -1      ! number of partitions at root level
+    integer :: n_parts_growth = -1      ! partition number growth rate
+    integer :: partitioner    =  1      ! partitioning method, 1/2: SFC/graph
+    logical :: split          = .false. ! use parent subdivision for child mesh
+    integer :: n_con_root     =  1      ! num constraints for root     ≤ 3
+    integer :: n_con_child    =  1      ! num constraints for children ≤ 2
+    integer :: n_con_sub      = 10      ! max num sublevels to be weighted
 
     namelist/ml_mesh_options_3d__static/ l_top, l_max, l_adapt
     namelist/ml_mesh_options_3d__static/ n_bnd, n_box
-    namelist/ml_mesh_options_3d__static/ split
     namelist/ml_mesh_options_3d__static/ n_parts_root, n_parts_growth
+    namelist/ml_mesh_options_3d__static/ partitioner, split
     namelist/ml_mesh_options_3d__static/ n_con_root, n_con_child, n_con_sub
 
     ! dynamic input variables ..................................................
@@ -457,6 +458,9 @@ contains
 
     ! partitioning options
     associate(partition => this % partition)
+
+      partition % method = partitioner
+
       partition(1 ) % child = .false.
       partition(2:) % child = .true.
       partition(2:) % split = split
