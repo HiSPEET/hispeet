@@ -131,7 +131,7 @@ module DG__Schwarz_Operator__3D
   !> where `I₁` ist the matching unit matrix etc. The inverse Helmholtz operator
   !> can be then expressed in the tensor-product form
   !>
-  !>     A⁻¹  =  (S₃ x S₂ x S₁ D⁻¹ (S₃ᵀ x S₂ᵀ x S₁ᵀ)
+  !>     A⁻¹  =  (S₃ x S₂ x S₁) D⁻¹ (S₃ᵀ x S₂ᵀ x S₁ᵀ)
   !>
   !> with the diagonal matrix
   !>
@@ -176,7 +176,7 @@ module DG__Schwarz_Operator__3D
     procedure, private :: RestrictResidual_RDP, RestrictResidual_RSP
 
     generic :: MergeCorrections => MergeCorrections_RDP, MergeCorrections_RSP
-    procedure, private :: MergeCorrections_RDP ,MergeCorrections_RSP
+    procedure, private :: MergeCorrections_RDP, MergeCorrections_RSP
 
   end type DG_SchwarzOperator_3D
 
@@ -480,16 +480,16 @@ contains
         if (j > 0) then
           bc_face(i) = bc(j)
         else if (j == 0) then
-          ! border to frozen element treated like Dirichlet boundary
+          ! assume Dirichlet conditions at border to frozen element
           bc_face(i) = 'D'
         else
           bc_face(i) = ''
         end if
       end do
 
-       cfg(1,e) = ConfigurationID( bc_face(1:2) )
-       cfg(2,e) = ConfigurationID( bc_face(3:4) )
-       cfg(3,e) = ConfigurationID( bc_face(5:6) )
+      cfg(1,e) = ConfigurationID( bc_face(1:2) )
+      cfg(2,e) = ConfigurationID( bc_face(3:4) )
+      cfg(3,e) = ConfigurationID( bc_face(5:6) )
 
     end do
 
