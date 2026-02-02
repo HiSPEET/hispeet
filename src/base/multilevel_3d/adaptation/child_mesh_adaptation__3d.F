@@ -177,9 +177,13 @@ contains
       call BuildChildData(parent, new_child, new_child_map, send_data)
     end if
 
-    ! transfer child element data ................................................
+    ! transfer child element data ..............................................
 
     !$omp master
+
+    if (logging) then
+      print '(2A)', prefix, 'transfer child element data #0'
+    end if
 
     ! send dimensions (skip local part)
     if (parent % part >= 0) then
@@ -227,11 +231,19 @@ contains
       end do
     end if
 
+    if (logging) then
+      print '(2A)', prefix, 'transfer child element data #X'
+    end if
+
     !$omp end master
 
     ! assign child element data ................................................
 
     !$omp master
+
+    if (logging) then
+      print '(2A)', prefix, 'assign child element data #0'
+    end if
 
     ! number of elements
     if (new_child % part >= 0) then
@@ -257,9 +269,17 @@ contains
       end do
     end if
 
-    ! complete mesh.............................................................
+    if (logging) then
+      print '(2A)', prefix, 'assign child element data #X'
+    end if
+
+    ! complete mesh ............................................................
 
     if (new_child % part >= 0) then
+
+      if (logging) then
+        print '(2A)', prefix, 'complete mesh #0'
+      end if
 
       !$omp master
       new_child % n_elem_frozen = count(new_child % element % frozen)
@@ -276,6 +296,10 @@ contains
       call new_child % IdentifyRanks()
       call new_child % IdentifyClusters()
       call new_child % BuildMapToParent()
+
+      if (logging) then
+        print '(2A)', prefix, 'complete mesh #X'
+      end if
 
     end if
 
@@ -294,8 +318,16 @@ contains
     !  - mapping between old and new children
     !     + `x_plan` for redistributing retained data
 
+    if (logging) then
+      print '(2A)', prefix, 'build connections #0'
+    end if
+
     call BuildConnections( parent, new_child_map, new_child &
                          , old_child, grandchild, x_plan    )
+
+    if (logging) then
+      print '(2A)', prefix, 'build connections #X'
+    end if
 
     ! copy retained element attributes .........................................
     !
