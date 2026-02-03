@@ -1,5 +1,5 @@
 !===============================================================================
-! Variant using a simple (in-level) iterator for pressure smoothing
+! Variant using a nested MG method for pressure smoothing
 
 !-------------------------------------------------------------------------------
 ! Control
@@ -46,8 +46,18 @@
   po = 4 8 16 16 16
 
 ! ml_ins_opt%ins%mu_0    = 0.1
-  ml_ins_opt%ins%i_max_p = 5
+  ml_ins_opt%ins%i_max_p = 1
   ml_ins_opt%ins%i_max_v = 5
+
+  ml_ins_opt%ins%pressure_solver = 'MG'
+! ml_ins_opt%ml_solver_p%i_crs =    10 ! max num coarse iterations          [ 1]
+! ml_ins_opt%ml_solver_p%i_max =     1 ! max num cycles                     [ 1]
+! ml_ins_opt%ml_solver_p%ns_0  =     1 ! num smoothing steps in start casc  [ 1]
+! ml_ins_opt%ml_solver_p%ns_1  =     1 ! num pre-smoothing steps            [ 1] 
+! ml_ins_opt%ml_solver_p%ns_2  =     1 ! num post-smoothing steps           [ 1] 
+! ml_ins_opt%ml_solver_p%ns_c  =     1 ! num continuation smoothing steps   [ 1] 
+  ml_ins_opt%ml_solver_p%r_red = 1e-08 ! min residual reduction,  if > 0    [-1] 
+  ml_ins_opt%ml_solver_p%r_max = 1e-12 ! max admissible residual, if > 0    [-1] 
 /
 
 !-------------------------------------------------------------------------------
