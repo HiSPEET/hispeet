@@ -197,6 +197,11 @@ find_package(HDF5 REQUIRED COMPONENTS Fortran HL)
 include(external/cmake/kdtree.cmake)
 
 #-------------------------------------------------------------------------------
+# Hilbert curve
+
+include(external/cmake/hilbert_curve.cmake)
+
+#-------------------------------------------------------------------------------
 # LIBXSMM
 
 include(external/cmake/libxsmm.cmake)
