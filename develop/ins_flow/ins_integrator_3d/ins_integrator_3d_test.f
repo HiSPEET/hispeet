@@ -547,7 +547,7 @@ program INS_Integrator_3D_Test
   end if
 
   if (mesh_stat) then
-    call MeshStatistics()
+    call PrintStatistics()
   end if
 
   !-----------------------------------------------------------------------------
@@ -880,59 +880,29 @@ contains
   !-----------------------------------------------------------------------------
   !> Mesh statistics
 
-  subroutine MeshStatistics()
+  subroutine PrintStatistics()
 
-    integer  , allocatable, save :: n_elem(:,:), n_active(:,:), n_leaf(:,:)
-    real(RNP), allocatable, save :: emq(:,:)
+    integer, allocatable, save :: n_elem(:,:), n_leaf(:,:)
 
     integer(IXL) :: dof_p_leaf, dof_p_tot, dof_v_leaf
     integer      :: l
 
-    call ml_op_p % Get_MeshCharacteristics(n_elem, n_active, n_leaf, emq)
+    call ml_op_p % Print_MeshCharacteristics()
+    call ml_op_p % Get_MeshCharacteristics(n_elem, n_leaf = n_leaf)
 
     if (rank == 0) then
-
-      write(*,'(/,A3,X,6A9,A6,2(3X,A9),2(X,A9))') &
-          '  l'       , &
-          '  n_parts' , &
-          '   na_min' , &
-          '   na_max' , &
-          '   na_tot' , &
-          '   ne_tot' , &
-          '  ne_leaf' , &
-          '  po_p'    , &
-          '   dx_min' , &
-          '   dx_max' , &
-          '   ar_max' , &
-          '   qj_min'
 
       dof_p_tot  = 0
 
       do l = 1, l_top
-
         dof_p_tot = dof_p_tot + n_elem(l,4) * (po_p(l) + 1)**3
-
-        write(*,'(I3,X,6I9,I6,2(2X,ES10.3),2F10.3)') &
-            l                      , &
-            ml_mesh%mesh(l)%n_parts, &
-            n_active(l,2)          , &
-            n_active(l,3)          , &
-            n_active(l,4)          , &
-            n_elem(l,4)            , &
-            n_leaf(l,4)            , &
-            po_p(l)                , &
-            emq(l,1:2)             , &
-            emq(l,4:5)
-
       end do
 
       dof_p_leaf = int(n_leaf(l_top,4), IXL) * (po_p(l_top) + 1)**3
       dof_v_leaf = int(n_leaf(l_top,4), IXL) * (po_u        + 1)**3 * 3
 
       write(*,*)
-      write(*,'(4X,A)') 'global'
-      write(*,'(T7,A,T20,I0)') 'ne_tot     =', sum(n_elem(:,4))
-      write(*,'(T7,A,T20,I0)') 'ne_leaf    =', sum(n_leaf(:,4))
+      write(*,'(4X,A)') 'flow solver'
       write(*,'(T7,A,T20,I0)') 'dof_p_tot  =', dof_p_tot
       write(*,'(T7,A,T20,I0)') 'dof_p_leaf =', dof_p_leaf
       write(*,'(T7,A,T20,I0)') 'dof_v_leaf =', dof_v_leaf
@@ -940,7 +910,7 @@ contains
 
     end if
 
-  end subroutine MeshStatistics
+  end subroutine PrintStatistics
 
   !-----------------------------------------------------------------------------
   !> Smooth initial data
