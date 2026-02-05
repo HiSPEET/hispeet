@@ -34,13 +34,13 @@ contains
     integer :: wgt_0, wgt_avg, wgt_sum
     integer :: e, k, m, p
 
-    if (mesh % part < 0) return
-
     logging = mesh%proc == 0 .and. log_level > 0 .or. &
               mesh%proc  > 0 .and. log_level > 1
     prefix  = LoggingPrefix('SFC_Partitioner', mesh%proc)
 
     associate(ne => mesh % n_elem)
+
+      if (ne < 1) return
 
       ! initialization .........................................................
 
