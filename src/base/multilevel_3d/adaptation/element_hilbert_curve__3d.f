@@ -128,7 +128,7 @@ contains
     case(31);  i =     j0;  j = 3 - i0;  k =     k0
     case(37);  i =     k0;  j = 3 - j0;  k =     i0
 
-    case(43);  i = 3 - i0;  j = 3 - k0;  k =     j0
+    case(43);  i = 3 - i0;  j = 3 - j0;  k =     k0
     case(42);  i = 3 - k0;  j = 3 - i0;  k =     j0
     case(48);  i = 3 - j0;  j = 3 - k0;  k =     i0
 
