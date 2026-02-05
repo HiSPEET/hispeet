@@ -21,7 +21,12 @@ contains
     integer, save :: l_top_loc, l_top_new, l_top_old
 
     type(MeshPartitionerOptions_3D) :: part_opt_next
+    character(len=:), allocatable :: prefix
     integer :: l, m
+
+    if (log_level > 0) then
+      prefix = LoggingPrefix('ML__Mesh__3D:Adapt', this%mesh(1)%proc)
+    end if
 
     ! initialization ...........................................................
 
@@ -111,6 +116,24 @@ contains
                                    , grandchild = old_mesh(l+2)  &
                                    , x_plan     = x_plan(l+1)    )
       end select
+
+      if (log_level > 0) then
+        ! check SFC integrity
+        if (this%mesh(l) % has_sfc .and. this%mesh(l+1) % n_elem > 0) then
+          block
+            integer :: max_rk, min_rk
+            max_rk = maxval(this % mesh(l+1) % element % sfc_rank)
+            min_rk = minval(this % mesh(l+1) % element % sfc_rank)
+            if (max_rk - min_rk + 1 /= this % mesh(l+1) % n_elem) then
+              print '(9G0)', prefix,'level  =', l+1
+              print '(9G0)', prefix,'n_elem =', this % mesh(l+1) % n_elem
+              print '(9G0)', prefix,'max_rk =', max_rk
+              print '(9G0)', prefix,'min_rk =', max_rk
+              call Error('Adapt','child SFC broken','ML__Mesh__3D')
+            end if
+          end block
+        end if
+      end if
 
     end do
 

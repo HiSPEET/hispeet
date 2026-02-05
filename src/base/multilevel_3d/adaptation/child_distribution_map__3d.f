@@ -252,27 +252,27 @@ contains
 
       allocate(sfc_offset(this%n_elem), source = 0)
 
-      ! constant bwing added for converting global to local SFC ranks
+      ! common offset for converting global to local SFC ranks
       sfc_rank_0 = 1 - minval(parent % element % sfc_rank)
 
-      ! set SFC offsets to number of children of predecessor
+      ! initialize element offsets to number of children of predecessor
       do e = 1, this % n_elem
-        if (tp_child(e) >= 0) then
-          ! local SFC rank of predecessor
-          p = parent % element(e) % sfc_rank + sfc_rank_0 + 1
-          if (p > this%n_elem) cycle
-          m = parent % element(e) % adaptation % mark
-          if (m < 1000) then
-            sfc_offset(p) = m / 100
-          else
-            sfc_offset(p) = m / 1000
-          end if
+        if (tp_child(e) < 0) cycle
+        ! local SFC rank of successor
+        l = parent % element(e) % sfc_rank + sfc_rank_0 + 1
+        ! skip remote successor
+        if (l > this%n_elem) cycle
+        m = parent % element(e) % adaptation % mark
+        if (m < 1000) then
+          sfc_offset(l) = m / 100
+        else
+          sfc_offset(l) = m / 1000
         end if
       end do
 
       ! add children of further preceding elements
-      do e = 2, this % n_elem
-        sfc_offset(e) = sfc_offset(e) + sfc_offset(e-1)
+      do l = 2, this % n_elem
+        sfc_offset(l) = sfc_offset(l) + sfc_offset(l-1)
       end do
 
       ! add children contributed by lower rank parents
@@ -291,7 +291,7 @@ contains
             m = seq(l)
             ! triple index of child l on element path
             k = (m - 1)/4 + 1
-            j = (m - 1 - 4*(k -1))/2 + 1
+            j = (m - 1 - 4*(k - 1))/2 + 1
             i =  m - 2*(j - 1) - 4*(k - 1)
             if (id_child(i,j,k,e) > 0) then
               p = p + 1
@@ -404,16 +404,17 @@ contains
 
     call MPI_Win_free(window)
 
-    ! total sum of children contributed by lower ranks .........................
+    ! final results ............................................................
 
-    oc_tot = sum(oc_part)
-
-    ! adjust offset of frozen elements .........................................
-
+    ! total sum of active children per partition contributed by all ranks
     allocate(na_loc(0:size(nc_part,2)-1), source = nc_part(1,:))
     allocate(na_tot, mold = na_loc)
     call XMPI_Allreduce(na_loc, na_tot, MPI_SUM, comm_parts)
 
+    ! total sum of children contributed by lower ranks
+    oc_tot = sum(oc_part)
+
+    ! adjust offset of frozen elements
     oc_part(2,:) = oc_part(2,:) + na_tot
 
   end subroutine ComputeChildOffsets
