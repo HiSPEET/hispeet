@@ -120,10 +120,15 @@ contains
 
     ! check whether child SFC can be build
     if (parent % has_sfc) then
-      ! local check
-      has_sfc = maxval(parent%element%sfc_rank) &
-              - minval(parent%element%sfc_rank) &
-              - parent%n_elem + 1 == 0
+      if (parent % n_elem > 0) then
+        ! check integrity of local parent SFC
+        has_sfc = maxval(parent%element%sfc_rank) &
+                - minval(parent%element%sfc_rank) &
+                - parent%n_elem + 1 == 0
+      else
+        ! ignore empty parent
+        has_sfc = .true.
+      end if
       ! globalization
       call XMPI_Allreduce(has_sfc, this%has_sfc, MPI_LAND, parent%comm_parts)
     else
