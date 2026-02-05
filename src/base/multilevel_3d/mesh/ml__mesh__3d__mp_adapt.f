@@ -126,10 +126,11 @@ contains
             min_rk = minval(this % mesh(l+1) % element % sfc_rank)
             if (max_rk - min_rk + 1 /= this % mesh(l+1) % n_elem) then
               print '(9G0)', prefix,'level  =', l+1
+              print '(9G0)', prefix,'proc   =', this % mesh(l+1) % proc
               print '(9G0)', prefix,'n_elem =', this % mesh(l+1) % n_elem
               print '(9G0)', prefix,'max_rk =', max_rk
               print '(9G0)', prefix,'min_rk =', min_rk
-              call Error('Adapt','child SFC broken','ML__Mesh__3D')
+              call Error('Adapt','SFC broken','ML__Mesh__3D')
             end if
           end block
         end if

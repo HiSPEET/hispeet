@@ -61,6 +61,12 @@ contains
       rk_min = minval(mesh % element % sfc_rank)
       rk_max = maxval(mesh % element % sfc_rank)
       if (rk_max - rk_min + 1 /= ne) then
+        if (log_level > 0) then
+          print '(9(G0,X))', prefix, 'proc   =',mesh%proc
+          print '(9(G0,X))', prefix, 'n_elem =',mesh%n_elem
+          print '(9(G0,X))', prefix, 'rk_min =',rk_min
+          print '(9(G0,X))', prefix, 'rk_max =',rk_max
+        end if
         call Error('SFC_Partitioner','SFC fragmented','Mesh_Partitioner__3D')
       end if
 
