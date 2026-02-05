@@ -128,7 +128,7 @@ contains
               print '(9G0)', prefix,'level  =', l+1
               print '(9G0)', prefix,'n_elem =', this % mesh(l+1) % n_elem
               print '(9G0)', prefix,'max_rk =', max_rk
-              print '(9G0)', prefix,'min_rk =', max_rk
+              print '(9G0)', prefix,'min_rk =', min_rk
               call Error('Adapt','child SFC broken','ML__Mesh__3D')
             end if
           end block
