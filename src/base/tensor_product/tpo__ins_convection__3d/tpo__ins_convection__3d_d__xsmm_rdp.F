@@ -1,6 +1,6 @@
 !> summary:   3D element convection operator using LIBXSMM for real(RDP) (D)
-!> author:    Jerome Michel
-!> date:      2021/01/21
+!> author:    Jerome Michel, Jörg Stiller
+!> date:      2021/01/21, extended 2026/02/08
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
@@ -24,12 +24,14 @@ contains
   !-----------------------------------------------------------------------------
   !> 3D convection element operator for INS based on LIBXSMM (D)
 
-  subroutine TPO_INS_Convection_D_XSMM_RDP &
-                 (nv, nq, ne, D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_c)
+  subroutine TPO_INS_Convection_D_XSMM_RDP( nv, nq, ne, alpha, D_v, I_vq, w_q &
+                                          , Jd_q, Ji_q, a_q, n_q, v, vp, F_c  )
 
     integer, intent(in) :: nv !< number of velocity points per element direction
     integer, intent(in) :: nq !< number of quadrature points per direction
     integer, intent(in) :: ne !< number of elements
+
+    real(RDP), intent(in) :: alpha !< 0/0.5/1: flux/skew-sym/convective form
 
     real(RDP), intent(in) :: D_v (nv,nv) !< 1D diff operator on v-points
     real(RDP), intent(in) :: I_vq(nq,nv) !< 1D interpolation from to q-points
@@ -45,25 +47,29 @@ contains
 
     ! local variables ............................................................
 
+    logical   :: flux_form        ! T for flux form (α=0), F else
     logical   :: interpolate      ! T/F if interpolation is/not required
     logical   :: lobatto          ! T/F if quadrature is/not of Lobatto type
 
-    real(RDP) :: I_vq_t(nv,nq)    ! transposed interpolation operator
     real(RDP) :: D_vq(nq,nv)      ! interpolated differentiation operator
     real(RDP) :: D_vq_t(nv,nq)    ! transposed interp. different. operator
+    real(RDP) :: I_vq_t(nv,nq)    ! transposed interpolation operator
     real(RDP) :: M(nq,nq,nq)      ! mass matrix based on quadrature points
 
     real(RDP) :: v_qe(nq,nq,nq,3) ! velocity at element quadrature points
     real(RDP) :: vm_qf(nq,nq,3)   ! interior velocity v⁻ at face quadrature points
     real(RDP) :: vp_qf(nq,nq,3)   ! exterior velocity v⁺ at face quadrature points
 
+    real(RDP) :: M_div_v(nq,nq,nq)     ! weighted velocity divergence,
+    real(RDP) :: grad_v(nq,nq,nq,3,3)  ! standard velocity gradient, and
     real(RDP) :: M_Ji_vv(nq,nq,nq,3,3) ! MJ⁻¹⋅vv at element quadrature points
 
+    real(RDP) :: y1(nq,nv,nv,2)
+    real(RDP) :: y2(nq,nq,nv,3)
     real(RDP) :: z1(nq,nv,nv)
     real(RDP) :: z2(nq,nq,nv)
     real(RDP) :: ff(nq,nq,3)
     real(RDP) :: zd(nv,nv,nv)
-
 
     real(RDP) :: v1v1, v1v2, v1v3, v2v2, v2v3, v3v3
     real(RDP) :: vm_1, vm_2, vm_3, vm_n
@@ -72,7 +78,6 @@ contains
 
     integer   :: c, e, f, i, j, k
     integer   :: iv, iq, jv, jq, kv, kq
-
 
     type(LIBXSMM_DMMFunction), save :: xmm_set_1, xmm_set_2, xmm_set_3
     type(LIBXSMM_DMMFunction), save :: xmm_add_1, xmm_add_2, xmm_add_3
@@ -84,20 +89,24 @@ contains
     real(RDP), parameter :: ONE  = 1
     real(RDP), parameter :: ZERO = 0
 
-
     !-----------------------------------------------------------------------------
     ! Initialization
 
+    flux_form = alpha == 0
     lobatto = I_vq(1,1) == 1 .and. I_vq(nq,nv) == 1
     interpolate = nq /= nv  .or. .not. lobatto
 
     if (interpolate) then
-      I_vq_t = transpose(I_vq)
       D_vq   = matmul(I_vq, D_v)
       D_vq_t = transpose(D_vq)
+      I_vq_t = transpose(I_vq)
     else
       D_vq   = D_v
       D_vq_t = transpose(D_v)
+    end if
+
+    if (flux_form) then
+      M_div_v = 0
     end if
 
     ! XSMM dispatch
@@ -134,7 +143,7 @@ contains
       !-------------------------------------------------------------------------
       ! volume integral
 
-      ! v at element quadrature points  ........................................
+      ! v at element quadrature points :::::::::::::::::::::::::::::::::::::::::
 
       if (interpolate) then
 
@@ -167,7 +176,7 @@ contains
 
       end if
 
-      ! mass matrix ............................................................
+      ! mass matrix ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       do k = 1, nq
       do j = 1, nq
@@ -176,6 +185,8 @@ contains
       end do
       end do
       end do
+
+      ! flux contribution ::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       ! MJ⁻¹⋅vv ................................................................
 
@@ -232,12 +243,11 @@ contains
 
       if (interpolate) then
 
-        ! note: reversed order to reuse workspace
-
-        ! F_c = ∂₁ MJ⁻¹⋅vv (off-grid) ..........................................
+        ! F_c = (I₃×I₂×D₁)ᵀ MJ⁻¹⋅vv ............................................
 
         do c = 1, 3
 
+          ! note: pass through directions in reverse order to reuse workspace
           ! projection in direction 3
           call LIBXSMM_DMMCall(xmm_set_3, M_Ji_vv(:,:,:,1,c), I_vq, z2)
 
@@ -251,7 +261,7 @@ contains
 
         end do
 
-        ! F_c += ∂₂ MJ⁻¹⋅vv (off-grid) .........................................
+        ! F_c += (I₃×D₂×I₁)ᵀ MJ⁻¹⋅vv ...........................................
 
         do c = 1, 3
 
@@ -268,7 +278,7 @@ contains
 
         end do
 
-        ! F_c += ∂₃ MJ⁻¹⋅vv (off-grid) .........................................
+        ! F_c += (D₃×I₂×I₁)ᵀ MJ⁻¹⋅vv ...........................................
 
         do c = 1, 3
 
@@ -291,15 +301,15 @@ contains
 
         do  c = 1, 3
 
-          ! F_c = ∂₁ MJ⁻¹⋅vv
+          ! F_c = (I₃×I₂×D₁)ᵀ MJ⁻¹⋅vv
           call LIBXSMM_DMMCall(xmm_set_1, D_vq_t, M_Ji_vv(:,:,:,1,c), zd)
 
-          ! F_c += ∂₂ MJ⁻¹⋅vv
+          ! F_c += (I₃×D₂×I₁)ᵀ MJ⁻¹⋅vv
           do k = 1, nv
             call LIBXSMM_DMMCall(xmm_add_2, M_Ji_vv(:,:,k,2,c), D_vq, zd(:,:,k))
           end do
 
-          ! F_c += ∂₃ MJ⁻¹⋅vv
+          ! F_c += (D₃×I₂×I₁)ᵀ MJ⁻¹⋅vv
           call LIBXSMM_DMMCall(xmm_add_3, M_Ji_vv(:,:,:,3,c), D_vq, zd)
 
           F_c(:,:,:,e,c) = zd
@@ -307,6 +317,95 @@ contains
         end do
 
       end if
+
+      ! divergence contribution ::::::::::::::::::::::::::::::::::::::::::::::::
+
+      DIVERGENCE: if (.not. flux_form) then
+
+        ! standard gradient of velocity ........................................
+
+        if (interpolate) then
+
+          do c = 1, 3
+
+            ! direction 1
+            call LIBXSMM_DMMCall(xmm_set_1t, D_vq, v(:,:,:,e,c), y1(:,:,:,1))
+            call LIBXSMM_DMMCall(xmm_set_1t, I_vq, v(:,:,:,e,c), y1(:,:,:,2))
+
+            ! direction 2
+            do k = 1, nv
+              call LIBXSMM_DMMCall(xmm_set_2t, y1(:,:,k,1), I_vq_t, y2(:,:,k,1))
+              call LIBXSMM_DMMCall(xmm_set_2t, y1(:,:,k,2), D_vq_t, y2(:,:,k,2))
+              call LIBXSMM_DMMCall(xmm_set_2t, y1(:,:,k,2), I_vq_t, y2(:,:,k,3))
+            end do
+
+            ! direction 3
+            call LIBXSMM_DMMCall(xmm_set_3t, y2(:,:,:,1), I_vq_t, grad_v(:,:,:,1,c))
+            call LIBXSMM_DMMCall(xmm_set_3t, y2(:,:,:,2), I_vq_t, grad_v(:,:,:,2,c))
+            call LIBXSMM_DMMCall(xmm_set_3t, y2(:,:,:,3), D_vq_t, grad_v(:,:,:,3,c))
+
+          end do
+
+        else
+
+          do c = 1, 3
+
+            ! direction 1
+            call LIBXSMM_DMMCall(xmm_set_1, D_vq, v(:,:,:,e,c), grad_v(:,:,:,1,c))
+
+            ! direction 2
+            do k = 1, nv
+              call LIBXSMM_DMMCall(xmm_set_2, v(:,:,k,e,c), D_vq_t, grad_v(:,:,k,2,c))
+            end do
+
+            ! direction 3
+            call LIBXSMM_DMMCall(xmm_set_3, v(:,:,:,e,c), D_vq_t, grad_v(:,:,:,3,c))
+
+          end do
+
+        end if
+
+        ! weighted divergence ..................................................
+
+        do k = 1, nq
+        do j = 1, nq
+        do i = 1, nq
+          M_div_v(i,j,k) =  M(i,j,k) * ( Ji_q(i,j,k,e,1,1) * grad_v(i,j,k,1,1) &
+                                       + Ji_q(i,j,k,e,1,2) * grad_v(i,j,k,2,1) &
+                                       + Ji_q(i,j,k,e,1,3) * grad_v(i,j,k,3,1) &
+                                       + Ji_q(i,j,k,e,2,1) * grad_v(i,j,k,1,2) &
+                                       + Ji_q(i,j,k,e,2,2) * grad_v(i,j,k,2,2) &
+                                       + Ji_q(i,j,k,e,2,3) * grad_v(i,j,k,3,2) &
+                                       + Ji_q(i,j,k,e,3,1) * grad_v(i,j,k,1,3) &
+                                       + Ji_q(i,j,k,e,3,2) * grad_v(i,j,k,2,3) &
+                                       + Ji_q(i,j,k,e,3,3) * grad_v(i,j,k,3,3) )
+        end do
+        end do
+        end do
+
+        ! F_c += (I₃×I₂×I₁)ᵀ M α(∇⋅v) v_c ......................................
+
+        associate(w => grad_v(:,:,:,3,1))
+          do c = 1, 3
+
+            ! w = M α(∇⋅v) v_c
+            w = alpha * M_div_v * v_qe(:,:,:,c)
+
+            ! projection in direction 3
+            call LIBXSMM_DMMCall(xmm_set_3, w, I_vq, z2)
+
+            ! projection in direction 2
+            do k = 1, nv
+              call LIBXSMM_DMMCall(xmm_set_2, z2(:,:,k), I_vq, z1(:,:,k))
+            end do
+
+            ! projection in direction 1
+            call LIBXSMM_DMMCall(xmm_add_1, I_vq_t, z1, F_c(:,:,:,e,c))
+
+          end do
+        end associate
+
+      end if DIVERGENCE
 
       !-------------------------------------------------------------------------
       ! face integrals

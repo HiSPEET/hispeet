@@ -38,13 +38,13 @@ contains
     real(RDP), intent(in)  :: vp(nv,nv,6,ne,3)      !< velocity v⁺ at faces
     real(RDP), intent(out) :: F_c(nv,nv,nv,ne,3)    !< convective flux integrals
 
-
+    real(RDP) :: alpha = 0.0
 
 #ifdef __LIBXSMM__
-      call TPO_INS_Convection_D_XSMM(nv, nq, ne, &
+      call TPO_INS_Convection_D_XSMM(nv, nq, ne, alpha, &
                D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_c)
 #else
-      call TPO_INS_Convection_D_Gen(nv, nq, ne, &
+      call TPO_INS_Convection_D_Gen(nv, nq, ne, alpha, &
                D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_c)
 #endif
 

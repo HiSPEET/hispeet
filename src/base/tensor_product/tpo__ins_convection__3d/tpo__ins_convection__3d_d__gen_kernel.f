@@ -4,14 +4,16 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-subroutine TPO_INS_Convection_D_Gen_RWP &
-               (nv, nq, ne, D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_c)
+subroutine TPO_INS_Convection_D_Gen_RWP( nv, nq, ne, alpha, D_v, I_vq, w_q &
+                                       , Jd_q, Ji_q, a_q, n_q, v, vp, F_c  )
 
   ! arguments ..................................................................
 
   integer, intent(in) :: nv !< number of velocity points per element direction
   integer, intent(in) :: nq !< number of quadrature points per direction
   integer, intent(in) :: ne !< number of elements
+
+  real(RWP), intent(in) :: alpha !< 0/0.5/1: flux/skew-symmetric/convective form
 
   real(RWP), intent(in) :: D_v (nv,nv) !< 1D diff operator on v-points
   real(RWP), intent(in) :: I_vq(nq,nv) !< 1D interpolation from to q-points
@@ -27,19 +29,25 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
 
   ! local variables ............................................................
 
+  logical   :: flux_form        ! T for flux form (α=0), F else
   logical   :: interpolate      ! T/F if interpolation is/not required
   logical   :: lobatto          ! T/F if quadrature is/not of Lobatto type
 
+  real(RWP) :: D_vq(nq,nv)      ! differentiation operator
+  real(RWP) :: D_vq_t(nv,nq)    ! transposed differentiation operator
   real(RWP) :: I_vq_t(nv,nq)    ! transposed interpolation operator
-  real(RWP) :: D_vq(nq,nv)      ! interpolated differentiation operator
   real(RWP) :: M(nq,nq,nq)      ! mass matrix based on quadrature points
 
   real(RWP) :: v_qe(nq,nq,nq,3) ! velocity at element quadrature points
   real(RWP) :: vm_qf(nq,nq,3)   ! interior velocity v⁻ at face quadrature points
   real(RWP) :: vp_qf(nq,nq,3)   ! exterior velocity v⁺ at face quadrature points
 
+  real(RWP) :: M_div_v(nq,nq,nq)     ! weighted velocity divergence,
+  real(RWP) :: grad_v(nq,nq,nq,3,3)  ! standard velocity gradient, and
   real(RWP) :: M_Ji_vv(nq,nq,nq,3,3) ! MJ⁻¹⋅vv at element quadrature points
 
+  real(RWP) :: y1(nq,nv,nv,2)
+  real(RWP) :: y2(nq,nq,nv,3)
   real(RWP) :: z1(nq,nv,nv)
   real(RWP) :: z2(nq,nq,nv)
   real(RWP) :: ff(nq,nq,3)
@@ -55,14 +63,21 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
   !-----------------------------------------------------------------------------
   ! initialization
 
+  flux_form = alpha == 0
   lobatto = I_vq(1,1) == 1 .and. I_vq(nq,nv) == 1
   interpolate = nq /= nv  .or. .not. lobatto
 
   if (interpolate) then
-    I_vq_t = transpose(I_vq)
     D_vq   = matmul(I_vq, D_v)
+    D_vq_t = transpose(D_vq)
+    I_vq_t = transpose(I_vq)
   else
     D_vq   = D_v
+    D_vq_t = transpose(D_v)
+  end if
+
+  if (flux_form) then
+    M_div_v = 0
   end if
 
   !$omp do
@@ -71,7 +86,7 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
     !---------------------------------------------------------------------------
     ! volume integral
 
-    ! v at element quadrature points  ..........................................
+    ! v at element quadrature points :::::::::::::::::::::::::::::::::::::::::::
 
     if (interpolate) then
 
@@ -132,7 +147,7 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
 
     end if
 
-    ! mass matrix ..............................................................
+    ! mass matrix ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
     do k = 1, nq
     do j = 1, nq
@@ -141,6 +156,8 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
     end do
     end do
     end do
+
+    ! flux contribution ::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
     ! MJ⁻¹⋅vv ..................................................................
 
@@ -197,7 +214,7 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
 
     if (interpolate) then
 
-      ! F_c = ∂₁ MJ⁻¹⋅vv (off-grid) ............................................
+      ! F_c = (I₃×I₂×D₁)ᵀ MJ⁻¹⋅vv ..............................................
 
       do c = 1, 3
 
@@ -243,7 +260,7 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
 
       end do
 
-      ! F_c += ∂₂ MJ⁻¹⋅vv (off-grid) ...........................................
+      ! F_c += (I₃×D₂×I₁)ᵀ MJ⁻¹⋅vv .............................................
 
       do c = 1, 3
 
@@ -288,7 +305,7 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
 
       end do
 
-      ! F_c += ∂₃ MJ⁻¹⋅vv (off-grid) ...........................................
+      ! F_c += (D₃×I₂×I₁)ᵀ MJ⁻¹⋅vv .............................................
 
       do c = 1, 3
 
@@ -335,11 +352,10 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
 
     else
 
-      ! standard divergence of MJ⁻¹⋅vv (on-grid) ...............................
-
       do c = 1, 3
 
-        ! F_c = ∂₁ MJ⁻¹⋅vv
+        ! F_c = (I₃×I₂×D₁)ᵀ MJ⁻¹⋅vv ............................................
+
         do k = 1, nv
         do j = 1, nv
         do i = 1, nv
@@ -352,7 +368,8 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
         end do
         end do
 
-        ! F_c += ∂₂ MJ⁻¹⋅vv
+        ! F_c += (I₃×D₂×I₁)ᵀ MJ⁻¹⋅vv ...........................................
+
         do k = 1, nv
         do j = 1, nv
         do i = 1, nv
@@ -365,7 +382,8 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
         end do
         end do
 
-        ! F_c += ∂₃ MJ⁻¹⋅vv
+        ! F_c += (D₃×I₂×I₁)ᵀ MJ⁻¹⋅vv ...........................................
+
         do k = 1, nv
         do j = 1, nv
         do i = 1, nv
@@ -381,6 +399,171 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
       end do
 
     end if
+
+    ! divergence contribution ::::::::::::::::::::::::::::::::::::::::::::::::::
+
+    DIVERGENCE: if (.not. flux_form) then
+
+      ! standard gradient of velocity ..........................................
+
+      if (interpolate) then
+
+        do c = 1, 3
+
+          ! direction 1
+          do k = 1, nv
+          do j = 1, nv
+          do i = 1, nq
+            y1(i,j,k,1:2) = 0
+            do p = 1, nv
+              y1(i,j,k,1) = y1(i,j,k,1) + D_vq_t(p,i) * v(p,j,k,e,c)
+              y1(i,j,k,2) = y1(i,j,k,2) + I_vq_t(p,i) * v(p,j,k,e,c)
+            end do
+          end do
+          end do
+          end do
+
+          ! direction 2
+          do k = 1, nv
+          do j = 1, nq
+          do i = 1, nq
+            y2(i,j,k,1:3) = 0
+            do p = 1, nv
+              y2(i,j,k,1) = y2(i,j,k,1) + I_vq_t(p,j) * y1(i,p,k,1)
+              y2(i,j,k,2) = y2(i,j,k,2) + D_vq_t(p,j) * y1(i,p,k,2)
+              y2(i,j,k,3) = y2(i,j,k,3) + I_vq_t(p,j) * y1(i,p,k,2)
+            end do
+          end do
+          end do
+          end do
+
+          ! direction 3
+          do k = 1, nq
+          do j = 1, nq
+          do i = 1, nq
+            grad_v(i,j,k,1:3,c) = 0
+            do p = 1, nv
+              grad_v(i,j,k,1,c) = grad_v(i,j,k,1,c) + I_vq_t(p,k) * y2(i,j,p,1)
+              grad_v(i,j,k,2,c) = grad_v(i,j,k,2,c) + I_vq_t(p,k) * y2(i,j,p,2)
+              grad_v(i,j,k,3,c) = grad_v(i,j,k,3,c) + D_vq_t(p,k) * y2(i,j,p,3)
+            end do
+          end do
+          end do
+          end do
+
+        end do
+
+      else
+
+        do c = 1, 3
+
+          ! direction 1
+          do k = 1, nv
+          do j = 1, nv
+          do i = 1, nv
+            tmp = 0
+            do p = 1, nv
+              tmp = tmp + D_vq_t(p,i) * v(p,j,k,e,c)
+            end do
+            grad_v(i,j,k,1,c) = tmp
+          end do
+          end do
+          end do
+
+          ! direction 2
+          do k = 1, nv
+          do j = 1, nv
+          do i = 1, nv
+            tmp = 0
+            do p = 1, nv
+              tmp = tmp + D_vq_t(p,j) * v(i,p,k,e,c)
+            end do
+            grad_v(i,j,k,2,c) = tmp
+          end do
+          end do
+          end do
+
+          ! direction 3
+          do k = 1, nv
+          do j = 1, nv
+          do i = 1, nv
+            tmp = 0
+            do p = 1, nv
+              tmp = tmp + D_vq_t(p,k) * v(i,j,p,e,c)
+            end do
+            grad_v(i,j,k,3,c) = tmp
+          end do
+          end do
+          end do
+
+        end do
+
+      end if
+
+      ! weighted divergence ....................................................
+
+      do k = 1, nq
+      do j = 1, nq
+      do i = 1, nq
+        M_div_v(i,j,k) =  M(i,j,k) * ( Ji_q(i,j,k,e,1,1) * grad_v(i,j,k,1,1) &
+                                     + Ji_q(i,j,k,e,1,2) * grad_v(i,j,k,2,1) &
+                                     + Ji_q(i,j,k,e,1,3) * grad_v(i,j,k,3,1) &
+                                     + Ji_q(i,j,k,e,2,1) * grad_v(i,j,k,1,2) &
+                                     + Ji_q(i,j,k,e,2,2) * grad_v(i,j,k,2,2) &
+                                     + Ji_q(i,j,k,e,2,3) * grad_v(i,j,k,3,2) &
+                                     + Ji_q(i,j,k,e,3,1) * grad_v(i,j,k,1,3) &
+                                     + Ji_q(i,j,k,e,3,2) * grad_v(i,j,k,2,3) &
+                                     + Ji_q(i,j,k,e,3,3) * grad_v(i,j,k,3,3) )
+      end do
+      end do
+      end do
+
+      ! F_c += (I₃×I₂×I₁)ᵀ M α(∇⋅v) v_c ........................................
+
+      do c = 1, 3
+
+        ! projection in direction 3
+        do k = 1, nv
+        do j = 1, nq
+        do i = 1, nq
+          tmp = 0
+          do p = 1, nq
+            tmp = tmp + I_vq(p,k) * M_div_v(i,j,p) * v_qe(i,j,p,c)
+          end do
+          z2(i,j,k) = tmp
+        end do
+        end do
+        end do
+
+        ! projection in direction 2
+        do k = 1, nv
+        do j = 1, nv
+        do i = 1, nq
+          tmp = 0
+          do p = 1, nq
+            tmp = tmp + I_vq(p,j) * z2(i,p,k)
+          end do
+          z1(i,j,k) = tmp
+        end do
+        end do
+        end do
+
+        ! projection in direction 1
+        do k = 1, nv
+        do j = 1, nv
+        do i = 1, nv
+          tmp = 0
+          do p = 1, nq
+            tmp = tmp + I_vq(p,i) * z1(p,j,k)
+          end do
+          F_c(i,j,k,e,c) = F_c(i,j,k,e,c) + alpha * tmp
+        end do
+        end do
+        end do
+
+      end do
+
+    end if DIVERGENCE
 
     !---------------------------------------------------------------------------
     ! face integrals
