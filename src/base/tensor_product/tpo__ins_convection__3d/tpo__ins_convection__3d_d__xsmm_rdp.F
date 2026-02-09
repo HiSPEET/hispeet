@@ -385,25 +385,41 @@ contains
 
         ! F_c += (I₃×I₂×I₁)ᵀ M α(∇⋅v) v_c ......................................
 
-        associate(w => grad_v(:,:,:,3,1))
-          do c = 1, 3
+        if (interpolate) then
 
-            ! w = M α(∇⋅v) v_c
-            w = alpha * M_div_v * v_qe(:,:,:,c)
+          associate(w => grad_v(:,:,:,3,1))
+            do c = 1, 3
 
-            ! projection in direction 3
-            call LIBXSMM_DMMCall(xmm_set_3, w, I_vq, z2)
+              ! w = M α(∇⋅v) v_c
+              w = alpha * M_div_v * v_qe(:,:,:,c)
 
-            ! projection in direction 2
-            do k = 1, nv
-              call LIBXSMM_DMMCall(xmm_set_2, z2(:,:,k), I_vq, z1(:,:,k))
+              ! projection in direction 3
+              call LIBXSMM_DMMCall(xmm_set_3, w, I_vq, z2)
+
+              ! projection in direction 2
+              do k = 1, nv
+                call LIBXSMM_DMMCall(xmm_set_2, z2(:,:,k), I_vq, z1(:,:,k))
+              end do
+
+              ! projection in direction 1
+              call LIBXSMM_DMMCall(xmm_add_1, I_vq_t, z1, F_c(:,:,:,e,c))
+
             end do
+          end associate
 
-            ! projection in direction 1
-            call LIBXSMM_DMMCall(xmm_add_1, I_vq_t, z1, F_c(:,:,:,e,c))
+        else
 
+          do k = 1, nv
+          do j = 1, nv
+          do i = 1, nv
+            F_c(i,j,k,e,1) = F_c(i,j,k,e,1) + alpha * M_div_v(i,j,k) * v(i,j,k,e,1)
+            F_c(i,j,k,e,2) = F_c(i,j,k,e,2) + alpha * M_div_v(i,j,k) * v(i,j,k,e,2)
+            F_c(i,j,k,e,3) = F_c(i,j,k,e,3) + alpha * M_div_v(i,j,k) * v(i,j,k,e,3)
           end do
-        end associate
+          end do
+          end do
+
+        end if
 
       end if DIVERGENCE
 

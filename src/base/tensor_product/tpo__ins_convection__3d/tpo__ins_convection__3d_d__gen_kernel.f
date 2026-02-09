@@ -520,48 +520,64 @@ subroutine TPO_INS_Convection_D_Gen_RWP( nv, nq, ne, alpha, D_v, I_vq, w_q &
 
       ! F_c += (I₃×I₂×I₁)ᵀ M α(∇⋅v) v_c ........................................
 
-      do c = 1, 3
+      if (interpolate) then
 
-        ! projection in direction 3
-        do k = 1, nv
-        do j = 1, nq
-        do i = 1, nq
-          tmp = 0
-          do p = 1, nq
-            tmp = tmp + I_vq(p,k) * M_div_v(i,j,p) * v_qe(i,j,p,c)
+        do c = 1, 3
+
+          ! projection in direction 3
+          do k = 1, nv
+          do j = 1, nq
+          do i = 1, nq
+            tmp = 0
+            do p = 1, nq
+              tmp = tmp + I_vq(p,k) * M_div_v(i,j,p) * v_qe(i,j,p,c)
+            end do
+            z2(i,j,k) = tmp
           end do
-          z2(i,j,k) = tmp
-        end do
-        end do
-        end do
-
-        ! projection in direction 2
-        do k = 1, nv
-        do j = 1, nv
-        do i = 1, nq
-          tmp = 0
-          do p = 1, nq
-            tmp = tmp + I_vq(p,j) * z2(i,p,k)
           end do
-          z1(i,j,k) = tmp
-        end do
-        end do
+          end do
+
+          ! projection in direction 2
+          do k = 1, nv
+          do j = 1, nv
+          do i = 1, nq
+            tmp = 0
+            do p = 1, nq
+              tmp = tmp + I_vq(p,j) * z2(i,p,k)
+            end do
+            z1(i,j,k) = tmp
+          end do
+          end do
+          end do
+
+          ! projection in direction 1
+          do k = 1, nv
+          do j = 1, nv
+          do i = 1, nv
+            tmp = 0
+            do p = 1, nq
+              tmp = tmp + I_vq(p,i) * z1(p,j,k)
+            end do
+            F_c(i,j,k,e,c) = F_c(i,j,k,e,c) + alpha * tmp
+          end do
+          end do
+          end do
+
         end do
 
-        ! projection in direction 1
+      else
+
         do k = 1, nv
         do j = 1, nv
         do i = 1, nv
-          tmp = 0
-          do p = 1, nq
-            tmp = tmp + I_vq(p,i) * z1(p,j,k)
-          end do
-          F_c(i,j,k,e,c) = F_c(i,j,k,e,c) + alpha * tmp
+          F_c(i,j,k,e,1) = F_c(i,j,k,e,1) + alpha * M_div_v(i,j,k) * v(i,j,k,e,1)
+          F_c(i,j,k,e,2) = F_c(i,j,k,e,2) + alpha * M_div_v(i,j,k) * v(i,j,k,e,2)
+          F_c(i,j,k,e,3) = F_c(i,j,k,e,3) + alpha * M_div_v(i,j,k) * v(i,j,k,e,3)
         end do
         end do
         end do
 
-      end do
+      end if
 
     end if DIVERGENCE
 

@@ -2,9 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2021/12/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @todo
-!>   - revision of boundary variables
 !===============================================================================
 
 module INS__Operator__3D
@@ -48,12 +45,15 @@ module INS__Operator__3D
     class(INS_Problem_3D), pointer :: problem => null() !< flow problem
 
     integer :: level !< rank in multilevel hierarchy (0 if none)
+
+    character(len=4) :: convection_term  !< form of the convection term
     character(len=4) :: pressure_solver  !< pressure solver
     character(len=4) :: diffusion_solver !< diffusion solver
     character(len=4) :: stokes_corrector !< Stokes corrector
 
-    real(RNP) :: mu_0      !< const bulk viscosity,   μ = ζ/ρ
-    real(RNP) :: nu_0      !< const shear viscosity,  ν = η/ρ
+    real(RNP) :: c_mu      !< variable bulk viscosity coefficient
+    real(RNP) :: mu_0      !< const/average bulk viscosity, μ = ζ/ρ
+    real(RNP) :: nu_0      !< const shear viscosity, ν = η/ρ
     real(RNP) :: delta_out !< δ parameter of outflow conditions
 
     ! element operators
@@ -138,22 +138,28 @@ module INS__Operator__3D
 
   type INS_OperatorOptions_3D
 
+    character(4) :: convection_term  = 'flux'  !< {'flux','skew','conv'}
     character(4) :: pressure_solver  = 'SPCG'  !< {'AS','CG','SPCG','MG','MGCG'}
     character(4) :: diffusion_solver = 'DPCG'  !< {'DPCG','SPCG'}
     character(4) :: stokes_corrector = 'X2PD'  !< {'PD','X0PD','X2PD'}
-    logical      :: dealiasing       = .false. !< F: no dealiasing, T: 3/2 rule
 
-    real(RNP)    :: penalty_p =    -1 !< penalty for p-solver, -1: auto
-    real(RNP)    :: penalty_u =    -1 !< penalty for u-solver, -1: auto
-    real(RNP)    :: mu_0      =     0 !< bulk viscosity, μ = ζ/ρ
-    real(RNP)    :: delta_out =  0.01 !< outflow parameter
-    integer      :: i_max_p   =  1000 !< max num p-iterations in projection
-    integer      :: i_max_v   =   200 !< max num v-iterations in projection
-    integer      :: k_max     =     0 !< max num Krylov iterations
-    integer      :: k_pre_p   =    10 !< max num p-iterations in Krylov precon
-    integer      :: k_pre_v   =    10 !< max num v-iterations in Krylov precon
-    real(RNP)    :: r_red     = 1e-08 !< min residual reduction, if > 0
-    real(RNP)    :: r_max     = 1e-12 !< max residual to reach,  if > 0
+    logical   :: dealiasing = .false. !< F: no dealiasing, T: 3/2 rule
+
+    real(RNP) :: penalty_u  =      -1 !< penalty for u-solver, -1: auto
+    real(RNP) :: penalty_p  =      -1 !< penalty for p-solver, -1: auto
+    character :: interior_p =     ' ' !< interior pressure BC {' ','D'}
+
+    real(RNP) :: c_mu       =       0 !< variable bulk viscosity coefficient
+    real(RNP) :: mu_0       =       0 !< constant bulk viscosity, if c_mu = 0
+    real(RNP) :: delta_out  =    0.01 !< outflow parameter
+
+    integer   :: i_max_p    =    1000 !< max num p-iterations in projection
+    integer   :: i_max_v    =     200 !< max num v-iterations in projection
+    integer   :: k_max      =       0 !< max num Krylov iterations
+    integer   :: k_pre_p    =      10 !< max num p-iterations in Krylov precon
+    integer   :: k_pre_v    =      10 !< max num v-iterations in Krylov precon
+    real(RNP) :: r_red      =   1e-08 !< min residual reduction, if > 0
+    real(RNP) :: r_max      =   1e-12 !< max residual to reach,  if > 0
 
     type(DG_SchwarzOptions_3D) :: schwarz_u !< Schwarz options for u-solver
     type(DG_SchwarzOptions_3D) :: schwarz_p !< Schwarz options for p-solver
@@ -474,6 +480,14 @@ contains
       this % level = 0
     end if
 
+    select case(opt % convection_term)
+    case('flux','skew','conv')
+      this % convection_term = opt % convection_term
+    case default
+      call Error( 'Init_INS_Operator_3D'                                     &
+                , 'ivalid convection term "'//trim(opt%convection_term)//'"' &
+                , 'INS__Operator__3D'                                        )
+    end select
     select case(opt % pressure_solver)
     case('AS','CG','SPCG','MG','MGCG')
       this % pressure_solver = opt % pressure_solver
@@ -501,6 +515,7 @@ contains
                 , 'INS__Operator__3D'                                          )
     end select
 
+    this % c_mu      = opt % c_mu
     this % mu_0      = opt % mu_0
     this % nu_0      = problem % nu_ref
     this % delta_out = opt % delta_out
@@ -552,9 +567,10 @@ contains
     ! operators and solvers for elliptic subsystems ............................
 
     ! elliptic operator for pressure
-    this % elliptic_p = DG_EllipticOperator_3D( sem_p           &
-                                              , opt % schwarz_p &
-                                              , opt % penalty_p )
+    this % elliptic_p = DG_EllipticOperator_3D( sem_p            &
+                                              , opt % schwarz_p  &
+                                              , opt % penalty_p  &
+                                              , opt % interior_p )
 
     ! Schwarz operators for viscous diffusion
     this % schwarz_u = DG_SchwarzOperator_3D( opt  % schwarz_u &
@@ -582,10 +598,14 @@ contains
   !-----------------------------------------------------------------------------
   !> Function for enquiring wether viscosity coefficients are variable
 
-  logical function HasVariableViscosity(this)
+  logical function HasVariableViscosity(this) result(hvv)
     class(INS_Operator_3D), intent(in) :: this
 
-    HasVariableViscosity = this % problem % HasVariableProperties()
+    ! variable bulk viscosity
+    hvv = this % c_mu > 0
+
+    ! problem dependent shear viscosity
+    hvv = hvv .or. this % problem % HasVariableProperties()
 
     ! TBD: variation due to SGS model
 
@@ -615,7 +635,8 @@ contains
                              , n_q  = this % sem_q % metrics % n  &
                              , v    = v                           &
                              , vp   = vp                          &
-                             , f_c  = f_c                         )
+                             , f_c  = f_c                         &
+                             , form = this % convection_term      )
 !   end if
 
   end subroutine GetConvectionTerm
@@ -792,12 +813,15 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
+    call XMPI_Bcast(this % convection_term , root, comm)
     call XMPI_Bcast(this % pressure_solver , root, comm)
     call XMPI_Bcast(this % diffusion_solver, root, comm)
     call XMPI_Bcast(this % stokes_corrector, root, comm)
     call XMPI_Bcast(this % dealiasing      , root, comm)
-    call XMPI_Bcast(this % penalty_p       , root, comm)
     call XMPI_Bcast(this % penalty_u       , root, comm)
+    call XMPI_Bcast(this % penalty_p       , root, comm)
+    call XMPI_Bcast(this % interior_p      , root, comm)
+    call XMPI_Bcast(this % c_mu            , root, comm)
     call XMPI_Bcast(this % mu_0            , root, comm)
     call XMPI_Bcast(this % delta_out       , root, comm)
     call XMPI_Bcast(this % i_max_p         , root, comm)
