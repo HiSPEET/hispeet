@@ -23,6 +23,7 @@
   l_top          =  4  ! initial top level
   l_max          =  8  ! ultimate top level
   l_adapt        =  5  ! first level to be adapted ≥ 1
+  partitioner    =  1  ! 1/2 for SFC/graph partitioning
 ! split          =  T  ! subdivide parent (child only)        [F]
   n_parts_root   =  1  ! number of partitions at root level   [1]
   n_parts_growth =  2  ! partition number growth rate         [1]
