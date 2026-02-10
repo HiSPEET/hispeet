@@ -500,6 +500,7 @@ program ML_INS_Solver_3D
   t = t_0
 
   call XMPI_Bcast(dt    , 0, comm)
+  call XMPI_Bcast(t_end , 0, comm)
   call XMPI_Bcast(nt_max, 0, comm)
 
   ! initial flow characteristics
