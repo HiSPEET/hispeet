@@ -49,7 +49,6 @@ module INS__Operator__3D
     character(len=4) :: convection_term  !< form of the convection term
     character(len=4) :: pressure_solver  !< pressure solver
     character(len=4) :: diffusion_solver !< diffusion solver
-    character(len=4) :: stokes_corrector !< Stokes corrector
 
     real(RNP) :: c_mu      !< variable bulk viscosity coefficient
     real(RNP) :: mu_0      !< const/average bulk viscosity, μ = ζ/ρ
@@ -141,7 +140,6 @@ module INS__Operator__3D
     character(4) :: convection_term  = 'flux'  !< {'flux','skew','conv'}
     character(4) :: pressure_solver  = 'SPCG'  !< {'AS','CG','SPCG','MG','MGCG'}
     character(4) :: diffusion_solver = 'DPCG'  !< {'DPCG','SPCG'}
-    character(4) :: stokes_corrector = 'X2PD'  !< {'PD','X0PD','X2PD'}
 
     logical   :: dealiasing = .false. !< F: no dealiasing, T: 3/2 rule
 
@@ -506,15 +504,6 @@ contains
                 , 'INS__Operator__3D'                                          )
     end select
 
-    select case(opt % stokes_corrector)
-    case('PD','X0PD','X2PD')
-      this % stokes_corrector = opt % stokes_corrector
-    case default
-      call Error( 'Init_INS_Operator_3D'                                       &
-                , 'ivalid stokes corrector "'//trim(opt%stokes_corrector)//'"' &
-                , 'INS__Operator__3D'                                          )
-    end select
-
     this % c_mu      = opt % c_mu
     this % mu_0      = opt % mu_0
     this % nu_0      = problem % nu_ref
@@ -816,7 +805,6 @@ contains
     call XMPI_Bcast(this % convection_term , root, comm)
     call XMPI_Bcast(this % pressure_solver , root, comm)
     call XMPI_Bcast(this % diffusion_solver, root, comm)
-    call XMPI_Bcast(this % stokes_corrector, root, comm)
     call XMPI_Bcast(this % dealiasing      , root, comm)
     call XMPI_Bcast(this % penalty_u       , root, comm)
     call XMPI_Bcast(this % penalty_p       , root, comm)
