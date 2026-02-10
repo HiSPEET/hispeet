@@ -3,5 +3,4 @@
   po_q    = 11   ! polynomial order used for quadrature
   ne      = 1024 ! number of elements
   nt      = 1    ! number of test runs
-! one2one = T    ! T/F to perform/skip interpolation [T]
 /
