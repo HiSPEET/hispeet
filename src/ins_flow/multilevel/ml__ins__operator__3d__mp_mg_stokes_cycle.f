@@ -2,6 +2,9 @@
 !> author:   Joerg Stiller
 !> date:     2025/05/12
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @remark
+!> Auxiliary version skipping bulk viscosity part when restricting
 !===============================================================================
 
 submodule (ML__INS__Operator__3D) MP_MG_Stokes_Cycle
@@ -36,14 +39,11 @@ contains
 
     ! internal variables :::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-    type(ML_MeshVariable_3D), allocatable, save :: mm_inv, r, w
+    type(ML_MeshVariable_3D), allocatable, save :: mm_inv, r, w, z
 
     integer :: l_top_, n_cyc_
     integer :: c, e, l, m
 
-!### CHECK
-!real(RNP) :: max_gc, max_sum_gc_e, sum_gc
-!### CHECK END
     associate( problem => this % problem            &
              , sem     => this % ml_op_u % sem      &
              , iop_cf  => this % ml_op_u % iop_cf_x &
@@ -66,10 +66,11 @@ contains
 
       !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-      allocate(mm_inv, r, w)
+      allocate(mm_inv, r, w, z)
       call mm_inv % Init(this%ml_op_u, nc = 1         , l_top = l_top_)
       call r      % Init(this%ml_op_u, nc = problem%nc, l_top = l_top_)
       call w      % Init(this%ml_op_u, nc = problem%nc, l_top = l_top_)
+      call z      % Init(this%ml_op_u, nc = 1         , l_top = l_top_)
 
       !$omp end master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -101,6 +102,7 @@ contains
                    , f_l      => f      % level(l  ) % val            &
                    , u_l      => u      % level(l  ) % val            &
                    , r_l      => r      % level(l  ) % val            &
+                   , z_l      => z      % level(l  ) % val(:,:,:,:,1) &
                    , bv_p     => bv     % level(l-1) % var            &
                    , mu_p     => mu     % level(l-1) % val(:,:,:,:,1) &
                    , nu_p     => nu     % level(l-1) % val(:,:,:,:,1) &
@@ -108,6 +110,7 @@ contains
                    , u_p      => u      % level(l-1) % val            &
                    , r_p      => r      % level(l-1) % val            &
                    , w_p      => w      % level(l-1) % val            &
+                   , z_p      => z      % level(l-1) % val(:,:,:,:,1) &
                    , mm_inv_p => mm_inv % level(l-1) % val(:,:,:,:,1) )
 
             if (log_level_multigrid_cycle > 0) then
@@ -123,7 +126,15 @@ contains
             if (l < l_top_) then
               call ins_l % StokesSolver(tau, f_l, bv_l, mu_l, nu_l, u_l)
             end if
-            call ins_l % GetStokesResidual(tau, f_l, bv_l, mu_l, nu_l, u_l, r_l)
+
+            ! residual
+            if (this % dc_bulk) then
+              ! with bulk diffusion
+              call ins_l % GetStokesResidual(tau, f_l, bv_l, mu_l, nu_l, u_l, r_l)
+            else
+              ! without bulk diffusion, μ → z ≡ 0
+              call ins_l % GetStokesResidual(tau, f_l, bv_l, z_l, nu_l, u_l, r_l)
+            end if
 
             ! restriction ......................................................
 
@@ -155,21 +166,18 @@ contains
             end do
             !$omp end do nowait
 
-            call ins_p % ApplyStokesOperator(tau, bv_p, mu_p, nu_p, w_p, r_p)
-!### CHECK
-!max_gc = maxval(abs(r_p(:,:,:,:,4)))
-!sum_gc = sum(r_p(:,:,:,:,4))
-!max_sum_gc_e = 0
-!### CHECK END
+            ! homogeneous Stokes operator
+            if (this % dc_bulk) then
+              ! with bulk diffusion
+              call ins_p % ApplyStokesOperator(tau, bv_p, mu_p, nu_p, w_p, r_p)
+            else
+              ! without bulk diffusion, μ → z ≡ 0
+              call ins_p % ApplyStokesOperator(tau, bv_p, z_p, nu_p, w_p, r_p)
+            end if
 
             !$omp do
             do e = 1, mesh_p % n_elem
               if (mesh_p % element(e) % adaptation % refinement >= 1000) then
-!### CHECK
-!max_sum_gc_e = max(max_sum_gc_e, abs(sum(r_p(:,:,:,e,4))))
-!! remove mean value of restricted residual for continuity
-!r_p(:,:,:,e,4) = r_p(:,:,:,e,4) - sum(r_p(:,:,:,e,4)) / size(r_p(:,:,:,e,4))
-!### CHECK END
                 do c = 1, 4
                   f_p(:,:,:,e,c) = mm_inv_p(:,:,:,e) &
                                  * (f_p(:,:,:,e,c) + r_p(:,:,:,e,c))
@@ -177,11 +185,6 @@ contains
               end if
             end do
             !$omp end do nowait
-!### CHECK
-!print '(A,G0)', 'max_gc = ',max_gc
-!print '(A,G0)', 'sum_gc = ',sum_gc
-!print '(A,G0)', 'max_sum_gc_e = ',max_sum_gc_e
-!### CHECK END
 
           end associate
 
@@ -269,7 +272,7 @@ contains
       end do V_OUTER
 
       !$omp master
-      deallocate(mm_inv, r, w)
+      deallocate(mm_inv, r, w, z)
       !$omp end master
 
     end associate

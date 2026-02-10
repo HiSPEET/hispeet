@@ -40,6 +40,7 @@ module ML__INS__Operator__3D
     type(INS_Operator_3D), allocatable :: ins_op(:)
 
     character :: fc_project !< fine-to-coarse projection method
+    logical   :: dc_bulk    !< defect correction w/wo bulk diffusion
 
   contains
     procedure :: Init_ML_INS_Operator_3D
@@ -61,6 +62,7 @@ module ML__INS__Operator__3D
     logical   :: mixed      = .true.  !< T/F: use mixed/equal order for (v,p)
     integer   :: fc_smooth  =  0      !< fine-to-coarse jump smoothing {0,1,2}
     character :: fc_project = 'I'     !< fine-to-coarse projection method {I,P}
+    logical   :: dc_bulk    = .false. !< defect correction w/wo bulk diffusion
 
     type(ML_DG_EllipticOptions_3D) :: ml_solver_p !< ML pressure solver options
     type(INS_OperatorOptions_3D)   :: ins         !< INS operator options
@@ -168,6 +170,9 @@ contains
     ! fine-to-coarse projection method
     this % fc_project = opt % fc_project
 
+    ! fine-to-coarse defect correction with or without bulk diffusion
+    this % dc_bulk = opt % dc_bulk
+
     ! multilevel pressure solver
     if (opt % ins % pressure_solver == 'MG') then
       if (opt%mixed) then
@@ -258,6 +263,7 @@ contains
     call XMPI_Bcast(this % mixed     , root, comm)
     call XMPI_Bcast(this % fc_smooth , root, comm)
     call XMPI_Bcast(this % fc_project, root, comm)
+    call XMPI_Bcast(this % dc_bulk   , root, comm)
 
     call this % ml_solver_p % Bcast(root, comm)
     call this % ins         % Bcast(root, comm)
