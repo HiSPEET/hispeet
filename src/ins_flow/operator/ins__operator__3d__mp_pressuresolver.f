@@ -357,9 +357,9 @@ contains
         call ml_solver_p % CS_MG_Solver( bc     = this % problem % bc_p  &
                                        , lambda = ZERO                   &
                                        , nu     = ONE                    &
-                                       , u      = ml_p                   &
-                                       , f      = ml_f                   &
                                        , bv     = ml_bv                  &
+                                       , f      = ml_f                   &
+                                       , u      = ml_p                   &
                                        , i_max  = i_max                  &
                                        , l_top  = l_top                  &
                                        , ni     = ni                     )
@@ -367,9 +367,9 @@ contains
         call ml_solver_p % CS_MGCG_Solver( bc     = this % problem % bc_p  &
                                          , lambda = ZERO                   &
                                          , nu     = ONE                    &
-                                         , u      = ml_p                   &
-                                         , f      = ml_f                   &
                                          , bv     = ml_bv                  &
+                                         , f      = ml_f                   &
+                                         , u      = ml_p                   &
                                          , i_max  = i_max                  &
                                          , l_top  = l_top                  &
                                          , ni     = ni                     )
