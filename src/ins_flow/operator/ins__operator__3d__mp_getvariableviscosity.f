@@ -19,7 +19,7 @@ contains
     real(RNP),  contiguous, intent(out) :: mu(:,:,:,:)
     real(RNP),  contiguous, intent(out) :: nu(:,:,:,:)
 
-    associate(x => this % sem_u % metrics %x)
+    associate(x => this % sem_u % metrics % x)
 
       ! physical shear viscosity ...............................................
 
@@ -35,13 +35,38 @@ contains
 
       ! artificial bulk viscosity ..............................................
 
-      ! TBD: element dependent μ
-
-      call SetArray(mu, this % mu_0)
+      if (this % c_mu > 0) then
+        call GetVariableBulkViscosity(this, u, nu, mu)
+      else
+        call SetArray(mu, this % mu_0)
+      end if
 
     end associate
 
   end subroutine GetVariableViscosity
+
+  !-----------------------------------------------------------------------------
+  !> Variable bulk viscosity
+
+  subroutine GetVariableBulkViscosity(this, u, nu, mu)
+    class(INS_Operator_3D), intent(in)  :: this
+    real(RNP),  contiguous, intent(in)  :: u(:,:,:,:,:)
+    real(RNP),  contiguous, intent(in)  :: nu(:,:,:,:)
+    real(RNP),  contiguous, intent(out) :: mu(:,:,:,:)
+
+    real(RNP) :: dx(3), hh, nn, vv
+    integer :: e
+
+    !$omp do
+    do e = 1, size(mu,4)
+      call this % mesh % element(e) % GetCuboidDimensions(dx)
+      hh = (product(dx)**THIRD / this%eop_u%po)**2                     ! hh = h²
+      vv = maxval(u(:,:,:,e,1)**2 + u(:,:,:,e,2)**2 + u(:,:,:,e,3)**2) ! vv = v²
+      nn = maxval(nu(:,:,:,e))**2                                      ! nn = ν²
+      mu(:,:,:,e) = this%c_mu * sqrt(nn + vv * hh)
+    end do
+
+  end subroutine GetVariableBulkViscosity
 
   !=============================================================================
 
