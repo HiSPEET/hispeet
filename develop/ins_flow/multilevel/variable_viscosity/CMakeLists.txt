@@ -1,4 +1,5 @@
-file( COPY test-hp-nested.prm
+file( COPY test-3g.prm
+           test-hp-nested.prm
            test-hp-simple.prm
            variable_viscosity.prm
       DESTINATION
