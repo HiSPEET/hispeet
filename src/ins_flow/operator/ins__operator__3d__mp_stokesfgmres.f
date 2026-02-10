@@ -238,6 +238,7 @@ contains
             !$omp end master
             !$omp barrier
           end if
+          if (converged) exit
 
         end associate
       end do ARNOLDI_ITERATION
