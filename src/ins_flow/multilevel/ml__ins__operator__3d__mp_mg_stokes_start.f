@@ -1,4 +1,4 @@
-!> summary:  Cascade an FMG start procedures for Stokes multigrid solver
+!> summary:  Cascade and FMG start procedures for Stokes multigrid solver
 !> author:   Joerg Stiller
 !> date:     2025/05/19
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -30,7 +30,7 @@ contains
     class(ML_MeshVariable_3D), intent(inout) :: u
       !< solution
     integer,  optional, intent(in) :: n_cyc
-      !< number of V-cycles befor advancing to next level  [0]
+      !< number of V-cycles before advancing to next level  [0]
 
     integer :: l, l_top
 
