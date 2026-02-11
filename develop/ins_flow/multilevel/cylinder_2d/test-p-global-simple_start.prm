@@ -46,7 +46,7 @@
 
   po = 2 3 4 6 10
 
-  ml_ins_opt%ins%mu_0    = 0.1
+  ml_ins_opt%ins%c_mu    = 1
   ml_ins_opt%ins%i_max_p = 5
   ml_ins_opt%ins%i_max_v = 5
 /

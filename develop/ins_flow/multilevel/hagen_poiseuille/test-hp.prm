@@ -46,7 +46,7 @@
   po = 3 7 7 7
 
 ! ml_ins_opt%ins%stokes_corrector = 'X2PD'
-  ml_ins_opt%ins%mu_0 = 1
+  refinement = 2*'c'
 /
 
 !-------------------------------------------------------------------------------
