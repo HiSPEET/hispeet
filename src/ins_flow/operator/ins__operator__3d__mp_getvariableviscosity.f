@@ -47,6 +47,16 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Variable bulk viscosity
+  !>
+  !> Element by element computation of the stabilizing bulk viscosity defined by
+  !>
+  !>      μᵉ = c_μ sqrt(ν² + (vh)²)
+  !>
+  !> where
+  !>
+  !>      ν = max νᵉ
+  !>      v = max|vᵉ|
+  !>      h = ∆xᵉ / P
 
   subroutine GetVariableBulkViscosity(this, u, nu, mu)
     class(INS_Operator_3D), intent(in)  :: this
