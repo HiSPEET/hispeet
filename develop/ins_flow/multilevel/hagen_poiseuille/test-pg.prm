@@ -1,0 +1,67 @@
+!-------------------------------------------------------------------------------
+! Control
+
+&control_prm
+
+! log levels,  set to ≥ 1 for higher verbosity
+! log_level                 = 0
+  log_level_inner_iteration = 1
+! log_level_outer_iteration = 1
+  log_level_multigrid_cycle = 1
+
+  problem_file = 'hagen_poiseuille'
+  flow_problem = 'HagenPoiseuille'
+  flow_domain  = 3
+
+! char_freq  = 0 ! set frequency of control output
+  vtk_mode   = 3 ! VTK export mode, 0/1/2/3: none/all/active/leafs
+/
+
+!-------------------------------------------------------------------------------
+! Mesh
+
+&ml_mesh_options_3d__static
+  l_top          =  3  ! initial top level
+  n_parts_root   =  1  ! number of partitions at root level   [1]
+/
+
+&ml_mesh_options_3d__dynamic
+  refinement = 2*'c'
+/
+
+!-------------------------------------------------------------------------------
+! Spatial
+
+&spatial_prm
+
+  po = 2, 3, 7
+
+! ml_ins_opt%ml_solver_p
+  ml_ins_opt%ins%c_mu = 1
+
+/
+
+!-------------------------------------------------------------------------------
+! Temporal
+
+&temporal_prm
+
+  ml_bdf2_opt%n_cyc = 5
+
+! t_end  = 0.25
+  dt     = 0.001
+  nt_max = 10!00!00000
+/
+
+!-------------------------------------------------------------------------------
+! Domain
+
+! flow_domain = 3: pipe with radius r = 1 and length h
+&cylinder_prm
+  r  = 1.0
+  h  = 2.0
+  nr = 4
+  nz = 8
+  pg = 15
+  periodic = T
+/

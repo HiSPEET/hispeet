@@ -8,6 +8,7 @@ program Mesh3d_Explore
   use Element_Transfer_Buffer__3D
   use Verify_Mesh__3D
   use Assembly__3D
+  use Export_VTK_Mesh_SFC__3D
   implicit none
 
   character(len=*), parameter :: input_file = 'mesh3d_explore.prm'
@@ -20,8 +21,9 @@ program Mesh3d_Explore
   logical   :: periodic(3) = .false.     ! periodic directions set true
   namelist/input/ xo, lx, np, ep, pg, po, periodic
 
-  logical   :: test_avg = .false.        ! perform averaging test
-  namelist/control/ test_avg
+  logical   :: test_avg   = .false.      ! perform averaging test
+  logical   :: export_sfc = .false.      ! export space filling curve
+  namelist/control/ test_avg, export_sfc
 
   type(MPI_Comm) :: comm                 ! MPI communicator
   integer        :: rank                 ! local MPI rank
@@ -136,11 +138,17 @@ program Mesh3d_Explore
 
   end if
 
+  ! SFC export .................................................................
+
+  if (export_sfc .and. mesh % has_sfc) then
+    call ExportVTK_MeshSFC(mesh, file = 'mesh3d_explore_sfc')
+  end if
+
   ! interactive exploration ....................................................
 
   do
     if (rank == 0) then
-      write(*,'(/,A,I0,A)',advance='NO') 'partition: ', mesh%n_parts,' > part = '
+      write(*,'(/,A,I0,A)') 'partition: ', mesh%n_parts,' > part = '
       read(*,*) part
     end if
     call XMPI_Bcast(part, 0, comm)

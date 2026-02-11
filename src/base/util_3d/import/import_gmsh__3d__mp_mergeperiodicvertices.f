@@ -54,7 +54,7 @@ contains
     real(RNP) :: rel_dis, max_rel_dis = 0.1
     real(RNP) :: max_dis, mean_dis
 
-    integer :: i, j, k, l, m, s
+    integer :: i, k, l, m, s
     integer :: id_master, id_slave
     integer :: n_leaf, n_match
 
@@ -93,7 +93,7 @@ contains
           x_master = vertex(surface(m) % nodes(k)) % x
 
           ! apply affinity transform to obtain coordinates on slave surface
-          x_slave = matmul(surface(m)%A(1:3,:), [x_master, ONE])
+          x_slave = matmul(surface(m)%map(1:3,:), [x_master, ONE])
 
           ! seach kd-tree for nn nearest neighbor points of projection of master
           call KDTree_N_Nearest(tree, qv = x_slave, nn = nn, results = results)

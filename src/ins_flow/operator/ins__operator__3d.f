@@ -2,9 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2021/12/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @todo
-!>   - revision of boundary variables
 !===============================================================================
 
 module INS__Operator__3D
@@ -48,10 +45,14 @@ module INS__Operator__3D
     class(INS_Problem_3D), pointer :: problem => null() !< flow problem
 
     integer :: level !< rank in multilevel hierarchy (0 if none)
+
+    character(len=4) :: convection_term  !< form of the convection term
     character(len=4) :: pressure_solver  !< pressure solver
     character(len=4) :: diffusion_solver !< diffusion solver
 
-    real(RNP) :: mu_0      !< bulk viscosity,  μ = ζ/ρ
+    real(RNP) :: c_mu      !< variable bulk viscosity coefficient
+    real(RNP) :: mu_0      !< const/average bulk viscosity, μ = ζ/ρ
+    real(RNP) :: nu_0      !< const shear viscosity, ν = η/ρ
     real(RNP) :: delta_out !< δ parameter of outflow conditions
 
     ! element operators
@@ -90,17 +91,20 @@ module INS__Operator__3D
     generic   :: Init => Init_INS_Operator_3D
     procedure :: Init_INS_Operator_3D
 
+    procedure :: HasVariableViscosity
+
     procedure :: ApplyEssentialBC
     procedure :: ApplyNaturalBC
+
+    procedure :: ApplyDiffusionOperator
+    procedure :: ApplyDiffusionOperator_C
+    procedure :: ApplyDiffusionOperator_V
+    procedure :: ApplyStokesOperator
 
     procedure :: DiffusionSolver
 
     procedure :: GetBackflowPenalty
     procedure :: GetConvectionTerm
-
-    procedure :: ApplyDiffusionOperator
-    procedure :: ApplyDiffusionOperator_C
-    procedure :: ApplyDiffusionOperator_V
 
     procedure :: GetDiffusionResidual
     procedure :: GetDiffusionResidual_C
@@ -111,6 +115,8 @@ module INS__Operator__3D
     procedure :: GetDiffusionTerm_V
 
     procedure :: GetStokesResidual
+
+    procedure :: GetVariableViscosity
 
     procedure :: GetViscousBoundaryStress
     procedure :: GetViscousBoundaryStress_C
@@ -131,21 +137,27 @@ module INS__Operator__3D
 
   type INS_OperatorOptions_3D
 
+    character(4) :: convection_term  = 'flux'  !< {'flux','skew','conv'}
     character(4) :: pressure_solver  = 'SPCG'  !< {'AS','CG','SPCG','MG','MGCG'}
     character(4) :: diffusion_solver = 'DPCG'  !< {'DPCG','SPCG'}
-    logical      :: dealiasing       = .false. !< F: no dealiasing, T: 3/2 rule
 
-    real(RNP)    :: penalty_p =    -1 !< penalty for p-solver, -1: auto
-    real(RNP)    :: penalty_u =    -1 !< penalty for u-solver, -1: auto
-    real(RNP)    :: mu_0      =     0 !< bulk viscosity, μ = ζ/ρ
-    real(RNP)    :: delta_out =  0.01 !< outflow parameter
-    integer      :: i_max_p   =  1000 !< max num p-iterations in projection
-    integer      :: i_max_v   =   200 !< max num v-iterations in projection
-    integer      :: k_max     =     0 !< max num Krylov iterations
-    integer      :: k_pre_p   =    10 !< max num p-iterations in Krylov precon
-    integer      :: k_pre_v   =    10 !< max num v-iterations in Krylov precon
-    real(RNP)    :: r_red     = 1e-08 !< min residual reduction, if > 0
-    real(RNP)    :: r_max     = 1e-12 !< max residual to reach,  if > 0
+    logical   :: dealiasing = .false. !< F: no dealiasing, T: 3/2 rule
+
+    real(RNP) :: penalty_u  =      -1 !< penalty for u-solver, -1: auto
+    real(RNP) :: penalty_p  =      -1 !< penalty for p-solver, -1: auto
+    character :: interior_p =     ' ' !< interior pressure BC {' ','D'}
+
+    real(RNP) :: c_mu       =       0 !< variable bulk viscosity coefficient
+    real(RNP) :: mu_0       =       0 !< constant bulk viscosity, if c_mu = 0
+    real(RNP) :: delta_out  =    0.01 !< outflow parameter
+
+    integer   :: i_max_p    =    1000 !< max num p-iterations in projection
+    integer   :: i_max_v    =     200 !< max num v-iterations in projection
+    integer   :: k_max      =       0 !< max num Krylov iterations
+    integer   :: k_pre_p    =      10 !< max num p-iterations in Krylov precon
+    integer   :: k_pre_v    =      10 !< max num v-iterations in Krylov precon
+    real(RNP) :: r_red      =   1e-08 !< min residual reduction, if > 0
+    real(RNP) :: r_max      =   1e-12 !< max residual to reach,  if > 0
 
     type(DG_SchwarzOptions_3D) :: schwarz_u !< Schwarz options for u-solver
     type(DG_SchwarzOptions_3D) :: schwarz_p !< Schwarz options for p-solver
@@ -204,15 +216,28 @@ module INS__Operator__3D
     end subroutine ApplyNaturalBC
 
     !---------------------------------------------------------------------------
+    !> Application of the Stokes operator
+
+    module subroutine ApplyStokesOperator(this, tau, bv, mu, nu, u, r)
+      class(INS_Operator_3D),               intent(in)  :: this
+      real(RNP),                            intent(in)  :: tau
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
+      real(RNP), contiguous,      optional, intent(in)  :: mu(:,:,:,:)
+      real(RNP), contiguous,      optional, intent(in)  :: nu(:,:,:,:)
+      real(RNP), contiguous,                intent(in)  :: u(:,:,:,:,:)
+      real(RNP), contiguous,                intent(out) :: r(:,:,:,:,:)
+    end subroutine ApplyStokesOperator
+
+    !---------------------------------------------------------------------------
     !> Diffusion solver
 
-    module subroutine DiffusionSolver(this, tau, mu, nu, f, bv_u, v, precon, ni)
+    module subroutine DiffusionSolver(this, tau, mu, nu, f, bv, v, precon, ni)
       class(INS_Operator_3D),          intent(in)    :: this
       real(RNP),                       intent(in)    :: tau
       real(RNP), contiguous, optional, intent(in)    :: mu(:,:,:,:)
       real(RNP), contiguous, optional, intent(in)    :: nu(:,:,:,:)
       real(RNP), contiguous,           intent(in)    :: f(:,:,:,:,:)
-      class(BoundaryVariable_3D),      intent(in)    :: bv_u(:)
+      class(BoundaryVariable_3D),      intent(in)    :: bv(:)
       real(RNP), contiguous,           intent(inout) :: v(:,:,:,:,:)
       logical,               optional, intent(in)    :: precon
       integer,               optional, intent(out)   :: ni
@@ -232,11 +257,11 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion residual with constant viscosity
 
-    module subroutine GetDiffusionResidual_C(this, tau, f, bv_u, v, r, form)
+    module subroutine GetDiffusionResidual_C(this, tau, f, bv, v, r, form)
       class(INS_Operator_3D),     intent(in)  :: this
       real(RNP),                  intent(in)  :: tau
       real(RNP), contiguous,      intent(in)  :: f(:,:,:,:,:)
-      class(BoundaryVariable_3D), intent(in)  :: bv_u(:)
+      class(BoundaryVariable_3D), intent(in)  :: bv(:)
       real(RNP), contiguous,      intent(in)  :: v(:,:,:,:,:)
       real(RNP), contiguous,      intent(out) :: r(:,:,:,:,:)
       integer,          optional, intent(in)  :: form
@@ -246,13 +271,13 @@ module INS__Operator__3D
     !> Diffusion residual with variable viscosity
 
     module subroutine GetDiffusionResidual_V &
-        (this, tau, mu, nu, f, bv_u, v, r, form)
+        (this, tau, mu, nu, f, bv, v, r, form)
       class(INS_Operator_3D),     intent(in)  :: this
       real(RNP),                  intent(in)  :: tau
       real(RNP), contiguous,      intent(in)  :: mu(:,:,:,:)
       real(RNP), contiguous,      intent(in)  :: nu(:,:,:,:)
       real(RNP), contiguous,      intent(in)  :: f(:,:,:,:,:)
-      class(BoundaryVariable_3D), intent(in)  :: bv_u(:)
+      class(BoundaryVariable_3D), intent(in)  :: bv(:)
       real(RNP), contiguous,      intent(in)  :: v(:,:,:,:,:)
       real(RNP), contiguous,      intent(out) :: r(:,:,:,:,:)
       integer,          optional, intent(in)  :: form
@@ -261,13 +286,13 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion term with constant viscosity on irregular (deformed) mesh
 
-    module subroutine GetDiffusionTerm_C(this, v, vp, sp, F_d, bv_u, xout, form)
+    module subroutine GetDiffusionTerm_C(this, v, vp, sp, f_d, bv_v, xout, form)
       class(INS_Operator_3D),               intent(in)  :: this
       real(RNP),                contiguous, intent(in)  :: v(:,:,:,:,:)
       real(RNP),                contiguous, intent(out) :: vp(:,:,:,:,:)
       real(RNP),                contiguous, intent(out) :: sp(:,:,:,:,:)
-      real(RNP),                contiguous, intent(out) :: F_d(:,:,:,:,:)
-      class(BoundaryVariable_3D), optional, intent(in)  :: bv_u(:)
+      real(RNP),                contiguous, intent(out) :: f_d(:,:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv_v(:)
       logical,                    optional, intent(in)  :: xout
       integer,                    optional, intent(in)  :: form
     end subroutine GetDiffusionTerm_C
@@ -276,15 +301,15 @@ module INS__Operator__3D
     !> Diffusion term with variable viscosity on irregular (deformed) mesh
 
     module subroutine GetDiffusionTerm_V &
-        (this, mu, nu, v, vp, sp, F_d, bv_u, xout, form)
+        (this, mu, nu, v, vp, sp, f_d, bv_v, xout, form)
       class(INS_Operator_3D),               intent(in)  :: this
       real(RNP), contiguous,                intent(in)  :: mu(:,:,:,:)
       real(RNP), contiguous,                intent(in)  :: nu(:,:,:,:)
       real(RNP), contiguous,                intent(in)  :: v(:,:,:,:,:)
       real(RNP), contiguous,                intent(out) :: vp(:,:,:,:,:)
       real(RNP), contiguous,                intent(out) :: sp(:,:,:,:,:)
-      real(RNP), contiguous,                intent(out) :: F_d(:,:,:,:,:)
-      class(BoundaryVariable_3D), optional, intent(in)  :: bv_u(:)
+      real(RNP), contiguous,                intent(out) :: f_d(:,:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv_v(:)
       logical,                    optional, intent(in)  :: xout
       integer,                    optional, intent(in)  :: form
     end subroutine GetDiffusionTerm_V
@@ -292,27 +317,38 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Stokes residual for incompressible flow
 
-    module subroutine GetStokesResidual(this, tau, f, bv_u, mu, nu, u, r)
-      class(INS_Operator_3D),          intent(in)    :: this
-      real(RNP),                       intent(in)    :: tau
-      real(RNP), contiguous,           intent(in)    :: f(:,:,:,:,:)
-      class(BoundaryVariable_3D),      intent(in)    :: bv_u(:)
-      real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
-      real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
-      real(RNP), contiguous,           intent(in)    :: u(:,:,:,:,:)
-      real(RNP), contiguous,           intent(out)   :: r(:,:,:,:,:)
+    module subroutine GetStokesResidual(this, tau, f, bv, mu, nu, u, r)
+      class(INS_Operator_3D),          intent(in)  :: this
+      real(RNP),                       intent(in)  :: tau
+      real(RNP), contiguous,           intent(in)  :: f(:,:,:,:,:)
+      class(BoundaryVariable_3D),      intent(in)  :: bv(:)
+      real(RNP), contiguous, optional, intent(in)  :: mu(:,:,:,:)
+      real(RNP), contiguous, optional, intent(in)  :: nu(:,:,:,:)
+      real(RNP), contiguous,           intent(in)  :: u(:,:,:,:,:)
+      real(RNP), contiguous,           intent(out) :: r(:,:,:,:,:)
     end subroutine GetStokesResidual
+
+    !---------------------------------------------------------------------------
+    !> Variable viscosity coefficients
+
+    module subroutine GetVariableViscosity(this, t, u, mu, nu)
+      class(INS_Operator_3D), intent(in)  :: this
+      real(RNP),              intent(in)  :: t
+      real(RNP),  contiguous, intent(in)  :: u(:,:,:,:,:)
+      real(RNP),  contiguous, intent(out) :: mu(:,:,:,:)
+      real(RNP),  contiguous, intent(out) :: nu(:,:,:,:)
+    end subroutine GetVariableViscosity
 
     !---------------------------------------------------------------------------
     !> Viscous stress vector on a boundary (C)
 
     module subroutine GetViscousBoundaryStress_C &
-        (this, b, v, sb, bv_u, xout, form)
+        (this, b, v, sb, bv, xout, form)
       class(INS_Operator_3D),               intent(in)  :: this
       integer,                              intent(in)  :: b
       real(RNP), contiguous,                intent(in)  :: v(:,:,:,:,:)
       real(RNP), contiguous,                intent(out) :: sb(:,:,:,:)
-      class(BoundaryVariable_3D), optional, intent(in)  :: bv_u(:)
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
       logical,                    optional, intent(in)  :: xout
       integer,                    optional, intent(in)  :: form
     end subroutine GetViscousBoundaryStress_C
@@ -321,14 +357,14 @@ module INS__Operator__3D
     !> Viscous stress vector on a boundary (V)
 
     module subroutine GetViscousBoundaryStress_V &
-        (this, b, mu, nu, v, sb, bv_u, xout, form)
+        (this, b, mu, nu, v, sb, bv, xout, form)
       class(INS_Operator_3D),               intent(in)  :: this
       integer,                              intent(in)  :: b
       real(RNP), contiguous,                intent(in)  :: mu(:,:,:,:)
       real(RNP), contiguous,                intent(in)  :: nu(:,:,:,:)
       real(RNP), contiguous,                intent(in)  :: v(:,:,:,:,:)
       real(RNP), contiguous,                intent(out) :: sb(:,:,:,:)
-      class(BoundaryVariable_3D), optional, intent(in)  :: bv_u(:)
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
       logical,                    optional, intent(in)  :: xout
       integer,                    optional, intent(in)  :: form
     end subroutine GetViscousBoundaryStress_V
@@ -339,7 +375,7 @@ module INS__Operator__3D
     module subroutine PressureSolver(this, tau, bv_u, v, f, p, precon, ni)
       class(INS_Operator_3D),     intent(in)    :: this
       real(RNP),                  intent(in)    :: tau
-      class(BoundaryVariable_3D), intent(inout) :: bv_u(:)
+      class(BoundaryVariable_3D), intent(in)    :: bv_u(:)
       real(RNP), contiguous,      intent(in)    :: v(:,:,:,:,:)
       real(RNP), contiguous,      intent(in)    :: f(:,:,:,:)
       real(RNP), contiguous,      intent(inout) :: p(:,:,:,:)
@@ -351,37 +387,30 @@ module INS__Operator__3D
     !> Projection-diffusion step for incompressible flow
 
     module subroutine StokesProjection &
-        (this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u, precon)
+        (this, tau, f, bv, mu, nu, u, f_d0, precon)
       class(INS_Operator_3D),          intent(in)    :: this
       real(RNP),                       intent(in)    :: tau
-      real(RNP),                       intent(in)    :: t
-      real(RNP), contiguous,           intent(in)    :: v_0(:,:,:,:,:)
-      real(RNP), contiguous,           intent(in)    :: F_c(:,:,:,:,:)
-      real(RNP), contiguous,           intent(in)    :: F_d(:,:,:,:,:)
-      real(RNP), contiguous,           intent(in)    :: Q(:,:,:,:,:)
-      class(BoundaryVariable_3D),      intent(in)    :: bv_u(:)
-      real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
-      real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: f(:,:,:,:,:)
+      class(BoundaryVariable_3D),      intent(in)    :: bv(:)
+      real(RNP), contiguous, optional, intent(in)    :: mu(:,:,:,:)
+      real(RNP), contiguous, optional, intent(in)    :: nu(:,:,:,:)
       real(RNP), contiguous,           intent(inout) :: u(:,:,:,:,:)
+      real(RNP), contiguous, optional, intent(in)    :: f_d0(:,:,:,:,:)
       logical,               optional, intent(in)    :: precon
     end subroutine StokesProjection
 
     !---------------------------------------------------------------------------
     !> FGMRES for Stokes part with projection-diffusion preconditioner
 
-    module subroutine StokesFGMRES &
-        (this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+    module subroutine StokesFGMRES(this, tau, f, bv, mu, nu, u, f_d0)
       class(INS_Operator_3D),          intent(in)    :: this
       real(RNP),                       intent(in)    :: tau
-      real(RNP),                       intent(in)    :: t
-      real(RNP), contiguous,           intent(in)    :: v_0(:,:,:,:,:)
-      real(RNP), contiguous,           intent(in)    :: F_c(:,:,:,:,:)
-      real(RNP), contiguous,           intent(in)    :: F_d(:,:,:,:,:)
-      real(RNP), contiguous,           intent(in)    :: Q(:,:,:,:,:)
-      class(BoundaryVariable_3D),      intent(in)    :: bv_u(:)
-      real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
-      real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: f(:,:,:,:,:)
+      class(BoundaryVariable_3D),      intent(in)    :: bv(:)
+      real(RNP), contiguous, optional, intent(in)    :: mu(:,:,:,:)
+      real(RNP), contiguous, optional, intent(in)    :: nu(:,:,:,:)
       real(RNP), contiguous,           intent(inout) :: u(:,:,:,:,:)
+      real(RNP), contiguous, optional, intent(in)    :: f_d0(:,:,:,:,:)
     end subroutine StokesFGMRES
 
   end interface
@@ -449,10 +478,36 @@ contains
       this % level = 0
     end if
 
-    this % pressure_solver  = opt % pressure_solver
-    this % diffusion_solver = opt % diffusion_solver
-    this % mu_0             = opt % mu_0
-    this % delta_out        = opt % delta_out
+    select case(opt % convection_term)
+    case('flux','skew','conv')
+      this % convection_term = opt % convection_term
+    case default
+      call Error( 'Init_INS_Operator_3D'                                     &
+                , 'ivalid convection term "'//trim(opt%convection_term)//'"' &
+                , 'INS__Operator__3D'                                        )
+    end select
+    select case(opt % pressure_solver)
+    case('AS','CG','SPCG','MG','MGCG')
+      this % pressure_solver = opt % pressure_solver
+    case default
+      call Error( 'Init_INS_Operator_3D'                                     &
+                , 'ivalid pressure solver "'//trim(opt%pressure_solver)//'"' &
+                , 'INS__Operator__3D'                                        )
+    end select
+
+    select case(opt % diffusion_solver)
+    case('DPCG','SPCG')
+      this % diffusion_solver = opt % diffusion_solver
+    case default
+      call Error( 'Init_INS_Operator_3D'                                       &
+                , 'ivalid diffusion solver "'//trim(opt%diffusion_solver)//'"' &
+                , 'INS__Operator__3D'                                          )
+    end select
+
+    this % c_mu      = opt % c_mu
+    this % mu_0      = opt % mu_0
+    this % nu_0      = problem % nu_ref
+    this % delta_out = opt % delta_out
 
     ! element operators ........................................................
 
@@ -501,9 +556,10 @@ contains
     ! operators and solvers for elliptic subsystems ............................
 
     ! elliptic operator for pressure
-    this % elliptic_p = DG_EllipticOperator_3D( sem_p           &
-                                              , opt % schwarz_p &
-                                              , opt % penalty_p )
+    this % elliptic_p = DG_EllipticOperator_3D( sem_p            &
+                                              , opt % schwarz_p  &
+                                              , opt % penalty_p  &
+                                              , opt % interior_p )
 
     ! Schwarz operators for viscous diffusion
     this % schwarz_u = DG_SchwarzOperator_3D( opt  % schwarz_u &
@@ -529,13 +585,29 @@ contains
   end subroutine Init_INS_Operator_3D
 
   !-----------------------------------------------------------------------------
+  !> Function for enquiring wether viscosity coefficients are variable
+
+  logical function HasVariableViscosity(this) result(hvv)
+    class(INS_Operator_3D), intent(in) :: this
+
+    ! variable bulk viscosity
+    hvv = this % c_mu > 0
+
+    ! problem dependent shear viscosity
+    hvv = hvv .or. this % problem % HasVariableProperties()
+
+    ! TBD: variation due to SGS model
+
+  end function HasVariableViscosity
+
+  !-----------------------------------------------------------------------------
   !> Diffusion term with constant viscosity
 
-  subroutine GetConvectionTerm(this, v, vp, F_c)
+  subroutine GetConvectionTerm(this, v, vp, f_c)
     class(INS_Operator_3D), intent(in) :: this
     real(RNP), contiguous, intent(in)  :: v(:,:,:,:,:)   !< velocity
     real(RNP), contiguous, intent(in)  :: vp(:,:,:,:,:)  !< outer velocity v⁺
-    real(RNP), contiguous, intent(out) :: F_c(:,:,:,:,:) !< convection term
+    real(RNP), contiguous, intent(out) :: f_c(:,:,:,:,:) !< convection term
 
 !   if (this % mesh % regular) then
 !     not implemented yet
@@ -552,7 +624,8 @@ contains
                              , n_q  = this % sem_q % metrics % n  &
                              , v    = v                           &
                              , vp   = vp                          &
-                             , F_c  = F_c                         )
+                             , f_c  = f_c                         &
+                             , form = this % convection_term      )
 !   end if
 
   end subroutine GetConvectionTerm
@@ -569,10 +642,16 @@ contains
     real(RNP), contiguous,           intent(out) :: r(:,:,:,:,:)
     integer,               optional, intent(in)  :: form
 
-    if (present(mu) .and. present(nu)) then
-      call this % ApplyDiffusionOperator_V(tau, mu, nu, v, r, form)
-    else
+    if (.not. this % HasVariableViscosity()) then
       call this % ApplyDiffusionOperator_C(tau, v, r, form)
+
+    else if (present(mu) .and. present(nu)) then
+      call this % ApplyDiffusionOperator_V(tau, mu, nu, v, r, form)
+
+    else
+      call Error( 'ApplyDiffusionOperator'                     &
+                , 'mu and nu required with variable viscosity' &
+                , 'INS_Operator_3D'                            )
     end if
 
   end subroutine ApplyDiffusionOperator
@@ -580,21 +659,27 @@ contains
   !-----------------------------------------------------------------------------
   !> Diffusion residual with constant or variable viscosity
 
-  subroutine GetDiffusionResidual(this, tau, mu, nu, f, bv_u, v, r, form)
+  subroutine GetDiffusionResidual(this, tau, mu, nu, f, bv, v, r, form)
     class(INS_Operator_3D),          intent(in)  :: this
     real(RNP),                       intent(in)  :: tau
     real(RNP), contiguous, optional, intent(in)  :: mu(:,:,:,:)
     real(RNP), contiguous, optional, intent(in)  :: nu(:,:,:,:)
     real(RNP), contiguous,           intent(in)  :: f(:,:,:,:,:)
-    class(BoundaryVariable_3D),      intent(in)  :: bv_u(:)
+    class(BoundaryVariable_3D),      intent(in)  :: bv(:)
     real(RNP), contiguous,           intent(in)  :: v(:,:,:,:,:)
     real(RNP), contiguous,           intent(out) :: r(:,:,:,:,:)
     integer,               optional, intent(in)  :: form
 
-    if (present(mu) .and. present(nu)) then
-      call this % GetDiffusionResidual_V(tau, mu, nu, f, bv_u, v, r, form)
+    if (.not. this % HasVariableViscosity()) then
+      call this % GetDiffusionResidual_C(tau, f, bv, v, r, form)
+
+    else if (present(mu) .and. present(nu)) then
+      call this % GetDiffusionResidual_V(tau, mu, nu, f, bv, v, r, form)
+
     else
-      call this % GetDiffusionResidual_C(tau, f, bv_u, v, r, form)
+      call Error( 'GetDiffusionResidual'                     &
+                , 'mu and nu required with variable viscosity' &
+                , 'INS_Operator_3D'                            )
     end if
 
   end subroutine GetDiffusionResidual
@@ -602,22 +687,28 @@ contains
   !-----------------------------------------------------------------------------
   !> Diffusion term with constant or variable viscosity
 
-  subroutine GetDiffusionTerm(this, mu, nu, v, vp, sp, F_d, bv_u, xout, form)
+  subroutine GetDiffusionTerm(this, mu, nu, v, vp, sp, f_d, bv, xout, form)
     class(INS_Operator_3D),               intent(in)  :: this
     real(RNP), contiguous,      optional, intent(in)  :: mu(:,:,:,:)
     real(RNP), contiguous,      optional, intent(in)  :: nu(:,:,:,:)
     real(RNP), contiguous,                intent(in)  :: v(:,:,:,:,:)
     real(RNP), contiguous,                intent(out) :: vp(:,:,:,:,:)
     real(RNP), contiguous,                intent(out) :: sp(:,:,:,:,:)
-    real(RNP), contiguous,                intent(out) :: F_d(:,:,:,:,:)
-    class(BoundaryVariable_3D), optional, intent(in)  :: bv_u(:)
+    real(RNP), contiguous,                intent(out) :: f_d(:,:,:,:,:)
+    class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
     logical,                    optional, intent(in)  :: xout
     integer,                    optional, intent(in)  :: form
 
-    if (present(mu) .and. present(nu)) then
-      call this % GetDiffusionTerm_V(mu, nu, v, vp, sp, F_d, bv_u, xout, form)
+    if (.not. this % HasVariableViscosity()) then
+      call this % GetDiffusionTerm_C(v, vp, sp, f_d, bv, xout, form)
+
+    else if (present(mu) .and. present(nu)) then
+      call this % GetDiffusionTerm_V(mu, nu, v, vp, sp, f_d, bv, xout, form)
+
     else
-      call this % GetDiffusionTerm_C(v, vp, sp, F_d, bv_u, xout, form)
+      call Error( 'GetDiffusionTerm'                           &
+                , 'mu and nu required with variable viscosity' &
+                , 'INS_Operator_3D'                            )
     end if
 
   end subroutine GetDiffusionTerm
@@ -625,58 +716,77 @@ contains
   !-----------------------------------------------------------------------------
   !> Viscous stress vector with constant or variable viscosity on a boundary
 
-  subroutine GetViscousBoundaryStress(this, b, mu, nu, v, sb, bv_u, xout, form)
+  subroutine GetViscousBoundaryStress(this, b, mu, nu, v, sb, bv, xout, form)
     class(INS_Operator_3D),               intent(in)  :: this
     integer,                              intent(in)  :: b
     real(RNP), contiguous,      optional, intent(in)  :: mu(:,:,:,:)
     real(RNP), contiguous,      optional, intent(in)  :: nu(:,:,:,:)
     real(RNP), contiguous,                intent(in)  :: v(:,:,:,:,:)
     real(RNP), contiguous,                intent(out) :: sb(:,:,:,:)
-    class(BoundaryVariable_3D), optional, intent(in)  :: bv_u(:)
+    class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
     logical,                    optional, intent(in)  :: xout
     integer,                    optional, intent(in)  :: form
 
-    if (present(mu) .and. present(nu)) then
-      call this % GetViscousBoundaryStress_V(b, mu, nu, v, sb, bv_u, xout, form)
+    if (.not. this % HasVariableViscosity()) then
+      call this % GetViscousBoundaryStress_C(b, v, sb, bv, xout, form)
+
+    else if (present(mu) .and. present(nu)) then
+      call this % GetViscousBoundaryStress_V(b, mu, nu, v, sb, bv, xout, form)
+
     else
-      call this % GetViscousBoundaryStress_C(b, v, sb, bv_u, xout, form)
+      call Error( 'GetViscousBoundaryStress'                   &
+                , 'mu and nu required with variable viscosity' &
+                , 'INS_Operator_3D'                            )
     end if
 
   end subroutine GetViscousBoundaryStress
 
   !-----------------------------------------------------------------------------
+  !> Solver for Stokes part using either projection step or FGMRES
   !>
+  !> If `f_d0` is present, the velocity is initialized as `v = τ(f + f_d0)`.
+  !> Otherwise, the given `u = [v,p]` is used as the initial approximation.
 
-  subroutine StokesSolver(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+  subroutine StokesSolver(this, tau, f, bv, mu, nu, u, f_d0)
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes time integrator
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
-    real(RNP), intent(in) :: t
-    !< t, final time
-    real(RNP), contiguous, intent(in) :: v_0(:,:,:,:,:)
-    !< v₀, effective initial value of velocity
-    real(RNP), contiguous, intent(in) :: F_c(:,:,:,:,:)
-    !< convective term at final time t
-    real(RNP), contiguous, intent(in) :: F_d(:,:,:,:,:)
-    !< diffusion term at final time t
-    real(RNP), contiguous, intent(in) :: Q(:,:,:,:,:)
-    !< sources at time t and further known terms
-    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
-    !< boundary values at final time t
-    !!   - Γᴰ :  [ v₁, v₂, v₃, - , -  ]
-    !!   - Γᴼ :  [ - , - , - , p , ∆p ]
+    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
+    !< unweighted RHS: f = v₀/τ + f_c + f_s + ...
+    class(BoundaryVariable_3D), intent(in) :: bv(:)
+    !< boundary values
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]
+    !!   - Γᴼ :  [ - , - , ∆p, p ]
     real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
     !< μ, kinematic bulk viscosity
     real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
     !< ν, kinematic shear viscosity
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
-    !< u = [v, p], velocity and pressure at final time u
+    !< u = [v, p], velocity and pressure
+    real(RNP), contiguous, optional, intent(in) :: f_d0(:,:,:,:,:)
+    !< approximate diffusion term
 
-    if (this % k_max > 0) then
-      call StokesFGMRES(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+    if (.not. this % HasVariableViscosity()) then
+
+      if (this % k_max > 0) then
+        call StokesFGMRES(this, tau, f, bv, null(), null(), u, f_d0)
+      else
+        call StokesProjection(this, tau, f, bv, null(), null(), u, f_d0)
+      end if
+
+    else if (present(mu) .and. present(nu)) then
+
+      if (this % k_max > 0) then
+        call StokesFGMRES(this, tau, f, bv, mu, nu, u, f_d0)
+      else
+        call StokesProjection(this, tau, f, bv, mu, nu, u, f_d0)
+      end if
+
     else
-      call StokesProjection(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+      call Error( 'StokesSolver'                               &
+                , 'mu and nu required with variable viscosity' &
+                , 'INS_Operator_3D'                            )
     end if
 
   end subroutine StokesSolver
@@ -692,11 +802,14 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
+    call XMPI_Bcast(this % convection_term , root, comm)
     call XMPI_Bcast(this % pressure_solver , root, comm)
     call XMPI_Bcast(this % diffusion_solver, root, comm)
     call XMPI_Bcast(this % dealiasing      , root, comm)
-    call XMPI_Bcast(this % penalty_p       , root, comm)
     call XMPI_Bcast(this % penalty_u       , root, comm)
+    call XMPI_Bcast(this % penalty_p       , root, comm)
+    call XMPI_Bcast(this % interior_p      , root, comm)
+    call XMPI_Bcast(this % c_mu            , root, comm)
     call XMPI_Bcast(this % mu_0            , root, comm)
     call XMPI_Bcast(this % delta_out       , root, comm)
     call XMPI_Bcast(this % i_max_p         , root, comm)

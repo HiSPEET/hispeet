@@ -17,9 +17,19 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Projection-diffusion step for incompressible flow
+  !>
+  !> On input `u` contains the approximate velocity `v` and pressure `p` in
+  !> components 1:3 and 4, respectively.
+  !> If `f_d0` is present, these values are overridden by an projection step
+  !> based on the extrapolated velocity `v = τ(f + f_d0)`.
+  !> If `f_d0` is absent, the projection is used to correct the given values.
+  !> Finally, a diffusion step is performed to enforce the viscous terms and
+  !> boundary conditions.
+  !>
+  !> The optional argument `precon` can be given to run the pressure and
+  !> diffusion solvers in preconditioner mode.
 
-  module subroutine StokesProjection( this, tau, t, v_0, F_c, F_d, Q &
-                                    , bv_u, mu, nu, u, precon        )
+  module subroutine StokesProjection(this, tau, f, bv, mu, nu, u, f_d0, precon)
 
     ! arguments ................................................................
 
@@ -27,148 +37,133 @@ contains
 
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
-    real(RNP), intent(in) :: t
-    !< t, final time
-    real(RNP), contiguous, intent(in) :: v_0(:,:,:,:,:)
-    !< v₀, effective initial value of velocity
-    real(RNP), contiguous, intent(in) :: F_c(:,:,:,:,:)
-    !< convective term at final time t
-    real(RNP), contiguous, intent(in) :: F_d(:,:,:,:,:)
-    !< diffusion term at final time t
-    real(RNP), contiguous, intent(in) :: Q(:,:,:,:,:)
-    !< sources at time t and further known terms
-    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
-    !< boundary values at final time t
-    !!   - Γᴰ :  [ v₁, v₂, v₃, - , -  ]
-    !!   - Γᴼ :  [ - , - , - , p , ∆p ]
-    real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
+    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
+    !< RHS: f = v₀/τ + F_c + f_s + ...
+    class(BoundaryVariable_3D), intent(in) :: bv(:)
+    !< boundary values
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]
+    !!   - Γᴼ :  [ - , - , ∆p, p ]
+    real(RNP), contiguous, optional, intent(in) :: mu(:,:,:,:)
     !< μ, kinematic bulk viscosity
-    real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
+    real(RNP), contiguous, optional, intent(in) :: nu(:,:,:,:)
     !< ν, kinematic shear viscosity
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
-    !< u = [v, p], velocity and pressure at final time u
+    !< u = [v, p], velocity and pressure
+    real(RNP), contiguous, optional, intent(in) :: f_d0(:,:,:,:,:)
+    !< approximate diffusion term
     logical, optional, intent(in) :: precon
     !< if present, operate as preconditioner (regardless of the value)
 
     ! internal variables .......................................................
 
-    real(RNP), allocatable, save :: pp (:,:,:,:)   ! outer pressure traces p⁺
-    real(RNP), allocatable, save :: vm (:,:,:,:,:) ! inner velocity traces v⁻
-    real(RNP), allocatable, save :: vp (:,:,:,:,:) ! outer velocity traces v⁺
     real(RNP), allocatable, save :: w  (:,:,:,:,:) ! work
-
-    type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_vm
+    real(RNP), allocatable, save :: wp (:,:,:,:,:) ! outer traces w⁺
 
     type(BoundaryVariable_3D), allocatable, save :: bv_w(:), bv_p(:), bv_dp(:)
 
-    integer   :: b, d, e, np
-    logical   :: update_viscosity
+    real(RNP), allocatable :: mm_inv(:,:,:)
+    logical :: predictor
+    integer :: b, c, e, na, ne, np
 
     associate( problem => this % problem          &
              , sem_u   => this %  sem_u           &
              , mesh    => this %  mesh            &
-             , n_elem  => this %  mesh % n_elem   &
-             , n_ghost => this %  mesh % n_ghost  &
              , v       => u(:,:,:,:,1:3)          &
              , p       => u(:,:,:,:,4)            )
 
       ! initialization .........................................................
 
-      if (present(precon)) then
-        update_viscosity = .false.
-      else
-        update_viscosity = present(nu) .and. problem % HasVariableProperties()
-      end if
+      predictor = present(f_d0)
 
       np = size(v,1)
+      na = mesh % n_elem_active
+      ne = mesh % n_elem
 
       !$omp master
 
-      allocate( pp (np, np,  6, n_elem             ), source = ZERO )
-      allocate( vm (np, np,  6, n_elem + n_ghost, 3), source = ZERO )
-      allocate( vp (np, np,  6, n_elem          , 3), source = ZERO )
-      allocate( w  (np, np, np, n_elem          , 4), source = ZERO )
-
-      buf_vm = ElementFaceTransferBuffer_3D(mesh, vm)
+      allocate( wp (np, np,  6, ne, 6), source = ZERO )
+      allocate( w  (np, np, np, ne, 5), source = ZERO )
 
       ! provide handles for velocity and pressure boundary values
       allocate(bv_w ( mesh%n_bound ))
       allocate(bv_p ( mesh%n_bound ))
       allocate(bv_dp( mesh%n_bound ))
       do b = 1, mesh % n_bound
-        ! copy bv_u to bv_w to keep the former unchanged
-        call bv_u(b) % GetSlice(first=1, last=5, slice=bv_w(b), copy=.true.)
+        ! copy bv to bv_w to keep the former unchanged
+        call bv(b) % GetSlice(first=1, last=4, slice=bv_w(b), copy=.true.)
         ! generate pointer-based handles for pressure boundary values
         call bv_w(b) % GetSlice(first=4, last=4, slice=bv_p (b))
-        call bv_w(b) % GetSlice(first=5, last=5, slice=bv_dp(b))
+        call bv_w(b) % GetSlice(first=3, last=3, slice=bv_dp(b))
       end do
       !$omp end master
       !$omp barrier
 
       ! extrapolation step .....................................................
 
-      ! Computes the intermediate velocity v' = v₀ + τ(Fc + Fd + Q) and extracts
-      ! the inner traces v'⁻ needed in the next step.
+      if (predictor) then
 
-      !$omp do collapse(2)
-      do d = 1, 3
-      do e = 1, mesh % n_elem
+        !$omp do collapse(2)
+        do c = 1, 3
+        do e = 1, na
+          v(:,:,:,e,c) =  tau * (f(:,:,:,e,c) + f_d0(:,:,:,e,c))
+        end do
+        end do
 
-        ! intermediate velocity v = v'
-        v(:,:,:,e,d) = v_0(:,:,:,e,d) + tau * ( F_c(:,:,:,e,d) &
-                                              + F_d(:,:,:,e,d) &
-                                              + Q  (:,:,:,e,d) )
+      else
+        ! corrector
+        associate( f_d => w (:,:,:,:,1:3) &
+                 , mm  => w (:,:,:,:, 4 ) &
+                 , vp  => wp(:,:,:,:,1:3) &
+                 , sp  => wp(:,:,:,:,4:6) )
 
-        ! inner traces: vm = v'⁻
-        vm(:,:,1,e,d) = v( 1,:,:,e,d)
-        vm(:,:,2,e,d) = v(np,:,:,e,d)
-        vm(:,:,3,e,d) = v(:, 1,:,e,d)
-        vm(:,:,4,e,d) = v(:,np,:,e,d)
-        vm(:,:,5,e,d) = v(:,:, 1,e,d)
-        vm(:,:,6,e,d) = v(:,:,np,e,d)
+          call this % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_w &
+                                      , xout = .true. , form = 2     )
 
-      end do
-      end do
+          call this % sem_u % Get_DG_DiagonalMassMatrix( mm )
 
-      ! pressure computation ...................................................
+          !$omp do
+          do e = 1, na
+            mm_inv = 1 / mm(:,:,:,e)
+            do c = 1, 3
+              v(:,:,:,e,c) = tau * ( f(:,:,:,e,c) + mm_inv * f_d(:,:,:,e,c) )
+            end do
+          end do
 
-      associate(div_v => w(:,:,:,:,4))
+        end associate
+      end if
 
-        ! outer traces of intermediate velocity using homogeneous Neumann BC
-        call buf_vm % Transfer(mesh, vm, tag=100)
-        call buf_vm % Merge(vm)
-        call ConvertInnerToOuterTraces_3D(mesh, vm, vp)
+      ! projection step ........................................................
 
-        ! divergence of intermediate velocity
+      ! sources
+      associate( div_v => w (:,:,:,:, 4)  &
+               , vp    => wp(:,:,:,:,1:3) )
+        ! compute divergence of approximate velocity
+        call GetOuterVectorTraces_3D(mesh, v, vp)
         call TPO_Div(this % eop_u, this % sem_u, v, vp, div_v)
-
-        if (size(Q, 5) >= 4) then ! has additional RHS for mass conservation
-          call MergeArrays(ONE, div_v, -ONE, Q(:,:,:,:,4))
+        ! add additional sources
+        if (size(f, 5) >= 4) then
+          call MergeArrays(ONE, div_v, -ONE, f(:,:,:,:,4))
         end if
+      end associate
 
-        ! solve pressure equation
+      ! pressure and velocity correction
+      associate( grad_p => w (:,:,:,:,1:3) &
+               , div_v  => w (:,:,:,:, 4)  &
+               , pp     => wp(:,:,:,:, 4 ) )
+        ! compute pressure
         call this % PressureSolver(tau, bv_w, v, div_v, p, precon)
-
-      end associate
-
-      ! pressure correction ....................................................
-
-      associate(grad_p => w(:,:,:,:,1:3))
-
-        ! generate outer traces of pressure -- sufficient for Neumann BC
+        ! compute pressure gradient
         call GetOuterTraces_3D(mesh, p, pp)
-
-        ! pressure gradient
         call TPO_Grad(this % eop_u, this % sem_u, p, pp, grad_p)
-
-        ! correction: v = v - τ∇p
-        call MergeArrays(ONE, v, -tau, grad_p, multi=.true.)
-
+        ! correct velocity: v = v - τ∇p
+        do c = 1, 3
+          call MergeArrays(ONE, v(:,:,:,:na,c), -tau, grad_p(:,:,:,:na,c))
+        end do
       end associate
 
-      ! diffusive correction ...................................................
+      ! diffusion step .........................................................
 
-      ! update boundary conditions
+      ! update outflow boundary conditions
       do b = 1, mesh % n_bound
         select case(problem % bc_v(b))
         case('O')
@@ -179,29 +174,42 @@ contains
         end select
       end do
 
-      associate(f => w(:,:,:,:,1:3))
+      associate( q  => w (:,:,:,:,1:3) &
+               , pp => wp(:,:,:,:, 4 ) )
 
-        !$omp do collapse(2)
-        do e = 1, mesh % n_elem
-          do d = 1, 3
-            f(:,:,:,e,d) = 1/tau * v(:,:,:,e,d) - F_d(:,:,:,e,d)
+        if (predictor) then
+
+          !$omp do collapse(2)
+          do c = 1, 3
+          do e = 1, na
+            q(:,:,:,e,c) = 1/tau * v(:,:,:,e,c) - f_d0(:,:,:,e,c)
           end do
-        end do
+          end do
 
-        if (update_viscosity) then
-          call problem % GetViscosity(sem_u % metrics % x, t, u, nu)
+        else
+
+          ! q = ∇p
+          call GetOuterTraces_3D(mesh, p, pp)
+          call TPO_Grad(this % eop_u, this % sem_u, p, pp, q)
+
+          !$omp do collapse(2)
+          do c = 1, 3
+          do e = 1, na
+            ! q = f_m - ∇p
+            q(:,:,:,e,c) = f(:,:,:,e,c) - q(:,:,:,e,c)
+          end do
+          end do
+
         end if
 
-        call this % DiffusionSolver(tau, mu, nu, f, bv_w, v, precon)
+        call this % DiffusionSolver(tau, mu, nu, q, bv_w, v, precon)
 
       end associate
 
       ! cleanup ................................................................
 
       !$omp master
-      deallocate(w)
-      deallocate(pp, vm, vp)
-      deallocate(buf_vm)
+      deallocate(w, wp)
       deallocate(bv_w, bv_p, bv_dp)
       !$omp end master
 

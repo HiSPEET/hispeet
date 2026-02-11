@@ -21,6 +21,8 @@ contains
     !< Navier-Stokes operator
     class(BoundaryVariable_3D), intent(in) :: bv_s(:)
     !< viscous boundary fluxes depending on BC type
+    !!   - Γᴰ :  not used
+    !!   - Γᴼ :  [ s₁, s₂, s₃ ]   viscous fluxes
     real(RNP), contiguous, intent(in) :: sm(:,:,:,:,:)
     !< inner viscous flux vector, `sm(np,np,6,ne,3) = s⁻ = n⁻⋅τ⁻`
     real(RNP), contiguous, intent(inout) :: sp(:,:,:,:,:)

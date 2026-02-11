@@ -40,7 +40,7 @@ contains
     !---------------------------------------------------------------------------
     ! Initialization
 
-    if (mesh%part < 0) then
+    if (mesh%part < 0 .or. mesh%n_elem == 0) then
       allocate(mesh%link(0))
       return
     end if

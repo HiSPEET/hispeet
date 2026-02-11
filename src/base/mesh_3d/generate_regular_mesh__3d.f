@@ -1,3 +1,9 @@
+!> summary:  Generation of a Cartesian mesh in a cuboidal domain
+!> author:   Joerg Stiller
+!> date:     2021/06/14
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!===============================================================================
+
 module Generate_Regular_Mesh__3D
 
   use Kind_Parameters  , only: IXS, RNP
@@ -6,6 +12,7 @@ module Generate_Regular_Mesh__3D
   use Gauss_Jacobi
   use XMPI
 
+  use Affine_Transformation__3D
   use Mesh_Boundary__3D
   use Mesh_Element__3D
   use Mesh_Element_Indexing__3D
@@ -17,6 +24,9 @@ module Generate_Regular_Mesh__3D
   public :: GenerateRegularMesh
 
 contains
+
+  !-----------------------------------------------------------------------------
+  !> Generates a regular structured mesh in a cuboidal domain
 
   subroutine GenerateRegularMesh(mesh, np, ep, xo, dx, periodic, comm, pg)
 
@@ -135,6 +145,10 @@ contains
       allocate(mesh % map_child(0))
       allocate(mesh % map_parent(0))
 
+    end if
+
+    if (n_parts == 1) then
+      call mesh % BuildSFC()
     end if
 
   end subroutine GenerateRegularMesh
@@ -520,42 +534,63 @@ contains
     class(Mesh_3D), intent(inout) :: mesh !< local partition
     logical, intent(in) :: periodic(3) !< indicator of periodic directions
 
-    integer :: b, e, f, i, j, k
-    integer :: coupled(6), polarity(6)
+    integer   :: b, e, f, i, j, k
+    integer   :: coupled(6), polarity(6)
+    real(RNP) :: map(4,4,6)
+    character(len=6) :: name(6)
 
     ! preliminaries ............................................................
 
+    name(1) = 'west'
+    name(2) = 'east'
+    name(3) = 'south'
+    name(4) = 'north'
+    name(5) = 'bottom'
+    name(6) = 'top'
+
     coupled  = 0
     polarity = 0
+
+    do b = 1, 6
+      map(:,:,b) = AFFINE_IDENTITY_MAP_3D
+    end do
+
     if (periodic(1)) then
       coupled (1) =  2
       polarity(1) = -1
+      map (1,4,1) =  mesh%n_elem_1 * mesh%dx(1)
       coupled (2) =  1
       polarity(2) =  1
+      map (1,4,2) = -mesh%n_elem_1 * mesh%dx(1)
     end if
     if (periodic(2)) then
       coupled (3) =  4
       polarity(3) = -2
+      map (2,4,3) =  mesh%n_elem_2 * mesh%dx(2)
       coupled (4) =  3
       polarity(4) =  2
+      map (2,4,4) = -mesh%n_elem_2 * mesh%dx(2)
     end if
     if (periodic(3)) then
       coupled (5) =  6
       polarity(5) = -3
+      map (3,4,5) =  mesh%n_elem_3 * mesh%dx(3)
       coupled (6) =  5
       polarity(6) =  3
+      map (3,4,6) = -mesh%n_elem_3 * mesh%dx(3)
     end if
 
     allocate(mesh % boundary(6))
 
     ! boundary attributes ......................................................
 
-    mesh % boundary(1) = MeshBoundary_3D('west'  , 1, coupled(1), polarity(1))
-    mesh % boundary(2) = MeshBoundary_3D('east'  , 2, coupled(2), polarity(2))
-    mesh % boundary(3) = MeshBoundary_3D('south' , 3, coupled(3), polarity(3))
-    mesh % boundary(4) = MeshBoundary_3D('north' , 4, coupled(4), polarity(4))
-    mesh % boundary(5) = MeshBoundary_3D('bottom', 5, coupled(5), polarity(5))
-    mesh % boundary(6) = MeshBoundary_3D('top'   , 6, coupled(6), polarity(6))
+    do b = 1, 6
+      mesh % boundary(b) = MeshBoundary_3D( name     = name(b)        &
+                                          , id       = b              &
+                                          , coupled  = coupled(b)     &
+                                          , polarity = polarity(b)    &
+                                          , map      = map(1:4,1:4,b) )
+    end do
 
     if (mesh%part < 0) return
 

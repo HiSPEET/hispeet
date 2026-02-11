@@ -8,22 +8,22 @@ contains
   !>
   !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`
 
-  module subroutine CS_MG_Solver_C( this, bc, lambda, nu, u, f, bv &
+  module subroutine CS_MG_Solver_C( this, bc, lambda, nu, bv, f, u &
                                   , i_max, l_top, ni, r_2          )
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     character, intent(in) :: bc(:)                  !< boundary conditions
     real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
     real(RNP), intent(in) :: nu                     !< diffusivity
-    class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
-    class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
+    class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
+    class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
     integer,   optional, intent(in)  :: i_max       !< overrides max num cycles
     integer,   optional, intent(in)  :: l_top       !< top level
     integer,   optional, intent(out) :: ni          !< num executed cycles
     real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
     call CS_MG_Solver_X &
-             (this, bc, lambda, nu, null(), u, f, bv, i_max, l_top, ni, r_2)
+             (this, bc, lambda, nu, null(), bv, f, u, i_max, l_top, ni, r_2)
 
   end subroutine CS_MG_Solver_C
 
@@ -32,22 +32,22 @@ contains
   !>
   !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`
 
-  module subroutine CS_MG_Solver_V( this, bc, lambda, nu, u, f, bv &
+  module subroutine CS_MG_Solver_V( this, bc, lambda, nu, bv, f, u &
                                   , i_max, l_top, ni, r_2          )
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     character, intent(in) :: bc(:)                  !< boundary conditions
     real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
     class(ML_MeshVariable_3D), intent(in) :: nu     !< diffusivity
-    class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
-    class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
+    class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
+    class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
     integer,   optional, intent(in)  :: i_max       !< overrides max num cycles
     integer,   optional, intent(in)  :: l_top       !< top level
     integer,   optional, intent(out) :: ni          !< num executed cycles
     real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
     call CS_MG_Solver_X &
-             (this, bc, lambda, null(), nu, u, f, bv, i_max, l_top, ni, r_2)
+             (this, bc, lambda, null(), nu, bv, f, u, i_max, l_top, ni, r_2)
 
   end subroutine CS_MG_Solver_V
 
@@ -56,7 +56,7 @@ contains
   !>
   !> Either `nu_0` or `nu_v` must be given.
 
-  module subroutine CS_MG_Solver_X( this, bc, lambda, nu_0, nu_v, u, f, bv &
+  module subroutine CS_MG_Solver_X( this, bc, lambda, nu_0, nu_v, bv, f, u &
                                   , i_max, l_top, ni, r_2 )
 
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
@@ -69,12 +69,12 @@ contains
       !< constant diffusivity
     class(ML_MeshVariable_3D), optional, intent(in) :: nu_v
       !< variable diffusivity
-    class(ML_MeshVariable_3D), intent(inout) :: u
-      !< approx/final solution
-    class(ML_MeshVariable_3D), intent(inout) :: f
-      !< RHS
     class(ML_BoundaryVariable_3D), target, optional, intent(in) :: bv
       !< boundary values [homogeneous]
+    class(ML_MeshVariable_3D), intent(inout) :: f
+      !< RHS
+    class(ML_MeshVariable_3D), intent(inout) :: u
+      !< approx/final solution
     integer, optional, intent(in) :: i_max
       !< overrides preset maximum number of cycles
     integer, optional, intent(in) :: l_top
@@ -87,13 +87,13 @@ contains
     ! internal variables :::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
     type(ML_MeshVariable_3D), allocatable, save :: r
-    type(BoundaryVariable_3D), pointer, save :: bv_1(:), bv_l(:), bv_top(:)
+    type(BoundaryVariable_3D), pointer, save :: bv_l(:)
     logical, save :: converged
 
     real(RNP) :: rr, r_max, r_new, r_old
     logical :: check_convergence
     integer :: i_max_, l_top_
-    integer :: e, l, m, n
+    integer :: l, m, n
 
     ! prerequisites ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -118,35 +118,9 @@ contains
       ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       !$omp master
-
       allocate(r)
       call r % Init(this%ml_op, nc=1)
-
-      if (present(bv)) then
-        bv_top => bv % level(l_top_) % var
-      else
-        bv_top => null()
-      end if
-
-      if (l_top_ == 1) then
-        bv_1 => bv_top
-      else
-        bv_1 => null()
-      end if
-      bv_l => bv_top
-
       !$omp end master
-
-      do l = 1, l_top_
-        associate(po => sem(l) % std_op % po)
-          !$omp do
-          do e = 1, sem(l) % mesh % n_elem
-            r % level(l) % val(0:po,0:po,0:po,e,1) = ZERO
-          end do
-          !$omp end do nowait
-        end associate
-      end do
-      !$omp barrier
 
       ! termination conditions
       if (check_convergence) then
@@ -155,6 +129,12 @@ contains
                  , f_l => f % level(l) % val(:,:,:,:,1) &
                  , u_l => u % level(l) % val(:,:,:,:,1) &
                  , r_l => r % level(l) % val(:,:,:,:,1) )
+
+          !$omp master
+          if (present(bv)) then
+            bv_l => bv % level(l) % var
+          end if
+          !$omp end master
 
           ! initial residual
           if (present(nu_0)) then
@@ -202,6 +182,14 @@ contains
                    , r_l    => r % level(l  ) % val(:,:,:,:,1) &
                    , f_p    => f % level(l-1) % val(:,:,:,:,1) )
 
+            !$omp master
+            if (l == l_top_ .and. present(bv)) then
+              bv_l => bv % level(l) % var
+            else
+              bv_l => null()
+            end if
+            !$omp end master
+
             ! pre-smoothing and residual computation .........................
 
             if (l < l_top_) then
@@ -216,7 +204,7 @@ contains
               end associate
             end if
 
-            n = this % ns_1
+            n = this % NumSmoothingSteps(l, 1)
             if (present(nu_0)) then
               call this % Smoother(l, bc, lambda, nu_0, u_l, f_l, bv_l, n)
               call this % Residual(l, bc, lambda, nu_0, f_l, bv_l, u_l, r_l)
@@ -228,12 +216,6 @@ contains
             end if
             call this % Monitoring(l, '1', r_l)
 
-            ! nullify boundary variables for l < t_top .......................
-
-            !$omp master
-            bv_l => null()
-            !$omp end master
-
             ! restriction ....................................................
 
             call ChildToParentRestriction_3D &
@@ -242,24 +224,32 @@ contains
           end associate
         end do V_DOWN
 
-        V_COARSE: associate( f_1 => f % level(1) % val(:,:,:,:,1) &
-                           , u_1 => u % level(1) % val(:,:,:,:,1) )
+        associate( f_l => f % level(1) % val(:,:,:,:,1) &
+                 , u_l => u % level(1) % val(:,:,:,:,1) )
 
           ! coarse grid solver ...............................................
 
-          if (present(nu_0)) then
-            call this % Monitoring(1, '0', bc, lambda, nu_0, f_1, bv_1, u_1)
-            call this % CoarseSolver(bc, lambda, nu_0, u_1, f_1, bv_1)
-            call this % Monitoring(1, 's', bc, lambda, nu_0, f_1, bv_1, u_1)
+          !$omp master
+          if (l_top_ == 1 .and. present(bv)) then
+            bv_l => bv % level(1) % var
           else
-            associate(nu_1 => nu_v % level(1) % val(:,:,:,:,1))
-              call this % Monitoring(1, '0', bc, lambda, nu_1, f_1, bv_1, u_1)
-              call this % CoarseSolver(bc, lambda, nu_1, u_1, f_1, bv_1)
-              call this % Monitoring(1, 's', bc, lambda, nu_1, f_1, bv_1, u_1)
+            bv_l => null()
+          end if
+          !$omp end master
+
+          if (present(nu_0)) then
+            call this % Monitoring(1, '0', bc, lambda, nu_0, f_l, bv_l, u_l)
+            call this % CoarseSolver(bc, lambda, nu_0, u_l, f_l, bv_l)
+            call this % Monitoring(1, 's', bc, lambda, nu_0, f_l, bv_l, u_l)
+          else
+            associate(nu_l => nu_v % level(1) % val(:,:,:,:,1))
+              call this % Monitoring(1, '0', bc, lambda, nu_l, f_l, bv_l, u_l)
+              call this % CoarseSolver(bc, lambda, nu_l, u_l, f_l, bv_l)
+              call this % Monitoring(1, 's', bc, lambda, nu_l, f_l, bv_l, u_l)
             end associate
           end if
 
-        end associate V_COARSE
+        end associate
 
         V_UP: do l = 2, l_top_
 
@@ -270,27 +260,31 @@ contains
                    , v_l    => r % level(l  ) % val(:,:,:,:,1) &
                    , u_p    => u % level(l-1) % val(:,:,:,:,1) )
 
-            ! set boundary variables for l = t_top .......................
+            ! boundary values ..................................................
 
-            if (l == l_top_) then
-              !$omp master
-              bv_l => bv_top
-              !$omp end master
+            !$omp master
+            if (l == l_top_ .and. present(bv)) then
+              bv_l => bv % level(l) % var
+            else
+              bv_l => null()
             end if
+            !$omp end master
 
-            ! prolongation .................................................
+            ! prolongation .....................................................
 
             call ParentToChildInterpolation_3D &
                      (mesh_p, mesh_l, iop_cf(l-1), u_p, v_l)
 
             call MergeArrays(ONE, u_l, ONE, v_l)
 
-            ! post-smoothing .................................................
+            ! post-smoothing ...................................................
 
-            if (l < l_top_ .or. m == i_max_) then
-              n = this % ns_2
-            else
+            if (l < l_top_) then
+              n = this % NumSmoothingSteps(l, 2)
+            else if (m < i_max_) then
               n = this % ns_c
+            else
+              n = this % ns_f
             end if
 
             if (present(nu_0)) then
@@ -316,6 +310,12 @@ contains
           associate( f_l  => f % level(l) % val(:,:,:,:,1) &
                    , u_l  => u % level(l) % val(:,:,:,:,1) &
                    , r_l  => r % level(l) % val(:,:,:,:,1) )
+
+            !$omp master
+            if (present(bv)) then
+              bv_l => bv % level(l) % var
+            end if
+            !$omp end master
 
             if (present(nu_0)) then
               call this % Residual(l, bc, lambda, nu_0, f_l, bv_l, u_l, r_l)
@@ -359,6 +359,12 @@ contains
           associate( f_l  => f  % level(l) % val(:,:,:,:,1) &
                    , u_l  => u  % level(l) % val(:,:,:,:,1) &
                    , r_l  => r  % level(l) % val(:,:,:,:,1) )
+
+            !$omp master
+            if (present(bv)) then
+              bv_l => bv % level(l) % var
+            end if
+            !$omp end master
 
             if (present(nu_0)) then
               call this % Residual(l, bc, lambda, nu_0, f_l, bv_l, u_l, r_l)

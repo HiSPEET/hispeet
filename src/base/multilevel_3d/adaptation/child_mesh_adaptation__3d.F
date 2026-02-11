@@ -13,13 +13,13 @@ module Child_Mesh_Adaptation__3D
   use Element_Distribution_Map__3D
   use Element_Distribution_Data__3D
   use Child_Distribution_Map__3D
-  use Partitioner_Interface__3D
+  use Mesh_Partitioner__3D
   use Data_Exchange__3D
 
   implicit none
   private
 
-  public :: PartitioningOptions_3D   ! from Partitioner_Interface__3D
+  public :: MeshPartitionerOptions_3D   ! from Partitioner_Interface__3D
   public :: ChildMeshAdaptation_3D
 
   !=============================================================================
@@ -31,9 +31,9 @@ module Child_Mesh_Adaptation__3D
     !> Computes the target family partitions and first child element IDs
 
     module subroutine BuildChildMap(opt, parent, map)
-      class(PartitioningOptions_3D), intent(in)  :: opt
-      class(Mesh_3D),                intent(in)  :: parent
-      type(ChildDistributionMap_3D), intent(out) :: map
+      class(MeshPartitionerOptions_3D), intent(in)  :: opt
+      class(Mesh_3D),                   intent(in)  :: parent
+      type(ChildDistributionMap_3D),    intent(out) :: map
     end subroutine BuildChildMap
 
     !---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ contains
 
     ! arguments ................................................................
 
-    class(PartitioningOptions_3D),        intent(in)    :: opt
+    class(MeshPartitionerOptions_3D),     intent(in)    :: opt
     class(Mesh_3D),                       intent(inout) :: parent
     class(Mesh_3D),                       intent(out)   :: new_child
     class(Mesh_3D),             optional, intent(in)    :: old_child
@@ -125,6 +125,8 @@ contains
     if (parent % part >= 0) then
       call BuildChildMap(opt, parent, new_child_map)
       n_parts = new_child_map % n_parts
+    else
+      n_parts = -1
     end if
     call XMPI_Bcast(n_parts, 0, parent % comm_world)
 
@@ -175,9 +177,13 @@ contains
       call BuildChildData(parent, new_child, new_child_map, send_data)
     end if
 
-    ! transfer child element data ................................................
+    ! transfer child element data ..............................................
 
     !$omp master
+
+    if (logging) then
+      print '(2A)', prefix, 'transfer child element data #0'
+    end if
 
     ! send dimensions (skip local part)
     if (parent % part >= 0) then
@@ -225,11 +231,19 @@ contains
       end do
     end if
 
+    if (logging) then
+      print '(2A)', prefix, 'transfer child element data #X'
+    end if
+
     !$omp end master
 
     ! assign child element data ................................................
 
     !$omp master
+
+    if (logging) then
+      print '(2A)', prefix, 'assign child element data #0'
+    end if
 
     ! number of elements
     if (new_child % part >= 0) then
@@ -255,9 +269,17 @@ contains
       end do
     end if
 
-    ! complete mesh.............................................................
+    if (logging) then
+      print '(2A)', prefix, 'assign child element data #X'
+    end if
+
+    ! complete mesh ............................................................
 
     if (new_child % part >= 0) then
+
+      if (logging) then
+        print '(2A)', prefix, 'complete mesh #0'
+      end if
 
       !$omp master
       new_child % n_elem_frozen = count(new_child % element % frozen)
@@ -274,6 +296,10 @@ contains
       call new_child % IdentifyRanks()
       call new_child % IdentifyClusters()
       call new_child % BuildMapToParent()
+
+      if (logging) then
+        print '(2A)', prefix, 'complete mesh #X'
+      end if
 
     end if
 
@@ -292,8 +318,16 @@ contains
     !  - mapping between old and new children
     !     + `x_plan` for redistributing retained data
 
+    if (logging) then
+      print '(2A)', prefix, 'build connections #0'
+    end if
+
     call BuildConnections( parent, new_child_map, new_child &
                          , old_child, grandchild, x_plan    )
+
+    if (logging) then
+      print '(2A)', prefix, 'build connections #X'
+    end if
 
     ! copy retained element attributes .........................................
     !

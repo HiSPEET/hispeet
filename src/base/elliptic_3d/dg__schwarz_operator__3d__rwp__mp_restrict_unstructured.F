@@ -61,7 +61,7 @@
         do k = 0, po
         do j = 0, po
         do i = 0, po
-          rs(c0 + i, c0 + j, c0 + k, e) = c_sgn * real(r(i,j,k,e), RWP)
+          rs(c0+i, c0+j, c0+k, e) = c_sgn * real(r(i,j,k,e), RWP)
         end do
         end do
         end do
@@ -96,7 +96,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              rs(1 + i, c0 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+              rs(1+i, c0+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
             end do
             end do
             end do
@@ -116,7 +116,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              rs(c1 + i, c0 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+              rs(c1+i, c0+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
             end do
             end do
             end do
@@ -136,7 +136,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              rs(c0 + i, 1 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+              rs(c0+i, 1+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
             end do
             end do
             end do
@@ -156,7 +156,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              rs(c0 + i, c1 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+              rs(c0+i, c1+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
             end do
             end do
             end do
@@ -176,7 +176,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              rs(c0 + i, c0 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+              rs(c0+i, c0+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
             end do
             end do
             end do
@@ -196,7 +196,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              rs(c0 + i, c0 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+              rs(c0+i, c0+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
             end do
             end do
             end do
@@ -219,7 +219,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(c0 + i, 1 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(c0+i, 1+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -230,7 +230,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 1) % orientation, &
                                     r, re                                )
-              rs(c0 : c0 + po, no, no, e) = c_sgn * real(re, RWP)
+              rs(c0 : c0+po, no, no, e) = c_sgn * real(re, RWP)
 
             end if
           end if
@@ -252,7 +252,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(c0 + i, c1 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(c0+i, c1+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -263,7 +263,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 2) % orientation, &
                                     r, re                                )
-              rs(c0 : c0 + po, c1, no, e) = c_sgn * real(re, RWP)
+              rs(c0 : c0+po, c1, no, e) = c_sgn * real(re, RWP)
 
             end if
           end if
@@ -285,7 +285,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(c0 + i, 1 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(c0+i, 1+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -296,7 +296,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 3) % orientation, &
                                     r, re                                )
-              rs(c0 : c0 + po, no, c1, e) = c_sgn * real(re, RWP)
+              rs(c0 : c0+po, no, c1, e) = c_sgn * real(re, RWP)
 
             end if
           end if
@@ -318,7 +318,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(c0 + i, c1 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(c0+i, c1+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -329,7 +329,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 4) % orientation, &
                                     r, re                                )
-              rs(c0 : c0 + po, c1, c1, e) = c_sgn * real(re, RWP)
+              rs(c0 : c0+po, c1, c1, e) = c_sgn * real(re, RWP)
 
             end if
           end if
@@ -351,7 +351,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(1 + i, c0 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(1+i, c0+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -362,7 +362,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 5) % orientation, &
                                     r, re                                )
-              rs(no, c0 : c0 + po, no, e) = c_sgn * real(re, RWP)
+              rs(no, c0 : c0+po, no, e) = c_sgn * real(re, RWP)
 
             end if
           end if
@@ -384,7 +384,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(c1 + i, c0 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(c1+i, c0+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -395,7 +395,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 6) % orientation, &
                                     r, re                                )
-              rs(c1, c0 : c0 + po, no, e) = c_sgn * real(re, RWP)
+              rs(c1, c0 : c0+po, no, e) = c_sgn * real(re, RWP)
 
             end if
           end if
@@ -417,7 +417,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(1 + i, c0 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(1+i, c0+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -428,7 +428,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 7) % orientation, &
                                     r, re                                )
-              rs(no, c0 : c0 + po, c1, e) = c_sgn * real(re, RWP)
+              rs(no, c0 : c0+po, c1, e) = c_sgn * real(re, RWP)
 
             end if
           end if
@@ -450,7 +450,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(c1 + i, c0 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(c1+i, c0+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -461,7 +461,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 8) % orientation, &
                                     r, re                                )
-              rs(c1, c0 : c0 + po, c1, e) = c_sgn * real(re, RWP)
+              rs(c1, c0 : c0+po, c1, e) = c_sgn * real(re, RWP)
 
             end if
           end if
@@ -483,7 +483,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(1 + i, 1 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(1+i, 1+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -494,7 +494,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 9) % orientation, &
                                     r, re                                )
-              rs(no, no, c0 : c0 + po, e) = c_sgn * real(re, RWP)
+              rs(no, no, c0 : c0+po, e) = c_sgn * real(re, RWP)
 
             end if
           end if
@@ -516,7 +516,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(c1 + i, 1 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(c1+i, 1+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -527,7 +527,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge(10) % orientation, &
                                     r, re                                )
-              rs(c1, no, c0 : c0 + po, e) = c_sgn * real(re, RWP)
+              rs(c1, no, c0 : c0+po, e) = c_sgn * real(re, RWP)
 
             end if
           end if
@@ -549,7 +549,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(1 + i, c1 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(1+i, c1+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -560,7 +560,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge(11) % orientation, &
                                     r, re                                )
-              rs(no, c1, c0 : c0 + po, e) = c_sgn * real(re, RWP)
+              rs(no, c1, c0 : c0+po, e) = c_sgn * real(re, RWP)
 
             end if
           end if
@@ -582,7 +582,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(c1 + i, c1 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(c1+i, c1+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -593,7 +593,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge(12) % orientation, &
                                     r, re                                )
-              rs(c1, c1, c0 : c0 + po, e) = c_sgn * real(re, RWP)
+              rs(c1, c1, c0 : c0+po, e) = c_sgn * real(re, RWP)
 
             end if
           end if
@@ -615,7 +615,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(1 + i, 1 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(1+i, 1+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -646,7 +646,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(c1 + i, 1 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(c1+i, 1+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -677,7 +677,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(1 + i, c1 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(1+i, c1+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -708,7 +708,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(c1 + i, c1 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(c1+i, c1+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -739,7 +739,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(1 + i, 1 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(1+i, 1+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -770,7 +770,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(c1 + i, 1 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(c1+i, 1+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -801,7 +801,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(1 + i, c1 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(1+i, c1+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -832,7 +832,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                rs(c1 + i, c1 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                rs(c1+i, c1+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do

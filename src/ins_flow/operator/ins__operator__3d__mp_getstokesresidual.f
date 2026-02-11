@@ -14,7 +14,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Stokes residual for incompressible flow
 
-  module subroutine GetStokesResidual(this, tau, f, bv_u, mu, nu, u, r)
+  module subroutine GetStokesResidual(this, tau, f, bv, mu, nu, u, r)
 
     ! arguments ................................................................
 
@@ -24,11 +24,11 @@ contains
     !< τ, effective time step width
     real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
     !< f, nodal RHS, including old values, sources, convection ...
-    class(BoundaryVariable_3D), intent(in)  :: bv_u(:)
+    class(BoundaryVariable_3D), intent(in)  :: bv(:)
     !< boundary values
-    real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
+    real(RNP), contiguous, optional, intent(in) :: mu(:,:,:,:)
     !< μ, kinematic bulk viscosity
-    real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
+    real(RNP), contiguous, optional, intent(in) :: nu(:,:,:,:)
     !< ν, kinematic shear viscosity
     real(RNP), contiguous, intent(in) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure
@@ -41,17 +41,21 @@ contains
     real(RNP), allocatable, save :: up(:,:,:,:,:) ! outer traces
     real(RNP), allocatable, save :: w (:,:,:,:,:) ! work
 
-    integer :: ne, np
-    integer :: e
+    real(RNP) :: lambda
+    integer :: na, ne, np
+    integer :: c, e
 
     ! initialization ...........................................................
 
+    lambda = 1/tau
+
     np = size(u,1)
-    ne = size(u,4)
+    ne = this % mesh % n_elem
+    na = this % mesh % n_elem_active
 
     !$omp master
     allocate(mm (np, np, np, ne))
-    allocate(up (np, np,  6, ne, 4), source = ZERO)
+    allocate(up (np, np,  6, ne, 6), source = ZERO)
     allocate(w  (np, np, np, ne, 4), source = ZERO)
     !$omp end master
     !$omp barrier
@@ -67,27 +71,39 @@ contains
              , v      => u (:,:,:,:,1:3) &
              , p      => u (:,:,:,:, 4 ) &
              , vp     => up(:,:,:,:,1:3) &
+             , sp     => up(:,:,:,:,4:6) &
              , pp     => up(:,:,:,:, 4 ) &
              , grad_p => w (:,:,:,:,1:3) )
 
       ! contributions ..........................................................
 
+      ! diffusion
+      call this % GetDiffusionTerm(mu, nu, v, vp, sp, r_m, bv)
+
       ! pressure gradient and velocity divergence
-      call GetOuterTraces_3D(this % mesh, u(:,:,:,:,1:4), up)
+      call GetOuterTraces_3D(this % mesh, p, pp)
       call TPO_Grad(this % eop_u, this % sem_u, p, pp, grad_p)
       call TPO_Div( this % eop_u, this % sem_u, v, vp, r_c)
-
-      ! diffusion
-      call this % GetDiffusionResidual(tau, mu, nu, f, bv_u, v, r_m)
 
       ! complete residual ......................................................
 
       !$omp do
-      do e = 1, ne
-        r_m(:,:,:,e,1) = r_m(:,:,:,e,1) - mm(:,:,:,e) * grad_p(:,:,:,e,1)
-        r_m(:,:,:,e,2) = r_m(:,:,:,e,2) - mm(:,:,:,e) * grad_p(:,:,:,e,2)
-        r_m(:,:,:,e,3) = r_m(:,:,:,e,3) - mm(:,:,:,e) * grad_p(:,:,:,e,3)
-        r_c(:,:,:,e)   = mm(:,:,:,e) * (f_c(:,:,:,e) - r_c(:,:,:,e))
+      do e = 1, na
+        do c = 1, 3
+          r_m(:,:,:,e,c) = r_m(:,:,:,e,c)                        &
+                         + mm(:,:,:,e) * ( f_m(:,:,:,e,c)        &
+                                         - lambda * v(:,:,:,e,c) &
+                                         - grad_p(:,:,:,e,c)     )
+        end do
+        r_c(:,:,:,e) = mm(:,:,:,e) * (f_c(:,:,:,e) - r_c(:,:,:,e))
+      end do
+      !$omp end do nowait
+
+      !$omp do collapse(2)
+      do c = 1, 4
+      do e = na+1, ne
+        r(:,:,:,e,c) = 0
+      end do
       end do
 
     end associate

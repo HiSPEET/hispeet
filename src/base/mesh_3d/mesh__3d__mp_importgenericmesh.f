@@ -68,6 +68,7 @@ contains
         mesh % boundary(i) % id       = i
         mesh % boundary(i) % coupled  = generic_mesh % boundary(i) % coupled
         mesh % boundary(i) % polarity = generic_mesh % boundary(i) % polarity
+        mesh % boundary(i) % map      = generic_mesh % boundary(i) % map
       end do
 
       ! mesh components ........................................................
@@ -85,6 +86,7 @@ contains
       call mesh % BuildGhosts()
       call mesh % BuildCuboids()
       call mesh % IdentifyRanks()
+      call mesh % BuildSFC()
 
       allocate(mesh % map_child(0))
       allocate(mesh % map_parent(0))

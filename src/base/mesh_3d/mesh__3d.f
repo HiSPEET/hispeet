@@ -54,6 +54,7 @@ module Mesh__3D
 
     logical   :: is_root    = .true.  !< T if root (bottom) level mesh
     logical   :: is_top     = .true.  !< T if top level mesh
+    logical   :: has_sfc    = .false. !< T if space filling curve is available
     character :: refinement = ''      !< 'c' clone or 's' subdivision
 
     ! MPI ......................................................................
@@ -118,6 +119,7 @@ module Mesh__3D
     procedure :: BuildCuboids
     procedure :: BuildMapToChild
     procedure :: BuildMapToParent
+    procedure :: BuildSFC
     procedure :: IdentifyClusters
     procedure :: IdentifyVertices
     procedure :: IdentifyEdges
@@ -230,6 +232,13 @@ module Mesh__3D
     end subroutine BuildMapToParent
 
     !---------------------------------------------------------------------------
+    !> Generation of a space filling curve
+
+    module subroutine BuildSFC(mesh)
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
+    end subroutine BuildSFC
+
+    !---------------------------------------------------------------------------
     !> Identification of sibling element clusters
 
     module subroutine IdentifyClusters(mesh)
@@ -318,6 +327,7 @@ module Mesh__3D
     real(RNP) :: dx(3)      =  0      !< regular mesh spacing in directions 1:3
     logical   :: is_root    = .true.  !< T if root (bottom) level mesh
     logical   :: is_top     = .true.  !< T if top level mesh
+    logical   :: has_sfc    = .false. !< T if space filling curve is available
     character :: refinement = ''      !< 'c' clone or 's' subdivision
 
     type(MeshBoundaryAttributes_3D), allocatable :: boundary(:)
@@ -378,6 +388,7 @@ contains
     this % dx         = attrib % dx
     this % is_root    = attrib % is_root
     this % is_top     = attrib % is_top
+    this % has_sfc    = attrib % has_sfc
     this % refinement = attrib % refinement
 
     allocate(this % boundary( this%n_bound ))
@@ -406,6 +417,7 @@ contains
     this % regular       = .false.
     this % is_root       = .true.
     this % is_top        = .true.
+    this % has_sfc       = .false.
 
     this % dx            =  0
 
@@ -469,6 +481,7 @@ contains
 
     attrib % is_root    = mesh % is_root
     attrib % is_top     = mesh % is_top
+    attrib % has_sfc    = mesh % has_sfc
     attrib % refinement = mesh % refinement
 
     attrib % boundary = MeshBoundaryAttributes_3D(mesh % boundary)
@@ -484,7 +497,7 @@ contains
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
     integer :: attrib_int(3), b
-    logical :: attrib_log(4)
+    logical :: attrib_log(5)
 
     ! mesh attributes ..........................................................
 
@@ -496,6 +509,7 @@ contains
     attrib_log(2) = this % regular
     attrib_log(3) = this % is_root
     attrib_log(4) = this % is_top
+    attrib_log(5) = this % has_sfc
 
     call XMPI_Bcast(attrib_int, root, comm)
     call XMPI_Bcast(attrib_log, root, comm)
@@ -508,6 +522,7 @@ contains
     this % regular    = attrib_log(2)
     this % is_root    = attrib_log(3)
     this % is_top     = attrib_log(4)
+    this % has_sfc    = attrib_log(5)
 
     call XMPI_Bcast(this % dx        , root, comm)
     call XMPI_Bcast(this % refinement, root, comm)

@@ -1,0 +1,75 @@
+!===============================================================================
+! FAS MG with local hp-refinement and simple pressure smoothing
+!
+! Copy this file to 'test-p-global-simple' before use
+
+!-------------------------------------------------------------------------------
+! Control
+
+&control_prm
+
+! log levels,  set to ≥ 1 for higher verbosity
+! log_level                 = 0
+! log_level_inner_iteration = 1
+! log_level_outer_iteration = 1
+! log_level_multigrid_cycle = 1
+
+  problem_file  = 'cylinder_2d'
+  flow_problem  = 'Cylinder2D'
+  flow_domain   =  10
+  raw_mesh_file = '../../../gmsh/cylinder_2d'
+
+  refinement_strategy = 'L'
+
+! char_freq  = 0 ! set frequency of control output
+! avg_rate   = 1 ! sampling rate for averaging, 0 if none
+! vtk_mode   = 3 ! VTK export mode, 0/1/2/3: none/all/active/leafs
+
+! restart_tag_out = 'run1'
+/
+
+!-------------------------------------------------------------------------------
+! Mesh
+
+&ml_mesh_options_3d__static
+  l_top          =  5  ! initial top level
+  l_adapt        =  3
+  n_bnd          =  1
+  n_box          =  1
+  n_parts_root   =  8  ! number of partitions at root level   [1]
+  n_parts_growth =  4  ! partition number growth rate         [1]
+  n_con_root     =  4
+  n_con_child    =  3
+/
+
+&ml_mesh_options_3d__dynamic
+  refinement          =  2*'c', 2*'s'    ! (1:l_top-1) {'c','s'}
+  adapt_bnd(1:1)      =  7               ! (n_bnd)
+  adapt_box(1:3,1,1)  =  0.0, -0.05, -1  ! (1:3,1,*)
+  adapt_box(1:3,2,1)  =  1.0,  0.05,  1  ! (1:3,2,*)
+/
+
+!-------------------------------------------------------------------------------
+! Spatial
+
+&spatial_prm
+
+  po = 2 4 8 8 8
+
+  ml_ins_opt%ins%c_mu    = 1
+  ml_ins_opt%ins%i_max_p = 1000
+  ml_ins_opt%ins%i_max_v = 10
+/
+
+!-------------------------------------------------------------------------------
+! Temporal
+
+&temporal_prm
+
+  ml_bdf2_opt%n_fmg = 1
+  ml_bdf2_opt%n_cyc = 4
+
+  t_end  = 8
+  dt     = 1e-5
+  nt_max = 14
+/

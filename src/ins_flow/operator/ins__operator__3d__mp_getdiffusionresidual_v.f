@@ -15,15 +15,15 @@ contains
   !> Computes the DG-SEM residual of  of the viscous diffusion term including
   !> the implicit part of the discretized time derivative, i.e.,
   !>
-  !>     r = Fd(v, vb, sb) - Mv/τ + Mf
+  !>     r = F_d(v, vb, sb) - Mv/τ + Mf
   !>
-  !> where `Fd` is the weak form of the diffusion term for the given velocity
+  !> where `F_d` is the weak form of the diffusion term for the given velocity
   !> `v` and boundary values `vb`, `sb` obtained from the boundary variable
-  !> `bv_u`, `M` is the diagonal mass matrix and `f` the nodal coefficients of
+  !> `bv`, `M` is the diagonal mass matrix and `f` the nodal coefficients of
   !> the sources, which comprise the remaining coefficients of the momentum
   !> equation.
 
-  module subroutine GetDiffusionResidual_V(this, tau, mu, nu, f, bv_u, v, r, form)
+  module subroutine GetDiffusionResidual_V(this, tau, mu, nu, f, bv, v, r, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -40,14 +40,10 @@ contains
     real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
     !< sources, f(np,np,np,ne,3)
 
-    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
+    class(BoundaryVariable_3D), intent(in) :: bv(:)
     !< boundary values
-    !!   - at ∂Ωᴰ
-    !!       *  bv_u % val(*,1:3)  =  vᵇ          (inout)
-    !!       *  bv_u % val(*, 4 )  =  ∂p/∂n       (out)
-    !!   - at ∂Ωᴼ
-    !!       *  bv_u % val(*, 4 )  =  pᵇ          (inout)
-    !!       *  bv_u % val(*, 5 )  =  ∆pᵇ         (in)
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]
+    !!   - Γᴼ :  [ - , - , ∆p, p ]
 
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
@@ -65,7 +61,7 @@ contains
     real(RNP), allocatable, save :: sp(:,:,:,:,:) ! viscous flux traces s⁺
 
     real(RNP) :: lambda
-    integer   :: np
+    integer   :: na, ne, np
     integer   :: d, e
 
     associate(mesh => this % sem_u % mesh)
@@ -73,11 +69,13 @@ contains
       ! initialization .........................................................
 
       np = size(v,1)
+      na = mesh % n_elem_active
+      ne = mesh % n_elem
 
       !$omp master
-      allocate( mm (np, np, np, mesh%n_elem) )
-      allocate( vp (np, np,  6, mesh%n_elem, 3), source = ZERO )
-      allocate( sp (np, np,  6, mesh%n_elem, 3), source = ZERO )
+      allocate( mm (np, np, np, ne) )
+      allocate( vp (np, np,  6, ne, 3), source = ZERO )
+      allocate( sp (np, np,  6, ne, 3), source = ZERO )
       !$omp end master
       !$omp barrier
 
@@ -87,13 +85,21 @@ contains
 
       ! compute residual .......................................................
 
-      call this % GetDiffusionTerm_V(mu, nu, v, vp, sp, r, bv_u, form=form)
+      call this % GetDiffusionTerm_V(mu, nu, v, vp, sp, r, bv, form=form)
 
       !$omp do collapse(2)
-      do e = 1, mesh % n_elem
+      do e = 1, na
         do d = 1, 3
           r(:,:,:,e,d) = r(:,:,:,e,d) &
                        + mm(:,:,:,e) * (f(:,:,:,e,d) - lambda * v(:,:,:,e,d))
+        end do
+      end do
+      !$omp end do nowait
+
+      !$omp do collapse(2)
+      do e = na+1, ne
+        do d = 1, 3
+          r(:,:,:,e,d) = 0
         end do
       end do
 

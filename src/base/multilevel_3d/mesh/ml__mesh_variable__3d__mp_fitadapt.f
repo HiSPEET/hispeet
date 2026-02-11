@@ -5,6 +5,7 @@
 !===============================================================================
 
 submodule(ML__Mesh_Variable__3D) MP_FitAdapt
+  use Array_Assignments
   use Parent_To_Child_Interpolation__3D
   implicit none
 
@@ -71,6 +72,11 @@ contains
     integer :: i
 
     ! initialization ...........................................................
+
+    if (x_plan % identity) then
+      call SetArray(new_var%val, old_var%val, multi=.true.)
+      return
+    end if
 
     if (allocated(x_plan % send_map)) then
       n_send = size(x_plan % send_map)

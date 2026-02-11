@@ -13,6 +13,7 @@ module Import_GMSH__3D
   use Kind_Parameters
   use Constants
   use Execution_Control
+  use Affine_Transformation__3D
   use Generic_Mesh__3D
   implicit none
   private
@@ -60,6 +61,7 @@ module Import_GMSH__3D
     integer :: physicalTag = 0 !< GMSH physical tag
     integer :: nFaces      = 0 !< num boundary faces
     integer :: coupledID   = 0 !< numeration ID of coupled surface
+    real(RNP) :: map(4,4)  = 0 !< affine map to coupled surface
   end type MshBoundary
 
   !-----------------------------------------------------------------------------
@@ -77,10 +79,10 @@ module Import_GMSH__3D
     integer :: periodicID  = 0       !< numeration ID of coupled surface
     integer :: nFaces      = 0       !< number of corresponding faces
     integer :: nNodes      = 0       !< number of corresponding nodes
-    logical :: periodic    = .FALSE. !< flag for periodic furfaces
-    logical :: master      = .FALSE. !< flag for master furfaces
+    logical :: periodic    = .FALSE. !< flag for periodic surfaces
+    logical :: master      = .FALSE. !< flag for master surfaces
+    real(RNP) :: map(4,4)  = 0       !< affine map to coupled surface
     integer, allocatable :: nodes(:) !< tags of surface nodes
-    real(RNP) :: A(4,4)              !< affinity transform to coupled surface
   end type MshSurface
 
   !-----------------------------------------------------------------------------
@@ -146,7 +148,7 @@ contains
     integer, allocatable :: p_face(:)      ! list of face nodes
     logical, allocatable :: mask(:)        ! array for masking nodes or vertices
 
-    real(RNP):: affinityMatrix(4,4) ! affinity transformation matrix
+    real(RNP):: affinityMatrix(4,4) ! affine transformation matrix
 
     integer :: MSH, stat
     integer :: e, f, i, j, k, l, m, n, param, pT, s, sT
@@ -352,17 +354,17 @@ contains
           end do
 
           ! master surface
-          surface(m) % periodicTag    = entityTag
-          surface(m) % periodicID     = s
-          surface(m) % periodic       = .TRUE.
-          surface(m) % master         = .TRUE.
-          surface(m) % A              = transpose(affinityMatrix)
+          surface(m) % periodicTag = entityTag
+          surface(m) % periodicID  = s
+          surface(m) % periodic    = .TRUE.
+          surface(m) % master      = .TRUE.
+          surface(m) % map         = transpose(affinityMatrix)
 
           ! slave surface
-          surface(s) % periodicTag    = entityTagMaster
-          surface(s) % periodicID     = m
-          surface(s) % periodic       = .TRUE.
-          surface(s) % master         = .FALSE.
+          surface(s) % periodicTag = entityTagMaster
+          surface(s) % periodicID  = m
+          surface(s) % periodic    = .TRUE.
+          surface(s) % master      = .FALSE.
 
         end if
       end do
@@ -577,6 +579,10 @@ contains
             k = surface(surface(j)%periodicID)%boundaryID
             boundary(i)%coupledID = k
             boundary(k)%coupledID = i
+            if (surface(j)%master) then
+              boundary(i)%map = surface(j)%map
+              boundary(k)%map = InverseAffineMap_3D(surface(j)%map)
+            end if
             exit
           end if
         end do
@@ -660,10 +666,11 @@ contains
     allocate(mesh%boundary(numBoundaries))
 
     do i = 1, numBoundaries
-      mesh%boundary(i)%id      = i
-      mesh%boundary(i)%name    = boundary(i)%physicalName
-      mesh%boundary(i)%coupled = boundary(i)%coupledID
-      allocate(mesh%boundary(i)%face(boundary(i)%nFaces))
+      mesh%boundary(i) % id      = i
+      mesh%boundary(i) % name    = boundary(i) % physicalName
+      mesh%boundary(i) % coupled = boundary(i) % coupledID
+      mesh%boundary(i) % map     = boundary(i) % map
+      allocate(mesh % boundary(i) % face( boundary(i)%nFaces ))
 
       k = 0
       do j = 1, numBoundaryFaces

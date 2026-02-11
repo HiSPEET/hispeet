@@ -82,6 +82,10 @@ contains
     offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%is_top))
     call H5Tinsert_f(H5T_MeshAttributes, 'is_top', offset, H5T_LOGICAL, err)
 
+    ! insert has_sfc
+    offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%has_sfc))
+    call H5Tinsert_f(H5T_MeshAttributes, 'has_sfc', offset, H5T_LOGICAL, err)
+
     ! insert refinement
     offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%refinement))
     call H5Tinsert_f(H5T_MeshAttributes, 'refinement', offset, H5T_CHARACTER, err)

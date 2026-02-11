@@ -24,6 +24,10 @@ module VTK_Binding
   ! VTK data objects types
 
   !> VTK data object type for unstructured grids
+  integer(C_INT), parameter, public :: VTK_POLY_DATA         = 0
+  integer(C_INT), parameter, public :: VTK_STRUCTURED_POINTS = 1
+  integer(C_INT), parameter, public :: VTK_STRUCTURED_GRID   = 2
+  integer(C_INT), parameter, public :: VTK_RECTILINEAR_GRID  = 3
   integer(C_INT), parameter, public :: VTK_UNSTRUCTURED_GRID = 4
 
   !-----------------------------------------------------------------------------

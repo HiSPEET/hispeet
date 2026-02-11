@@ -8,18 +8,18 @@ contains
   !>
   !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`
 
-  module subroutine FAS_MG_Residual_C(this, bc, lambda, nu, f, bv, u, r, l_top)
+  module subroutine FAS_MG_Residual_C(this, bc, lambda, nu, bv, f, u, r, l_top)
     class(ML_DG_EllipticSolver_3D), intent(in)    :: this
     character,                      intent(in)    :: bc(:)
     real(RNP),                      intent(in)    :: lambda
     real(RNP),                      intent(in)    :: nu
-    class(ML_MeshVariable_3D),      intent(in)    :: f
     class(ML_BoundaryVariable_3D),  intent(in)    :: bv
+    class(ML_MeshVariable_3D),      intent(in)    :: f
     class(ML_MeshVariable_3D),      intent(in)    :: u
     class(ML_MeshVariable_3D),      intent(inout) :: r
-    integer,   optional,            intent(in)    :: l_top
+    integer,              optional, intent(in)    :: l_top
 
-    call FAS_MG_Residual_X(this, bc, lambda, nu, null(), f, bv, u, r, l_top)
+    call FAS_MG_Residual_X(this, bc, lambda, nu, null(), bv, f, u, r, l_top)
 
   end subroutine FAS_MG_Residual_C
 
@@ -28,40 +28,46 @@ contains
   !>
   !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`
 
-  module subroutine FAS_MG_Residual_V(this, bc, lambda, nu, f, bv, u, r, l_top)
+  module subroutine FAS_MG_Residual_V(this, bc, lambda, nu, bv, f, u, r, l_top)
     class(ML_DG_EllipticSolver_3D), intent(in)    :: this
     character,                      intent(in)    :: bc(:)
     real(RNP),                      intent(in)    :: lambda
     class(ML_MeshVariable_3D),      intent(in)    :: nu
-    class(ML_MeshVariable_3D),      intent(in)    :: f
     class(ML_BoundaryVariable_3D),  intent(in)    :: bv
+    class(ML_MeshVariable_3D),      intent(in)    :: f
     class(ML_MeshVariable_3D),      intent(in)    :: u
     class(ML_MeshVariable_3D),      intent(inout) :: r
-    integer,   optional,            intent(in)    :: l_top
+    integer,              optional, intent(in)    :: l_top
 
-    call FAS_MG_Residual_X(this, bc, lambda, null(), nu, f, bv, u, r, l_top)
+    call FAS_MG_Residual_X(this, bc, lambda, null(), nu, bv, f, u, r, l_top)
 
   end subroutine FAS_MG_Residual_V
 
   !-----------------------------------------------------------------------------
   !> Generic FAS-MG residual with constant or variable diffusivity
   !>
-  !> Use `l_top` to specify a top  level lower than `size(this%ml_op%sem)`
+  !> If the boundary values `bv` and the sources `f` are absent, the result `r`
+  !> equals the negative homogeneous FAS operator
+  !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`.
 
-  module subroutine FAS_MG_Residual_X( this, bc, lambda, nu_0, nu_v, f, bv &
+  module subroutine FAS_MG_Residual_X( this, bc, lambda, nu_0, nu_v, bv, f &
                                      , u, r, l_top)
-    class(ML_DG_EllipticSolver_3D),      intent(in)    :: this
-    character,                           intent(in)    :: bc(:)
-    real(RNP),                           intent(in)    :: lambda
-    real(RNP),                 optional, intent(in)    :: nu_0
-    class(ML_MeshVariable_3D), optional, intent(in)    :: nu_v
-    class(ML_MeshVariable_3D),           intent(in)    :: f
-    class(ML_BoundaryVariable_3D),       intent(in)    :: bv
-    class(ML_MeshVariable_3D),           intent(in)    :: u
-    class(ML_MeshVariable_3D),           intent(inout) :: r
-    integer,   optional,                 intent(in)    :: l_top
+    class(ML_DG_EllipticSolver_3D),                  intent(in)    :: this
+    character,                                       intent(in)    :: bc(:)
+    real(RNP),                                       intent(in)    :: lambda
+    real(RNP),                             optional, intent(in)    :: nu_0
+    class(ML_MeshVariable_3D),             optional, intent(in)    :: nu_v
+    class(ML_BoundaryVariable_3D), target, optional, intent(in)    :: bv
+    class(ML_MeshVariable_3D),             optional, intent(in)    :: f
+    class(ML_MeshVariable_3D),                       intent(in)    :: u
+    class(ML_MeshVariable_3D),                       intent(inout) :: r
+    integer,                               optional, intent(in)    :: l_top
 
-    integer :: l, l_top_
+    type(ML_MeshVariable_3D), allocatable, save :: g, v
+    type(BoundaryVariable_3D), pointer, save :: bv_l(:) => null()
+    type(BoundaryVariable_3D), pointer, save :: bv_p(:) => null()
+
+    integer :: e, l, l_top_
 
     if (present(l_top)) then
       l_top_ = min(l_top, size(this%ml_op%sem))
@@ -69,22 +75,110 @@ contains
       l_top_ = size(this%ml_op%sem)
     end if
 
-    do l = 1, l_top_
-      associate( bv_l   => bv % level(l  ) % var            &
-               , f_l    => f  % level(l  ) % val(:,:,:,:,1) &
-               , u_l    => u  % level(l  ) % val(:,:,:,:,1) &
-               , r_l    => r  % level(l  ) % val(:,:,:,:,1) )
+    !$omp master
+    allocate(g, v)
+    call g % Init(this%ml_op, nc = 1, l_top = l_top_)
+    call v % Init(this%ml_op, nc = 1, l_top = l_top_)
+    !$omp end master
+
+    if (present(f)) then
+      !$omp barrier !! g must be initialized !!
+      call ML_SetArray_3D(g, f, l_top = l_top_)
+    end if
+
+    do l = l_top_, 1, -1
+      associate( g_l => g % level(l) % val(:,:,:,:,1) &
+               , u_l => u % level(l) % val(:,:,:,:,1) &
+               , r_l => r % level(l) % val(:,:,:,:,1) )
+
+        !$omp master
+        if (present(bv)) then
+          bv_l => bv % level(l) % var
+        end if
+        !$omp end master
+
+        ! residual .............................................................
 
         if (present(nu_0)) then
-          call this % Residual(l, bc, lambda, nu_0, f_l, bv_l, u_l, r_l)
+          call this % Residual(l, bc, lambda, nu_0, g_l, bv_l, u_l, r_l)
         else
           associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
-            call this % Residual(l, bc, lambda, nu_l, f_l, bv_l, u_l, r_l)
+            call this % Residual(l, bc, lambda, nu_l, g_l, bv_l, u_l, r_l)
           end associate
         end if
 
+        if (l == 1) exit
+
+        ! parent FAS-RHS .......................................................
+
+        associate( mesh_l => this % ml_op % sem(l  ) % mesh  &
+                 , mesh_p => this % ml_op % sem(l-1) % mesh  &
+                 , pop_lp => this % ml_op % pop_fc_x(l)      &
+                 , iop_lp => this % ml_op % iop_fc_x(l)      &
+                 , iop_pl => this % ml_op % iop_cf_x(l-1)    &
+                 , ell_p  => this % elliptic_op(l-1)         &
+                 , g_p    => g % level(l-1) % val(:,:,:,:,1) &
+                 , r_p    => r % level(l-1) % val(:,:,:,:,1) &
+                 , u_p    => u % level(l-1) % val(:,:,:,:,1) &
+                 , v_p    => v % level(l-1) % val(:,:,:,:,1) )
+
+          !$omp master
+          if (present(bv)) then
+            bv_p => bv % level(l-1) % var
+          end if
+          !$omp end master
+
+          ! project solution to regularly refined parent elements
+          select case(this % fc_projection)
+          case('I')
+            ! interpolation
+            call ChildToParentProjection_3D(mesh_l, mesh_p, iop_lp, u_l, v_p)
+          case('P')
+            ! L²-projection
+            call ChildToParentProjection_3D(mesh_l, mesh_p, pop_lp, u_l, v_p)
+          end select
+
+          ! restrict residual
+          call ChildToParentRestriction_3D(mesh_l, mesh_p, iop_pl, r_l, r_p)
+
+          do e = 1, mesh_p % n_elem
+            if (mesh_p % element(e) % adaptation % refinement >= 1000) then
+              ! residual contribution to FAS-RHS in parent twigs
+              g_p(:,:,:,e) = r_p(:,:,:,e)
+            else
+              ! set v_p to solution in leaves
+              v_p(:,:,:,e) = u_p(:,:,:,e)
+            end if
+          end do
+
+          ! apply parent operator to projected solution
+          if (present(nu_0)) then
+            call ell_p % Apply(bc, lambda, nu_0, bv_p, v_p, r_p)
+          else
+            associate(nu_p => nu_v % level(l-1) % val(:,:,:,:,1))
+              call ell_p % Apply(bc, lambda, nu_p, bv_p, v_p, r_p)
+            end associate
+          end if
+
+          ! add operator contribution to parent FAS-RHS
+          do e = 1, mesh_p % n_elem
+            if (mesh_p % element(e) % adaptation % refinement >= 1000) then
+              g_p(:,:,:,e) = g_p(:,:,:,e) + r_p(:,:,:,e)
+            end if
+          end do
+
+        end associate
+
       end associate
     end do
+
+    ! finalization .............................................................
+
+    !$omp master
+    deallocate(g, v)
+    bv_l => null()
+    bv_p => null()
+    !$omp end master
 
   end subroutine FAS_MG_Residual_X
 

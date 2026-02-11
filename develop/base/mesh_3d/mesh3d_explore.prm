@@ -1,11 +1,12 @@
 &input
-  np = 2,1,1
-  ep = 1,1,1
+  np = 1,1,1
+  ep = 2,2,2
   pg = 1
   po = 2
   periodic = F,F,F
 /
 
 &control
-  test_avg = .true.
+  test_avg   = .true.
+  export_sfc = .true.
 /

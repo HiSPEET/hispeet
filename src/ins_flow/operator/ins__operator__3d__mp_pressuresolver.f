@@ -20,16 +20,12 @@ contains
 
     class(INS_Operator_3D), intent(in) :: this !< INS operator
 
-    real(RNP), intent(in) :: tau !<  effective time step width
+    real(RNP), intent(in) :: tau !< effective time step width
 
-    class(BoundaryVariable_3D), intent(inout) :: bv_u(:)
+    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
     !< boundary values
-    !!   - components 1:3
-    !!       * Γᴰ :  vᵇ  →  vᵇ         (unchanged)
-    !!       * Γᴼ :  ×                 (unused)
-    !!   - component 4
-    !!       * Γᴰ :  ×   →  ∂p/∂n
-    !!       * Γᴼ :  pᵇ  →  pᵇ         (unchanged)
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]    (1:3 unchanged)
+    !!   - Γᴼ :  [ - , - , - , p ]    (all unchanged)
 
     real(RNP), contiguous, intent(in)    :: v(:,:,:,:,:) !< preliminary velocity
     real(RNP), contiguous, intent(in)    :: f(:,:,:,:)   !< source at v-points
@@ -49,7 +45,7 @@ contains
     logical   :: mixed_order
     integer   :: i_max
     real(RNP) :: ct, r_max, r_red
-    integer   :: b, e
+    integer   :: b, e, na, ne
 
     associate( po    => this % eop_u % po     &
              , pq    => this % eop_p % po     &
@@ -62,6 +58,9 @@ contains
       mixed_order = pq /= po
       ct = 1 / tau
 
+      na = mesh % n_elem_active
+      ne = mesh % n_elem
+
       i_max = this % i_max_p
       r_red = this % r_red
       r_max = this % r_max
@@ -70,11 +69,11 @@ contains
       end if
 
       !$omp master
-      allocate(mm(0:pq, 0:pq, 0:pq, 1:mesh%n_elem))
+      allocate(mm(0:pq, 0:pq, 0:pq, 1:ne))
       allocate(g, mold = mm)
       allocate(bv_p(mesh % n_bound))
       do b = 1, mesh % n_bound
-        call bv_u(b) % GetSlice(bv_p(b), first = 4, last = 4)
+        call bv_p(b) % Init(mesh%boundary(b), po, nc = 1)
       end do
       if (pq /= po) then
         allocate(q, mold = mm)
@@ -100,7 +99,7 @@ contains
         call TPO_AAA(this % iop_up % A, p, q) ! interpolation of pressure
         call TPO_AAA(this % pop_up % A, f, g) ! L² projection of RHS
         !$omp do
-        do e = 1, mesh % n_elem
+        do e = 1, ne
           g(:,:,:,e) = -ct * mm(:,:,:,e) * g(:,:,:,e)
         end do
 
@@ -119,12 +118,12 @@ contains
         end select
 
         ! interpolate result to order po
-        call TPO_AAA(this % iop_pu % A, q, p)
+        call TPO_AAA(this % iop_pu % A, q(:,:,:,1:na), p(:,:,:,1:na))
 
       else
 
         !$omp do
-        do e = 1, mesh % n_elem
+        do e = 1, ne
           g(:,:,:,e) = -ct * mm(:,:,:,e) * f(:,:,:,e)
         end do
 
@@ -187,7 +186,7 @@ contains
                            , vb       = bv_u(b) % val(:,:,:,1:3)     &
                            , dn_p     = bv_p(b) % val(:,:,:,1)       )
       case('D')
-        ! Dirichlet BC already copied to bv_p(b)
+        call SetArray(bv_p(b) % val(:,:,:,1), bv_u(b) % val(:,:,:,4))
       end select
 
       if (present(bv_q)) then
@@ -358,9 +357,9 @@ contains
         call ml_solver_p % CS_MG_Solver( bc     = this % problem % bc_p  &
                                        , lambda = ZERO                   &
                                        , nu     = ONE                    &
-                                       , u      = ml_p                   &
-                                       , f      = ml_f                   &
                                        , bv     = ml_bv                  &
+                                       , f      = ml_f                   &
+                                       , u      = ml_p                   &
                                        , i_max  = i_max                  &
                                        , l_top  = l_top                  &
                                        , ni     = ni                     )
@@ -368,9 +367,9 @@ contains
         call ml_solver_p % CS_MGCG_Solver( bc     = this % problem % bc_p  &
                                          , lambda = ZERO                   &
                                          , nu     = ONE                    &
-                                         , u      = ml_p                   &
-                                         , f      = ml_f                   &
                                          , bv     = ml_bv                  &
+                                         , f      = ml_f                   &
+                                         , u      = ml_p                   &
                                          , i_max  = i_max                  &
                                          , l_top  = l_top                  &
                                          , ni     = ni                     )

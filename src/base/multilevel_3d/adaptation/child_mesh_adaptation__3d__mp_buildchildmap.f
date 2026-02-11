@@ -7,9 +7,9 @@ contains
   !> Computes the target family partitions and first child element IDs
 
   module subroutine BuildChildMap(opt, parent, map)
-    class(PartitioningOptions_3D), intent(in)  :: opt
-    class(Mesh_3D),                intent(in)  :: parent
-    type(ChildDistributionMap_3D), intent(out) :: map
+    class(MeshPartitionerOptions_3D), intent(in)  :: opt
+    class(Mesh_3D),                   intent(in)  :: parent
+    type(ChildDistributionMap_3D),    intent(out) :: map
 
     integer, allocatable, target, save :: tp_child(:)
     integer, contiguous, pointer, save :: tp_child_val(:,:,:,:) => null()
@@ -29,8 +29,16 @@ contains
 
     allocate(tp_child(parent%n_elem + parent%n_ghost), source = -1)
 
-    ! graph-based partitioning
-    call ParMETIS_Partitioner_3D(opt, parent, tp_child, n_parts)
+    if (logging) then
+      print '(2A)', prefix, 'partitioning'
+    end if
+
+    ! partitioning
+    call MeshPartitioner_3D(opt, parent, tp_child, n_parts)
+
+    if (logging) then
+      print '(2A)', prefix, 'transfer to ghosts'
+    end if
 
     ! transfer target partition IDs to ghosts
     if (parent % n_ghost > 0) then
@@ -38,6 +46,10 @@ contains
       tp_child_buf = ElementTransferBuffer_3D(parent, tp_child_val)
       call tp_child_buf % Transfer(parent, tp_child_val, tag = 1000)
       call tp_child_buf % Merge(tp_child_val)
+    end if
+
+    if (logging) then
+      print '(2A)', prefix, 'create map'
     end if
 
     map = ChildDistributionMap_3D(parent, n_parts, tp_child)

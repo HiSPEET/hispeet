@@ -26,6 +26,8 @@ contains
 
     integer :: e, parent_id, parent_proc
 
+    if (mesh%n_elem == 0) return
+
     !$omp master
     associate(c => mesh % n_cluster)
       c = 0

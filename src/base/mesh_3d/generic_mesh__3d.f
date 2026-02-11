@@ -6,6 +6,7 @@
 
 module Generic_Mesh__3D
   use Kind_Parameters
+  use Affine_Transformation__3D
   use Mesh_Element_Indexing__3D
   implicit none
   private
@@ -158,10 +159,11 @@ module Generic_Mesh__3D
   !> Structure defining a generic 3d mesh boundary
 
   type, public :: GenericMeshBoundary_3D
-    integer           :: id   = 0     !< identifer
-    character(len=80) :: name = ''    !< boundary name
-    integer           :: coupled = 0  !< ID of coupled boundary, 0 if none
-    integer           :: polarity = 0 !< position WRT to periodic direction
+    integer       :: id   = 0     !< identifer
+    character(80) :: name = ''    !< boundary name
+    integer       :: coupled = 0  !< ID of coupled boundary, 0 if none
+    integer       :: polarity = 0 !< position WRT to periodic direction
+    real(RNP)     :: map(4,4) = AFFINE_IDENTITY_MAP_3D !< map to coupled bnd
     type(GenericMeshElementFace_3D), allocatable :: face(:) !< element faces
   end type GenericMeshBoundary_3D
 

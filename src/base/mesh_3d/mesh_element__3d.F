@@ -323,13 +323,25 @@ module Mesh_Element__3D
   !> of the corresponding data types.
   !>
   !> No neighbor and geometry data is available for ghosts.
+  !>
+  !> ### SFC rank and path
+  !>
+  !> If a space filling curve (SFC) is available, the elements are ordered
+  !> according to their position on the curve. This yields a global ranking
+  !> of the active elements, which is stored in `sfc_rank`.
+  !> Inside the element, the SCF follows a path through all children, from
+  !> `i` to `j`. This path is encoded in `sfc_path = 10*i + j`.
 
   type MeshElement_3D
 
     integer :: id          = -1 !< local element ID
     integer :: cluster_id  = -1 !< sibling cluster ID
     integer :: cluster_oct = -1 !< sibling cluster octant (1:8)
-    logical :: frozen = .false. !< switch for elements
+
+    integer :: sfc_rank    = -1 !< rank according to position on SFC
+    integer :: sfc_path    = -1 !< SFC path within element
+
+    logical :: frozen = .false. !< switch indicating inactive elements
 
     type(MeshElementVertex_3D)  :: vertex(8) !< vertex data
     type(MeshElementEdge_3D)    :: edge(12)  !< edge data

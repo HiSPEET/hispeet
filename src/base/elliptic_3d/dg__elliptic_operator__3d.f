@@ -11,8 +11,8 @@
 module DG__Elliptic_Operator__3D
   use Kind_Parameters, only: RNP, RDP, RSP
   use Constants      , only: ZERO, ONE, HALF
-  use XMPI           , only: XMPI_Bcast
-  use Logging_Levels , only: log_level_inner_iteration
+  use XMPI
+  use Logging_Levels
   use Array_Assignments
   use Execution_Control
   use DG__Element_Operators__1D
@@ -28,12 +28,18 @@ module DG__Elliptic_Operator__3D
 
   !-----------------------------------------------------------------------------
   !> Base type for scalar diffusion operators for 3D DG-SEM
+  !>
+  !> When applied with local refinement, the component `interior_bc` defines the
+  !> conditions at interior boundaries: a blank space yields a direct coupling
+  !> to adjacent frozen elements, whereas `D` results in Dirichlet boundary
+  !> conditions.
 
   type DG_EllipticOperator_3D
 
     class(SpectralElementMesh_3D), pointer :: sem => null()
     type(DG_ElementOperators_1D) :: eop
     type(DG_SchwarzOperator_3D)  :: schwarz
+    character :: interior_bc = ' ' !< coupling with frozen elements {' ','D'}
 
   contains
 
@@ -54,8 +60,16 @@ module DG__Elliptic_Operator__3D
     generic :: SchwarzPCG_Method  =>  SchwarzPCG_Method_C, SchwarzPCG_Method_V
     procedure, private ::             SchwarzPCG_Method_C, SchwarzPCG_Method_V
 
-    ! procedures intended for internal use
+    ! procedures intended for internal use .....................................
+
     procedure :: EnforceBoundaryConditions
+
+    generic   :: GetElementBoundaryFluxes => GetElementBoundaryFluxes_C, &
+                                             GetElementBoundaryFluxes_V
+
+    procedure, private :: GetElementBoundaryFluxes_C, &
+                          GetElementBoundaryFluxes_V
+
     procedure :: CG_Method_X
     procedure :: Schwarz_Method_X
     procedure :: SchwarzPCG_Method_X
@@ -66,17 +80,6 @@ module DG__Elliptic_Operator__3D
   interface DG_EllipticOperator_3D
     module procedure New_DG_EllipticOperator_3D
   end interface
-
-  !-----------------------------------------------------------------------------
-  !> Composition of fluxes at internal element faces
-
-  interface GetElementBoundaryFluxes
-    module procedure GetElementBoundaryFluxes_C
-    module procedure GetElementBoundaryFluxes_V
-  end interface
-
-  ! Used only internaly, but declared public to avoid removal by compiler
-  public :: GetElementBoundaryFluxes
 
   !=============================================================================
   ! Interfaces to separate module procedures
@@ -213,17 +216,24 @@ contains
   !> New diffusion operator
   !>
   !> Skipping `penalty` or passing a negative value yields the default specified
-  !> in DG_ElementOptions_1D
+  !> in DG_ElementOptions_1D.
+  !>
+  !> Skipping `interior_bc` or passing a space results in a direct coupling to
+  !> frozen elements. Specicyfing 'D' enforces Dirichlet conditions at interior
+  !> boundaries
 
-  function New_DG_EllipticOperator_3D(sem, schwarz_opt, penalty) result(this)
+  function New_DG_EllipticOperator_3D &
+        (sem, schwarz_opt, penalty, interior_bc) result(this)
 
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     class(DG_SchwarzOptions_3D),           intent(in) :: schwarz_opt
     real(RNP),                   optional, intent(in) :: penalty
+    character,                   optional, intent(in) :: interior_bc
 
     type(DG_EllipticOperator_3D) :: this
 
-    call Init_DG_EllipticOperator_3D(this, sem, schwarz_opt, penalty)
+    call Init_DG_EllipticOperator_3D &
+            (this, sem, schwarz_opt, penalty, interior_bc)
 
   end function New_DG_EllipticOperator_3D
 
@@ -233,17 +243,29 @@ contains
   !> Skipping `penalty` or passing a negative value yields the default specified
   !> in DG_ElementOptions_1D
 
-  subroutine Init_DG_EllipticOperator_3D(this, sem, schwarz_opt, penalty)
+  subroutine Init_DG_EllipticOperator_3D &
+        (this, sem, schwarz_opt, penalty, interior_bc)
 
     class(DG_EllipticOperator_3D),         intent(inout) :: this
     class(SpectralElementMesh_3D), target, intent(in)    :: sem
     class(DG_SchwarzOptions_3D),           intent(in)    :: schwarz_opt
     real(RNP),                   optional, intent(in)    :: penalty
+    character,                   optional, intent(in)    :: interior_bc
 
     this % sem => sem
     this % eop =  DG_ElementOperators_1D(sem%std_op, penalty)
 
     this % schwarz = DG_SchwarzOperator_3D(schwarz_opt, this%eop, sem%mesh)
+
+    if (present(interior_bc)) then
+      this % interior_bc = interior_bc
+    end if
+
+    if (scan(' D', this%interior_bc) == 0) then
+      call Error( 'Init_DG_EllipticOperator_3D'                       &
+                , 'interior_bc"'//this%interior_bc//'" not supported' &
+                , 'DG__Elliptic_Operator__3D'                         )
+    end if
 
   end subroutine Init_DG_EllipticOperator_3D
 
@@ -609,9 +631,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Compose element-boundary fluxes from flux traces -- constant diffusivity
 
-  subroutine GetElementBoundaryFluxes_C( element, struct, hom_bc &
-                                       , e, f, tr, jmp_u, avg_q  )
+  subroutine GetElementBoundaryFluxes_C( this, element, struct, hom_bc &
+                                       , e, f, tr, jmp_u, avg_q        )
 
+    class(DG_EllipticOperator_3D), intent(in) :: this
     class(MeshElement_3D), intent(in) :: element
     logical,   intent(in)  :: struct   !< F/T for un/structured mesh
     logical,   intent(in)  :: hom_bc   !< F/T for in/homogeneous internal BC
@@ -623,8 +646,8 @@ contains
 
     integer :: i, l, m
 
-    if (element % face(f) % boundary == 0) then
-      ! interface to frozen element: treated as Dirichlet boundary
+    if (element % face(f) % boundary == 0 .and. this % interior_bc == 'D') then
+      ! interface to frozen element treated as Dirichlet boundary
       if (hom_bc) then
         jmp_u = 2 * tr(:,:,f,e,1)
       else
@@ -637,7 +660,7 @@ contains
       avg_q = tr(:,:,f,e,2)
 
     else if (element % face(f) % i_neighbor > 0) then
-      ! active neighbor
+      ! active or frozen neighbor
       i = element % face(f) % i_neighbor
       l = element % neighbor(i) % id
       m = element % neighbor(i) % component
@@ -664,9 +687,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Compose element-boundary fluxes from flux traces -- variable diffusivity
 
-  subroutine GetElementBoundaryFluxes_V( element, struct, hom_bc        &
+  subroutine GetElementBoundaryFluxes_V( this, element, struct, hom_bc  &
                                        , e, f, tr, nu_max, jmp_u, avg_q )
 
+    class(DG_EllipticOperator_3D), intent(in) :: this
     class(MeshElement_3D), intent(in) :: element
     logical,   intent(in)  :: struct   !< F/T for un/structured mesh
     logical,   intent(in)  :: hom_bc   !< F/T for in/homogeneous internal BC
@@ -679,8 +703,8 @@ contains
 
     integer :: i, l, m
 
-    if (element % face(f) % boundary == 0) then
-      ! interface to frozen element: treated as Dirichlet boundary
+    if (element % face(f) % boundary == 0 .and. this % interior_bc == 'D') then
+      ! interface to frozen element treated as Dirichlet boundary
       nu_max = tr(:,:,f,e,1)
       if (hom_bc) then
         jmp_u = 2 * tr(:,:,f,e,2)
@@ -694,7 +718,7 @@ contains
       avg_q = tr(:,:,f,e,3)
 
     else if (element % face(f) % i_neighbor > 0) then
-      ! active neighbor
+      ! active or frozen neighbor
       i = element % face(f) % i_neighbor
       l = element % neighbor(i) % id
       m = element % neighbor(i) % component

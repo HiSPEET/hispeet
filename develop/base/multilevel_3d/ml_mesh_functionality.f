@@ -13,6 +13,7 @@ program ML_Mesh_Functionality
   use Generic_Mesh__3D
   use Mesh__3D
   use Verify_Mesh__3D
+  use Export_VTK_Mesh_SFC__3D
   use Child_To_Parent_Projection__3D
   use Child_To_Parent_Restriction__3D
   use Parent_To_Child_Interpolation__3D
@@ -23,34 +24,38 @@ program ML_Mesh_Functionality
 
   ! variables ..................................................................
 
-  character(len=100) :: gmsh_file = '../gmsh_3d/cylinder_2d'
+  character(len=100) :: gmsh_file = '../../gmsh/cylinder_2d'
   character(len=100) :: plot_file = ''
+  character(len=100) :: restart_file = ''
 
   integer, allocatable :: po(:) ! sequence of polynomial orders
 
-  namelist /control/   log_level, gmsh_file, plot_file
+  namelist /control/   log_level, gmsh_file, plot_file, restart_file
   namelist /operators/ po
 
-  type(GenericMesh_3D)     , save :: generic_mesh
-  type(Mesh_3D)            , save :: base_mesh
-  type(ML_Mesh_Options_3D) , save :: ml_mesh_opt
-  type(ML_Mesh_3D)         , save :: ml_mesh
-  type(ML_MeshOperators_3D), save :: ml_op
-  type(ML_MeshVariable_3D) , save :: ml_var
+  type(GenericMesh_3D)     , allocatable, save :: generic_mesh
+  type(Mesh_3D)            , allocatable, save :: base_mesh
+  type(ML_Mesh_Options_3D) , allocatable, save :: ml_mesh_opt
+  type(ML_Mesh_3D)         , allocatable, save :: ml_mesh
+  type(ML_MeshOperators_3D), allocatable, save :: ml_op
+  type(ML_MeshVariable_3D) , allocatable, save :: ml_var
 
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
 
-  character(len=9), save :: var_name(14)
+  character(len=9), save :: var_name(14), tag
 
   real(RNP), allocatable, save :: delta(:)
   real(RNP), allocatable, save :: delta_loc(:)
   real(RNP), save :: kappa = real(2 * PI, RNP)
 
+  character(:), allocatable :: mesh_file
+  character(:), allocatable :: data_file
+
   real(RNP) :: v
   logical :: passed, all_passed
   integer :: n_level, n_proc, rank, prm
   integer :: ne_max, ne_min, ne_tot
-
+  integer :: stat
   integer :: e, i, j, k, l, nc
 
   ! initialization .............................................................
@@ -58,6 +63,13 @@ program ML_Mesh_Functionality
   call XMPI_Init()
   call MPI_Comm_rank(comm, rank)
   call MPI_Comm_size(comm, n_proc)
+
+  allocate(generic_mesh)
+  allocate(base_mesh)
+  allocate(ml_mesh_opt)
+  allocate(ml_mesh)
+  allocate(ml_op)
+  allocate(ml_var)
 
   ! read parameters
   if (rank == 0) then
@@ -67,7 +79,7 @@ program ML_Mesh_Functionality
     read(prm, nml = control)
     ml_mesh_opt = ML_Mesh_Options_3D(prm, n_proc)
     allocate(po(ml_mesh_opt%l_top), source = -1)
-    read(prm, nml = operators)
+    read(prm, nml = operators, iostat = stat)
     close(prm)
   end if
 
@@ -79,9 +91,12 @@ program ML_Mesh_Functionality
   end if
 
   ! globalize remaining parameters
-  call XMPI_Bcast(gmsh_file , 0, comm)
-  call XMPI_Bcast(plot_file , 0, comm)
-  call XMPI_Bcast(po        , 0, comm)
+  call XMPI_Bcast(gmsh_file    , 0, comm)
+  call XMPI_Bcast(plot_file    , 0, comm)
+  call XMPI_Bcast(restart_file , 0, comm)
+  call XMPI_Bcast(po           , 0, comm)
+
+  call XMPI_Bcast_LoggingLevels(0, comm)
 
   ! mesh import ................................................................
 
@@ -342,8 +357,106 @@ program ML_Mesh_Functionality
   ! VTK export .................................................................
 
   if (len_trim(plot_file) > 0) then
+
+    ! mesh and variables
     call ml_var % ExportVTK(ml_op, trim(plot_file)//'_full', mode=1)
     call ml_var % ExportVTK(ml_op, trim(plot_file)//'_leaf', mode=3)
+
+    ! space filling curve
+    do l = 1, n_level
+      associate(mesh => ml_op % sem(l) % mesh)
+        if (mesh % has_sfc) then
+          write(tag,'(A,I0,A)') '_sfc_l', l
+          call ExportVTK_MeshSFC(mesh, file = trim(plot_file)//trim(tag))
+        end if
+      end associate
+    end do
+  end if
+
+  ! HDF5 write/read ............................................................
+
+  if (len_trim(restart_file) > 0) then
+
+    if (rank == 0) then
+      write(*,'(/,A)') 'writing and re-reading multilevel mesh and variables'
+    end if
+
+    mesh_file = trim(restart_file) // '_mesh'
+    data_file = trim(restart_file) // '_data'
+
+    ! write
+    call ml_mesh % WriteHDF5(mesh_file)
+    call ml_var  % WriteHDF5(data_file)
+
+    ! destroy, allocate and read mesh
+    deallocate(ml_mesh)
+    allocate(ml_mesh)
+    call ml_mesh % ReadHDF5(mesh_file, comm)
+
+    ! rebuild operators
+    ml_op = ML_MeshOperators_3D(ml_mesh, po)
+
+    ! destroy, allocate and read variables
+    deallocate(ml_var )
+    allocate(ml_var )
+    call ml_var % Init(ml_op, nc, var_name)
+    call ml_var % ReadHDF5(data_file)
+
+    ! verification
+    passed = .true.
+    do l = 1, n_level
+      associate( sem => ml_op  % sem(l)                &
+               , eop => ml_op  % sem(l) % std_op       &
+               , x   => ml_op  % sem(l) % metrics % x  &
+               , Jd  => ml_op  % sem(l) % metrics % Jd &
+               , var => ml_var % level(l) % val        )
+
+        do e = 1, sem%mesh%n_elem
+
+          passed = passed .and. all(var(:,:,:,e,1) == sem%mesh%part)
+          passed = passed .and. all(var(:,:,:,e,2) == e)
+
+          if (sem%mesh%element(e)%frozen) then
+            passed = passed .and. all(var(:,:,:,e,3) == 0)
+          else if (sem%mesh%element(e)%adaptation%refinement < 1000) then
+            passed = passed .and. all(var(:,:,:,e,3) == 1)
+          else
+            passed = passed .and. all(var(:,:,:,e,3) == 2)
+          end if
+
+          passed = passed .and. all( abs( var(:,:,:,e,4)      &
+                                        - minval(Jd(:,:,:,e)) &
+                                        / maxval(Jd(:,:,:,e)) &
+                                        ) < epsilon(ONE) )
+
+          passed = passed .and. all(var(:,:,:,e,5) == po(l))
+
+          do k = 0, po(l)
+          do j = 0, po(l)
+          do i = 0, po(l)
+            v = sin(kappa * (x(i,j,k,e,1) + x(i,j,k,e,2) + x(i,j,k,e,3)))
+            passed = passed .and. abs( var(i,j,k,e,6) - v ) < epsilon(ONE)
+            passed = passed .and. abs( var(i,j,k,e,7)      &
+                                     - v * eop%w(i)        &
+                                         * eop%w(j)        &
+                                         * eop%w(k)        &
+                                         * Jd(i,j,k,e)     &
+                                     ) < epsilon(ONE)
+          end do
+          end do
+          end do
+
+        end do
+
+      end associate
+    end do
+
+    call XMPI_Reduce(passed, all_passed, MPI_LAND, 0, comm)
+
+    if (rank == 0) then
+      write(*,'(2X,A,G0)') 'passed = ', all_passed
+    end if
+
   end if
 
   ! finalization ...............................................................

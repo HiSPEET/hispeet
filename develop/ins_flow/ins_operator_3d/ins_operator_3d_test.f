@@ -26,7 +26,7 @@ program INS_Operator_3D_Test
   use DG__Schwarz_Operator__3D
 
   use TPO__Div__3D
-  use TPO__INS_Convection__3D_D__Gen
+  use TPO__INS_Convection__3D
 
   use INS__Problem__3D
   use INS__Problem__Vortex_TG__3D
@@ -118,7 +118,7 @@ program INS_Operator_3D_Test
 
   real(RNP), allocatable :: mm(:,:,:,:)    ! diagonal mass matrix
   real(RNP), allocatable :: mu(:,:,:,:)    ! bulk viscosity μ
-  real(RNP), allocatable :: up(:,:,:,:,:)  ! exterior traces u⁺
+  real(RNP), allocatable :: vp(:,:,:,:,:)  ! exterior traces u⁺
   real(RNP), allocatable :: sp(:,:,:,:,:)  ! exterior traces s⁺ = n⋅τ⁺
   real(RNP), allocatable :: w(:,:,:,:,:)   ! workspace
 
@@ -277,7 +277,7 @@ program INS_Operator_3D_Test
   allocate(mu (0:po_u,0:po_u,0:po_u,1:n_elem)     )
   allocate(w  (0:po_u,0:po_u,0:po_u,1:n_elem,1:4) )
 
-  allocate(up (0:po_u,0:po_u,1:6,1:n_elem,1:4), source = ZERO )
+  allocate(vp (0:po_u,0:po_u,1:6,1:n_elem,1:3), source = ZERO )
   allocate(sp (0:po_u,0:po_u,1:6,1:n_elem,1:3), source = ZERO )
 
   call ins_op % sem_u % Get_DG_DiagonalMassMatrix(mm)
@@ -321,8 +321,8 @@ program INS_Operator_3D_Test
 
   associate(sem => ins_op % sem_u)
 
-    ! outer traces u⁺
-    call GetOuterTraces_3D(mesh, u, up)
+    ! outer velocity traces v⁺
+    call GetOuterVectorTraces_3D(mesh, v, vp)
 
     ! boundary values
     allocate(bv_u(mesh % n_bound))
@@ -337,19 +337,20 @@ program INS_Operator_3D_Test
 
   associate(metrics => ins_op % sem_q % metrics)
 
-    call TPO_INS_Convection_D_Gen( nv   = ins_op % eop_u % po + 1  &
-                                 , nq   = ins_op % sop_q % po + 1  &
-                                 , ne   = n_elem                   &
-                                 , D_v  = ins_op % eop_u  % D      &
-                                 , I_vq = ins_op % iop_uq % A      &
-                                 , w_q  = ins_op % sop_q  % w      &
-                                 , Jd_q = metrics % Jd             &
-                                 , Ji_q = metrics % Ji             &
-                                 , a_q  = metrics % a              &
-                                 , n_q  = metrics % n              &
-                                 , v    = v                        &
-                                 , vp   = up(:,:,:,:,1:3)          &
-                                 , F_c  = w (:,:,:,:,1:3)          )
+    call TPO_INS_Convection( nv   = ins_op % eop_u % po + 1  &
+                           , nq   = ins_op % sop_q % po + 1  &
+                           , ne   = n_elem                   &
+                           , D_v  = ins_op % eop_u  % D      &
+                           , I_vq = ins_op % iop_uq % A      &
+                           , w_q  = ins_op % sop_q  % w      &
+                           , Jd_q = metrics % Jd             &
+                           , Ji_q = metrics % Ji             &
+                           , a_q  = metrics % a              &
+                           , n_q  = metrics % n              &
+                           , v    = v                        &
+                           , vp   = vp                       &
+                           , F_c  = w(:,:,:,:,1:3)           &
+                           , form = ins_op % convection_term )
   end associate
 
   do i = 1, 3
@@ -364,9 +365,9 @@ program INS_Operator_3D_Test
   ! viscous term: F_d = ∇·τ ....................................................
 
   if (problem % HasVariableProperties()) then
-    call ins_op % GetDiffusionTerm_V(mu, nu, v, up, sp, w, bv_u)
+    call ins_op % GetDiffusionTerm_V(mu, nu, v, vp, sp, w, bv_u)
   else
-    call ins_op % GetDiffusionTerm_C(v, up, sp, w, bv_u)
+    call ins_op % GetDiffusionTerm_C(v, vp, sp, w, bv_u)
   end if
 
   do i = 1, 3

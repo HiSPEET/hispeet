@@ -4,8 +4,8 @@
   module subroutine Merge_Core(this, mesh, us, u)
     class(DG_SchwarzOperator_3D), intent(in) :: this
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-    real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< subdomain solutions
-    real(RWP),      intent(inout) :: us(:,:,:,:)   !< mesh variable
+    real(RWP),      intent(inout) :: us(:,:,:,:)   !< subdomain solutions
+    real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< mesh variable
 
     integer :: e, i, j, k
     integer :: c0

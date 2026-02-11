@@ -5,7 +5,6 @@
 !===============================================================================
 
 submodule(INS__Operator__3D) MP_GetViscousBoundaryStress_C
-
   implicit none
 
 contains
@@ -13,7 +12,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Viscous stress vector on a boundary (C)
 
-  module subroutine GetViscousBoundaryStress_C(this, b, v, sb, bv_u, xout, form)
+  module subroutine GetViscousBoundaryStress_C(this, b, v, sb, bv, xout, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -27,10 +26,10 @@ contains
     real(RNP), contiguous, intent(out) :: sb(0:,0:,:,:)
     !< viscous stress vector on boundary `b` (0:po,0:po,1:n_face,1:3)
 
-    class(BoundaryVariable_3D), optional, intent(in) :: bv_u(:)
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     !< boundary values at final time t
-    !!   - Γᴰ :  vᵇ    in components 1:3, currently unused
-    !!   - Γᴼ :  τ_nn  in component    4, including penalty term
+    !!   - Γᴰ :  [ v₁, v₂, v₃, -   ]    (currently unused)
+    !!   - Γᴼ :  [ - , - , - , τ_nn]
     !!
     !! ignored at extrapolated boundaries
 
@@ -58,25 +57,25 @@ contains
     else
       outflow_bc = this % problem % bc_v(b) == 'O'
     end if
-    outflow_bv = outflow_bc .and. present(bv_u)
+    outflow_bv = outflow_bc .and. present(bv)
 
     if (present(form)) then
       select case(form)
       case(1)
-        nu  = this % problem % nu_ref
+        nu  = this % nu_0
         chi = -nu
       case(2)
-        nu  = this % problem % nu_ref
+        nu  = this % nu_0
         chi = -2 * nu
       case(3)
         nu  = 0
-        chi = this % problem % nu_ref
+        chi = this % nu_0
       case default
-        nu  = this % problem % nu_ref
+        nu  = this % nu_0
         chi = this % mu_0 - 2 * THIRD * nu
       end select
     else
-      nu  = this % problem % nu_ref
+      nu  = this % nu_0
       chi = this % mu_0 - 2 * THIRD * nu
     end if
 
@@ -104,7 +103,7 @@ contains
         call GetViscousStressVector(f, e, m, po, n, chi, nu, grad_v, sb)
 
         if (outflow_bv) then
-          associate(tau_nn => bv_u(b) % val(:,:,f,4))
+          associate(tau_nn => bv(b) % val(:,:,f,4))
             sb(:,:,f,1) = sb(:,:,f,1) + n(:,:,m,e,1) * tau_nn
             sb(:,:,f,2) = sb(:,:,f,2) + n(:,:,m,e,2) * tau_nn
             sb(:,:,f,3) = sb(:,:,f,3) + n(:,:,m,e,3) * tau_nn
@@ -339,6 +338,11 @@ contains
       tau(1,2) = nu * (grad_v(i,j,1,2) + grad_v(i,j,2,1))
       tau(1,3) = nu * (grad_v(i,j,1,3) + grad_v(i,j,3,1))
       tau(2,3) = nu * (grad_v(i,j,2,3) + grad_v(i,j,3,2))
+
+      ! symmetry
+      tau(2,1) = tau(1,2)
+      tau(3,1) = tau(1,3)
+      tau(3,2) = tau(2,3)
 
       ! stress vector
       do c = 1, 3

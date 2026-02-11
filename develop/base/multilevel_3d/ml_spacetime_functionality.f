@@ -34,7 +34,7 @@ program ML_Spacetime_Functionality
   character(len=*), parameter :: default_case = 'ml_spacetime_functionality'
   character(len= 80) :: test_case ! test case name
   character(len=100) :: case_file ! test case input file: trim(test_case).prm
-  character(len=100) :: gmsh_file = '../gmsh_3d/cylinder_2d'
+  character(len=100) :: gmsh_file = '../../gmsh/cylinder_2d'
 
   integer, allocatable :: po_x(:)    ! polynomial orders in x
   integer, allocatable :: po_t(:)    ! polynomial orders in t

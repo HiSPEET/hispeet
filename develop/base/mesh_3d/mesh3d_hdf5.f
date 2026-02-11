@@ -64,10 +64,10 @@ program Mesh3d_HDF5
 
   ! mesh and variables .........................................................
 
-  type(PartitioningOptions_3D), save :: part_opt
-  type(Mesh_3D),                save :: old_mesh, mesh
-  type(DataExchangePlan_3D),    save :: x_plan
-  type(SpectralElementMesh_3D), save :: sem
+  type(MeshPartitionerOptions_3D), save :: part_opt
+  type(Mesh_3D),                   save :: old_mesh, mesh
+  type(DataExchangePlan_3D),       save :: x_plan
+  type(SpectralElementMesh_3D),    save :: sem
 
   ! HDF5 .......................................................................
 

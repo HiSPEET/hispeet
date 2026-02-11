@@ -37,8 +37,8 @@
 ! adding bulk viscosity reduces divergence but requires more iterations
 ! ins_op_opt%diffusion_solver = 'SPCG'
 ! ins_op_opt%mu_0       = 0.1
-! ins_op_opt%i_max_p    = 5
-! ins_op_opt%i_max_v    = 50
+  ins_op_opt%i_max_p    = 3
+  ins_op_opt%i_max_v    = 5
 
   ml_solver_p_opt%i_crs = 1000
   ml_solver_p_opt%r_red = 1e-08
@@ -61,7 +61,7 @@
 &temporal_prm
 
   t_end  = 0.25
-  dt     = 0.001
+  dt     = 0.0001
   nt_max = 10!00000
 
   time_method = 2  ! 1/2/3: Euler/BDF2/Runge-Kutta

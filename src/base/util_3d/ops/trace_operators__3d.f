@@ -7,6 +7,7 @@
 module Trace_Operators__3D
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO
+  use Execution_Control
   use Mesh__3D
   use Element_Face_Transfer_Buffer__3D
   implicit none
@@ -14,7 +15,9 @@ module Trace_Operators__3D
 
   public :: GetInnerTraces_3D
   public :: GetOuterTraces_3D
+  public :: GetOuterVectorTraces_3D
   public :: ConvertInnerToOuterTraces_3D
+  public :: ConvertInnerToOuterVectorTraces_3D
   public :: GetBoundaryTraces_3D
 
   interface GetInnerTraces_3D
@@ -27,9 +30,17 @@ module Trace_Operators__3D
     module procedure GetOuterTraces_A
   end interface
 
+  interface GetOuterVectorTraces_3D
+    module procedure GetOuterTraces_V
+  end interface
+
   interface ConvertInnerToOuterTraces_3D
     module procedure ConvertInnerToOuterTraces_S
     module procedure ConvertInnerToOuterTraces_A
+  end interface
+
+  interface ConvertInnerToOuterVectorTraces_3D
+    module procedure ConvertInnerToOuterTraces_V
   end interface
 
   interface GetBoundaryTraces_3D
@@ -204,7 +215,7 @@ contains
   ! GetOuterTraces_3D variants
 
   !-----------------------------------------------------------------------------
-  !> Build the outer traces `u⁺` of an array-valued mesh variable `u`
+  !> Build the outer traces `u⁺` for an array of scalar mesh variables `u`
   !>
   !> The traces are stored as element-face variables. They are aligned with the
   !> faces of the corresponding elements. Ghost entries are assumed to be absent
@@ -263,6 +274,40 @@ contains
     !$omp end master
 
   end subroutine GetOuterTraces_S
+
+  !-----------------------------------------------------------------------------
+  !> Build the outer traces `u⁺` of a vector mesh variables `u`
+
+  subroutine GetOuterTraces_V(mesh, u, up)
+    class(Mesh_3D),        intent(in)  :: mesh
+    real(RNP), contiguous, intent(in)  :: u (:,:,:,:,:) !< u
+    real(RNP), contiguous, intent(out) :: up(:,:,:,:,:) !< u⁺
+
+    real(RNP), allocatable, save :: um(:,:,:,:,:)
+    integer :: nc, np
+
+    np = size(u,1)
+    nc = size(u,5)
+
+    if (size(u,5) /= 3 .or. size(up,5) /= 3) then
+      call Error('GetOuterTraces_V'                   &
+                ,'arguments u and up must be vectors' &
+                , 'Trace_Operators__3D'               )
+    end if
+
+    !$omp master
+    allocate(um(np, np, 6, mesh%n_elem + mesh%n_ghost, nc), source = ZERO)
+    !$omp end master
+    ! no barrier required ;)
+
+    call GetInnerTraces_A(mesh, u, um)
+    call ConvertInnerToOuterTraces_V(mesh, um, up)
+
+    !$omp master
+    deallocate(um)
+    !$omp end master
+
+  end subroutine GetOuterTraces_V
 
   !=============================================================================
   ! ConvertInnerToOuterTraces_3D variants
@@ -334,6 +379,25 @@ contains
     end do
 
   end subroutine ConvertInnerToOuterTraces_A
+
+  !-----------------------------------------------------------------------------
+  !> Converts interior traces u⁻ to exterior traces u⁺ -- vector version
+
+  subroutine ConvertInnerToOuterTraces_V(mesh, um, up)
+    class(Mesh_3D),        intent(in)  :: mesh
+    real(RNP), contiguous, intent(in)  :: um(:,:,:,:,:) !< u⁻
+    real(RNP), contiguous, intent(out) :: up(:,:,:,:,:) !< u⁺
+
+    if (size(um,5) /= 3 .or. size(up,5) /= 3) then
+      call Error('ConvertInnerToOuterTraces_V'        &
+                ,'arguments u and up must be vectors' &
+                , 'Trace_Operators__3D'               )
+    end if
+
+    call ConvertInnerToOuterTraces_A(mesh, um, up)
+    call TransformCoupledVectorTraces_3D(mesh, up, direction = -1)
+
+  end subroutine ConvertInnerToOuterTraces_V
 
   !=============================================================================
   ! GetBoundaryTraces_3D variants
@@ -419,6 +483,71 @@ contains
     !$omp barrier
 
   end subroutine GetBoundaryTraces_A
+
+  !=============================================================================
+  ! Transformation
+
+  !-----------------------------------------------------------------------------
+  !> Affine transformation of vector traces to/from coupled boundaries
+  !>
+  !> @note
+  !> This routine must be applied with great care and is therefore restricted to
+  !> internal use.
+
+  subroutine TransformCoupledVectorTraces_3D(mesh, ut, direction)
+    class(Mesh_3D),        intent(in)    :: mesh
+    real(RNP), contiguous, intent(inout) :: ut(:,:,:,:,:) !< u^±(np,np,6,ne,3)
+    integer,               intent(in)    :: direction     !< ±1 to/from coupled
+
+    ! 3D identity matrix
+    real(RNP), parameter :: I3(3,3) = reshape([ 1,0,0 &
+                                              , 0,1,0 &
+                                              , 0,0,1 ], [3,3])
+
+    real(RNP) :: A(3,3), v(3)
+    integer   :: b, c, e, f, i, j, m, np
+
+    np = size(ut,1)
+
+    do b = 1, mesh % n_bound
+
+      c = mesh % boundary(b) % coupled
+      if (c <= 0) then
+        cycle
+      else if (direction == 1) then
+        A = mesh % boundary(b) % map(1:3,1:3)
+      else if (direction == -1) then
+        A = mesh % boundary(c) % map(1:3,1:3)
+      else
+        call Error('TransformCoupledVectorTraces' &
+                  , 'direction must be ±1'        &
+                  , 'Trace_Operators__3D'         )
+      end if
+
+      ! skip identity map
+      if (maxval(abs(A - I3)) < epsilon(A)) cycle
+
+      !$omp do
+      do f = 1, mesh % boundary(b) % n_face
+
+        e = mesh % boundary(b) % face(f) % element_id
+        m = mesh % boundary(b) % face(f) % element_face
+
+        do j = 1, np
+        do i = 1, np
+          v(1) = ut(i,j,m,e,1)
+          v(2) = ut(i,j,m,e,2)
+          v(3) = ut(i,j,m,e,3)
+          ut(i,j,m,e,1) = A(1,1) * v(1) + A(1,2) * v(2) + A(1,3) * v(3)
+          ut(i,j,m,e,2) = A(2,1) * v(1) + A(2,2) * v(2) + A(2,3) * v(3)
+          ut(i,j,m,e,3) = A(3,1) * v(1) + A(3,2) * v(2) + A(3,3) * v(3)
+        end do
+        end do
+
+      end do
+    end do
+
+  end subroutine TransformCoupledVectorTraces_3D
 
   !=============================================================================
 

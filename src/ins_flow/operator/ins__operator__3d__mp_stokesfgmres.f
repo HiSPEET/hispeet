@@ -16,8 +16,14 @@ contains
 
   !-----------------------------------------------------------------------------
   !> FGMRES for Stokes part using projection step as a preconditioner
+  !>
+  !> On input `u` contains the approximate velocity `v` and pressure `p` in
+  !> components 1:3 and 4, respectively.
+  !> If `f_d0` is present, these values are overridden in the initial projection
+  !> step, based on the extrapolated velocity `v = τ(f + f_d0)`.
+  !> If `f_d0` is absent, the projection is used to correct the given values.
 
-  module subroutine StokesFGMRES(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+  module subroutine StokesFGMRES(this, tau, f, bv, mu, nu, u, f_d0)
 
     ! arguments ................................................................
 
@@ -25,26 +31,20 @@ contains
     !< incompressible Navier-Stokes time integrator
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
-    real(RNP), intent(in) :: t
-    !< t, final time
-    real(RNP), contiguous, intent(in) :: v_0(:,:,:,:,:)
-    !< v₀, effective initial value of velocity
-    real(RNP), contiguous, intent(in) :: F_c(:,:,:,:,:)
-    !< convective term at final time t
-    real(RNP), contiguous, intent(in) :: F_d(:,:,:,:,:)
-    !< diffusion term at final time t
-    real(RNP), contiguous, intent(in) :: Q(:,:,:,:,:)
-    !< sources at time t and further known terms
-    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
-    !< boundary values at final time t
-    !!   - Γᴰ :  [ v₁, v₂, v₃, - , -  ]
-    !!   - Γᴼ :  [ - , - , - , p , ∆p ]
-    real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
+    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
+    !< RHS: f = v₀/τ + F_c + f_s + ...
+    class(BoundaryVariable_3D), intent(in) :: bv(:)
+    !< boundary values
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]
+    !!   - Γᴼ :  [ - , - , ∆p, p ]
+    real(RNP), contiguous, optional, intent(in) :: mu(:,:,:,:)
     !< μ, kinematic bulk viscosity
-    real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
+    real(RNP), contiguous, optional, intent(in) :: nu(:,:,:,:)
     !< ν, kinematic shear viscosity
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
-    !< u = [v, p], velocity and pressure at final time u
+    !< u = [v, p], velocity and pressure
+    real(RNP), contiguous, optional, intent(in) :: f_d0(:,:,:,:,:)
+    !< approximate diffusion term
 
     ! internal variables .......................................................
 
@@ -76,8 +76,8 @@ contains
     logical  , save :: converged
 
     logical :: check_convergence
-    integer :: nb, ne, ni, np, po
-    integer :: i, j
+    integer :: na, nb, ne, ni, np, po
+    integer :: i, j, k
 
     associate(mesh => this % mesh)
 
@@ -89,8 +89,9 @@ contains
       ! dimensions
       po = this % eop_u % po
       np = po + 1
-      nb = mesh % n_bound
       ne = mesh % n_elem
+      na = mesh % n_elem_active
+      nb = mesh % n_bound
 
       check_convergence = this % r_red > 0 .or. this % r_max > 0
 
@@ -104,7 +105,7 @@ contains
 
       allocate(bv_z(nb))
       do i = 1, nb
-        call bv_u(i) % GetClone(bv_z(i), copy = .true.)
+        call bv(i) % GetClone(bv_z(i), copy = .true.)
       end do
       call bv_z % SetToZero()
 
@@ -120,23 +121,17 @@ contains
       !$omp do
       do i = 1, ne
         mm_inv(:,:,:,i) = ONE / mm_inv(:,:,:,i)
-        g(:,:,:,i,1) = Q(:,:,:,i,1) + 1/tau * v_0(:,:,:,i,1) + F_c(:,:,:,i,1)
-        g(:,:,:,i,2) = Q(:,:,:,i,2) + 1/tau * v_0(:,:,:,i,2) + F_c(:,:,:,i,2)
-        g(:,:,:,i,3) = Q(:,:,:,i,3) + 1/tau * v_0(:,:,:,i,3) + F_c(:,:,:,i,3)
-        if (size(Q,5) >= 4) then
-          g(:,:,:,i,4) = Q(:,:,:,i,4)
-        end if
       end do
 
       associate(v1 => v(:,:,:,:,:,1))
 
         ! initial approximation ................................................
 
-        call StokesProjection(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+        call StokesProjection(this, tau, f, bv, mu, nu, u, f_d0)
 
         ! initial residual, v₁ = f - Au ........................................
 
-        call this % GetStokesResidual(tau, g, bv_u, mu, nu, u, v1)
+        call this % GetStokesResidual(tau, f, bv, mu, nu, u, v1)
 
         beta = sqrt(ScalarProduct(v1, v1, mesh%comm_parts))
         b(1) = beta
@@ -180,7 +175,7 @@ contains
           ! preconditioning ....................................................
 
           !$omp do
-          do i = 1, ne
+          do i = 1, na
             g(:,:,:,i,1) = mm_inv(:,:,:,i) * vj(:,:,:,i,1)
             g(:,:,:,i,2) = mm_inv(:,:,:,i) * vj(:,:,:,i,2)
             g(:,:,:,i,3) = mm_inv(:,:,:,i) * vj(:,:,:,i,3)
@@ -188,8 +183,8 @@ contains
           end do
 
           ! projection with homogeneous BC and frozen viscosity: z(j) = K⁻¹v(j)
-          call StokesProjection( this, tau, t, O, O, O, g, bv_z, mu, nu, zj &
-                               , precon = .true.                            )
+          call StokesProjection( this, tau, g, bv_z, mu, nu, zj &
+                               , f_d0 = O, precon = .true.      )
 
           ! application of homogeneous operator: w = A v(j)
           call this % GetStokesResidual(tau, O, bv_z, mu, nu, zj, w)
@@ -243,6 +238,7 @@ contains
             !$omp end master
             !$omp barrier
           end if
+          if (converged) exit
 
         end associate
       end do ARNOLDI_ITERATION
@@ -261,7 +257,9 @@ contains
 
         ! improved approximate solution
         do i = 1, j
-          call MergeArrays(ONE, u, y(i), z(:,:,:,:,:,i), multi=.true.)
+        do k = 1, 4
+          call MergeArrays(ONE, u(:,:,:,1:na,k), y(i), z(:,:,:,1:na,k,i))
+        end do
         end do
 
       end if

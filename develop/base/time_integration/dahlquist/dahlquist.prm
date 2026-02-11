@@ -27,7 +27,7 @@
 
   ! implicit streamline diffusion
   tint_opt_sd%order   = 1  ! theoretical order of convergence {1,2} [1]
-  tint_opt_sd%n_stage = 2 ! number of stages, ignored with order 2
+  tint_opt_sd%n_stage = 2  ! number of stages, ignored with order 2
 
   ! Runge-Kutta
   tint_opt_rk%impl    = 1  ! 0/1/2: explicit/implicit/IMEX
@@ -47,8 +47,6 @@
   sdc_opt_sd%n_col   =  8   ! number of collocation points
   sdc_opt_sd%n_sweep = 14   ! max number of correction sweeps
   sdc_opt_sd%n_stage =  2   ! 1/2 for 1- or 2-stage corrector
-  sdc_opt_sd%c_isd   =  1   ! artificial diffusivity factor [1]
-  sdc_opt_sd%scaling =  1   ! artificial diffusivity scaling: 0/1/2 none/k/double [0]
 
   ! 3 SDC based on Runge-Kutta
   sdc_opt_rk%nodes   = 'E'  ! 'E'/'L'/'RR': equidistant/Lobatto/Radau-right
@@ -59,7 +57,7 @@
   sdc_opt_rk%method  =  2   !< RK method selector, if more than one exist
 
   ! 4 SDC based on LU
-  sdc_opt_lu%nodes   = 'RR' ! Radau-right is required
+  sdc_opt_lu%nodes   = 'RR'  ! Radau-right is required
   sdc_opt_lu%n_col    =  4   ! number of collocation points
   sdc_opt_lu%n_sweep  =  6   ! max number of correction sweeps
   sdc_opt_lu%impl     =  2   ! 0/1/2: explicit/implicit/IMEX

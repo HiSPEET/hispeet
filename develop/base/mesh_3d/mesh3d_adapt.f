@@ -94,10 +94,10 @@ program Mesh3d_Adapt
 
   ! mesh and variables .........................................................
 
-  type(PartitioningOptions_3D), allocatable, save :: part_opt(:)
-  type(Mesh_3D),                allocatable, save :: old_mesh(:), mesh(:)
-  type(DataExchangePlan_3D),    allocatable, save :: x_plan(:)
-  type(SpectralElementMesh_3D), allocatable, save :: sem(:)
+  type(MeshPartitionerOptions_3D), allocatable, save :: part_opt(:)
+  type(Mesh_3D),                   allocatable, save :: old_mesh(:), mesh(:)
+  type(DataExchangePlan_3D),       allocatable, save :: x_plan(:)
+  type(SpectralElementMesh_3D),    allocatable, save :: sem(:)
 
   ! auxiliary variables ........................................................
 
@@ -164,7 +164,7 @@ program Mesh3d_Adapt
 
     part_opt(1) % n_parts = n_parts_base
     do l = 2, n_level
-      part_opt(l) % mode    = 2 ! switch child partitioning
+      part_opt(l) % child   = .true.
       part_opt(l) % n_parts = min(n_parts_growth * part_opt(l-1)%n_parts, n_proc)
     end do
 

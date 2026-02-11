@@ -14,7 +14,6 @@ module INS__Flow_Characteristics__3D
   use Trace_Operators__3D
   use TPO__Div__3D
   use Volume_Integrals__3D
-  use INS__Problem__3D
   use INS__Operator__3D
 
   implicit none
@@ -52,27 +51,35 @@ contains
   !-----------------------------------------------------------------------------
   !> Evaluation of incompressible flow characteristics
 
-  subroutine Evaluate(this, problem, ins_op, t, u, dt, volume)
+  subroutine Evaluate(this, ins_op, t, u, dt, volume, leaf)
     class(INS_FlowCharacteristics_3D), intent(inout) :: this
-    class(INS_Problem_3D),  intent(in) :: problem
     class(INS_Operator_3D), intent(in) :: ins_op
     real(RNP),              intent(in) :: t
     real(RNP), contiguous,  intent(in) :: u(:,:,:,:,:)
     real(RNP), optional,    intent(in) :: dt
     real(RNP), optional,    intent(in) :: volume
+    logical,   optional,    intent(in) :: leaf !< constrain to leaf elements [F]
 
     real(RNP), allocatable, save :: vp(:,:,:,:,:), w(:,:,:,:,:)
-    real(RNP), save :: v_max, vv_max = 0
+    real(RNP), save :: v_max, vv_max
     real(RNP), save :: e_kin
     real(RNP), save :: dx_min_loc, dx_max_loc
     real(RNP) :: div_v, err_v, err_p, vv
     real(RNP) :: dx(3)
 
-    integer :: e, i, j, k, ne, np
+    logical :: complete
+    integer :: e, i, j, k, na, nc, ne, np
 
-    associate( mesh => ins_op % mesh                &
-             , eop  => ins_op % eop_u               &
-             , x    => ins_op % sem_u % metrics % x )
+    if (present(leaf)) then
+      complete = .not. leaf
+    else
+      complete = .true.
+    end if
+
+    associate( problem => ins_op % problem             &
+             , mesh    => ins_op % mesh                &
+             , eop     => ins_op % eop_u               &
+             , x       => ins_op % sem_u % metrics % x )
 
       ! initialization .........................................................
 
@@ -83,6 +90,8 @@ contains
 
       np = size(u,1)
       ne = size(u,4)
+      nc = size(u,5)
+      na = mesh % n_elem_active
 
       !$omp master
 
@@ -102,20 +111,23 @@ contains
 
       dx_min_loc = huge(ONE)
       dx_max_loc = 0
+      vv_max = 0
 
       allocate(vp(np,np,6,ne,3))
-      allocate(w, mold = u)
+      allocate(w(np,np,np,ne,nc), source = ZERO)
 
       !$omp end master
       !$omp barrier
 
       ! mesh spacing ...........................................................
 
-      !$omp do private(dx) reduction(min:dx_min_loc) reduction(max:dx_max_loc) 
-      do e = 1, ne
-        call mesh % element(e) % GetCuboidDimensions(dx)
-        dx_min_loc = min(dx_min_loc, dx(1), dx(2), dx(3))
-        dx_max_loc = max(dx_max_loc, dx(1), dx(2), dx(3))
+      !$omp do private(dx) reduction(min:dx_min_loc) reduction(max:dx_max_loc)
+      do e = 1, na
+        if (complete .or. mesh % element(e) % IsLeaf()) then
+          call mesh % element(e) % GetCuboidDimensions(dx)
+          dx_min_loc = min(dx_min_loc, dx(1), dx(2), dx(3))
+          dx_max_loc = max(dx_max_loc, dx(1), dx(2), dx(3))
+        end if
       end do
 
       !$omp master
@@ -128,24 +140,27 @@ contains
       if (this % has_errors) then
         associate(q => w(:,:,:,:,4))
 
-          call problem % GetExactSolution(x, t, w)        !
-          call MergeArrays(-ONE, w, ONE, u, multi=.true.) ! w  = u  - u_ex
-          call CalibrateArray(q, comm = mesh%comm_parts)  ! subtract avg p-error
+          call problem % GetExactSolution(x, t, w)         !
+          call MergeArrays(-ONE, w, ONE, u, multi=.true.)  ! w  = u  - u_ex
+          if (complete .and. ne == na) then
+            ! remove mean pressure error
+            call CalibrateArray(q, comm = mesh%comm_parts)
+          end if
 
           ! pressure
           !$omp do
-          do e = 1, ne
+          do e = 1, na
             q(:,:,:,e) = q(:,:,:,e)**2
           end do
-          call GetVolumeIntegral(ins_op%sem_u, q, err_p)
+          call GetVolumeIntegral(ins_op%sem_u, q, err_p, leaf)
           err_p = sqrt(err_p)
 
           ! velocity
           !$omp do
-          do e = 1, ne
+          do e = 1, na
             q(:,:,:,e) = w(:,:,:,e,1)**2 + w(:,:,:,e,2)**2 + w(:,:,:,e,3)**2
           end do
-          call GetVolumeIntegral(ins_op%sem_u, q, err_v)
+          call GetVolumeIntegral(ins_op%sem_u, q, err_v, leaf)
           err_v = sqrt(err_v)
 
         end associate
@@ -154,13 +169,18 @@ contains
       ! divergence .............................................................
 
       associate(v => u(:,:,:,:,1:3), q => w(:,:,:,:,4))
-        call GetOuterTraces_3D(mesh, v, vp)         ! vp = v⁺
+        call GetOuterVectorTraces_3D(mesh, v, vp)   ! vp = v⁺
         call TPO_Div(eop, ins_op%sem_u, v, vp, q)   ! q = ∇⋅v
         !$omp do
-        do e = 1, ne
+        do e = 1, na
           q(:,:,:,e) = q(:,:,:,e) ** 2
         end do
-        call GetVolumeIntegral(ins_op%sem_u, q, div_v)
+        !$omp end do nowait
+        !$omp do
+        do e = na+1, ne
+          q(:,:,:,e) = ZERO
+        end do
+        call GetVolumeIntegral(ins_op%sem_u, q, div_v, leaf)
         div_v = sqrt(div_v)
       end associate
 
@@ -169,23 +189,27 @@ contains
       associate(v => u(:,:,:,:,1:3), q => w(:,:,:,:,4))
 
         !$omp do reduction(max:vv_max)
-        do e = 1, ne
-          do k = 1, np
-          do j = 1, np
-          do i = 1, np
-            vv = u(i,j,k,e,1)**2 + u(i,j,k,e,2)**2 + u(i,j,k,e,3)**2
-            vv_max = max(vv_max, vv)
-            q(j,j,k,e) = vv
-          end do
-          end do
-          end do
+        do e = 1, na
+          if (complete .or. mesh % element(e) % IsLeaf()) then
+            do k = 1, np
+            do j = 1, np
+            do i = 1, np
+              vv = u(i,j,k,e,1)**2 + u(i,j,k,e,2)**2 + u(i,j,k,e,3)**2
+              vv_max = max(vv_max, vv)
+              q(i,j,k,e) = vv
+            end do
+            end do
+            end do
+          else
+            q(:,:,:,e) = ZERO
+          end if
         end do
 
         !$omp master
         call XMPI_Allreduce(sqrt(vv_max), v_max, MPI_MAX, mesh%comm_parts)
         !$omp end master
 
-        call GetVolumeIntegral(ins_op%sem_u, q, e_kin)
+        call GetVolumeIntegral(ins_op%sem_u, q, e_kin, leaf)
 
       end associate
 
@@ -194,9 +218,9 @@ contains
       !$omp master
 
       if (present(volume)) then
-        this % err_v = err_v / volume
-        this % err_p = err_p / volume
-        this % div_v = div_v / volume
+        this % err_v = err_v / sqrt(volume)
+        this % err_p = err_p / sqrt(volume)
+        this % div_v = div_v / sqrt(volume)
         this % e_kin = e_kin / (2 * volume)
       else
         this % err_v = err_v

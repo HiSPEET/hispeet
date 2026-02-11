@@ -15,13 +15,12 @@ program Validate__TPO_INS_Convection_D
   character(len=*), parameter :: &
          input_file = 'validate__tpo__ins_convection_3d_d.prm'
 
-  integer :: po_v    = 7       ! polynomial order of velocity
-  integer :: po_q    = 12      ! polynomial order used for quadrature
-  integer :: ne      = 1024    ! number of elements
-  integer :: nt      = 1       ! number of test loops ≥ 1
-  logical :: one2one = .false. ! set T to skip interpolation, implies po_q = po_v
+  integer :: po_v = 7       ! polynomial order of velocity
+  integer :: po_q = 12      ! polynomial order used for quadrature
+  integer :: ne   = 1024    ! number of elements
+  integer :: nt   = 1       ! number of test loops ≥ 1
 
-  namelist/input/ po_v, po_q, ne, nt, one2one
+  namelist/input/ po_v, po_q, ne, nt
 
   ! operators and variables ....................................................
 
@@ -38,6 +37,7 @@ program Validate__TPO_INS_Convection_D
   real(RNP), allocatable, save :: F_gen (:,:,:,:,:)   !< result: generic
   real(RNP), allocatable, save :: F_opt (:,:,:,:,:)   !< result: libxsmm
 
+  real(RNP) :: alpha = 0.5
   real(RNP) :: time  = 0
   real(RNP) :: error_gen = 0, mflops_gen = -1, mlups_gen = -1
   real(RNP) :: error_opt = 0, mflops_opt = -1, mlups_opt = -1
@@ -55,8 +55,6 @@ program Validate__TPO_INS_Convection_D
   open(newunit = io, file = input_file)
   read(io, nml = input)
   close(io)
-
-  if (one2one) po_q = po_v
 
   ! workspace ..................................................................
 
@@ -86,7 +84,7 @@ program Validate__TPO_INS_Convection_D
   call random_number( v     )
   call random_number( vp    )
 
-  if (one2one) then
+  if (nv == nq) then
     I_vq( 1, 1) = 1
     I_vq(nq,nv) = 1
   else
@@ -115,7 +113,7 @@ program Validate__TPO_INS_Convection_D
   ! number of FLOPs ............................................................
 
   ! v-interpolation
-  if (one2one) then
+  if (nv == nq) then
     nflop = 0
   else
     nflop = 3 * (nvvq * 2 * nv + nvqq * 2 * nv + nqqq * 2 * nv)
@@ -128,16 +126,20 @@ program Validate__TPO_INS_Convection_D
   nflop = nflop + nqqq * (6 + 9 * 6)
 
   ! volume integral
-  if (one2one) then
-    nflop = nflop + 3 * (nvvv * 2 * nv) + 6 * (nvvv * (2 * nv + 1))
+  if (nv == nq) then
+    nflop = nflop + 3 * (nvvv * 2 * nv) + 6 * (nvvv * (2 * nv + 1)) &
+                  + 3 * (nvvv * 2 * nv)                             &
+                  + 3 * (nvvv * 3) + nvvv * 18
   else
-    nflop = nflop + 3 * (nvqq * 2 * nq + nvvq * 2 * nq + nvvv * 2 * nq) &
-                  + 6 * (nvqq * 2 * nq + nvvq * 2 * nq + nvvv * (2 * nq + 1))
+    nflop = nflop + 3 * (nvqq * 2 * nq + nvvq * 2 * nq + nvvv * 2 * nq)       &
+                  + 6 * (nvqq * 2 * nq + nvvq * 2 * nq + nvvv * (2 * nq + 1)) &
+                  + 3 * (nvvv * 4 * nv + nvqq * 6 * nv + nqqq * 6)            &
+                  + 3 * (nvqq * 3 + nvvq * 3 + nvvv * 3) * nq + nqqq * 18
   end if
 
   ! face integrals
   nflop_f = 8 + nqq * (5 + 5 + 2 + 3 * 8)
-  if (one2one) then
+  if (nv == nq) then
     nflop_f = nflop_f + 3 * nvv
   else
     nflop_f = nflop_f + 6 * (nvq * 2 * nv + nqq * 2 * nv)       &
@@ -152,13 +154,13 @@ program Validate__TPO_INS_Convection_D
 
   !$omp parallel
 
-  call TPO_INS_Convection_D_Gen(nv, nq, ne, &
+  call TPO_INS_Convection_D_Gen(nv, nq, ne, alpha, &
            D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_ref)
 
   call system_clock(count0, rate)
 
   do i = 1, nt
-    call TPO_INS_Convection_D_Gen(nv, nq, ne, &
+    call TPO_INS_Convection_D_Gen(nv, nq, ne, alpha, &
              D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_gen)
   end do
 
@@ -178,13 +180,13 @@ program Validate__TPO_INS_Convection_D
 
   !$omp parallel
 
-  call TPO_INS_Convection_D_XSMM(nv, nq, ne, &
+  call TPO_INS_Convection_D_XSMM(nv, nq, ne, alpha, &
            D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_opt)
 
   call system_clock(count0, rate)
 
   do i = 1, nt
-    call TPO_INS_Convection_D_XSMM(nv, nq, ne, &
+    call TPO_INS_Convection_D_XSMM(nv, nq, ne, alpha, &
              D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_opt)
   end do
 

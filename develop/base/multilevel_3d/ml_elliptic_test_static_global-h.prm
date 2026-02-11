@@ -1,9 +1,9 @@
 ! run with
-! $MPIRUN -n 1 ml_test_elliptic ml_test_elliptic_global-h
-! $MPIRUN -n 6 ml_test_elliptic ml_test_elliptic_global-h
+! $MPIRUN -n 1 ml_elliptic_test_static ml_elliptic_test_static_global-h
+! $MPIRUN -n 6 ml_elliptic_test_static ml_elliptic_test_static_global-h
 
 &control_prm
-! log_level = 0
+! log_level = 2
 ! log_level_inner_iteration = 0
 ! log_level_outer_iteration = 1
 ! log_level_multigrid_cycle = 1
@@ -15,7 +15,7 @@
 
 &domain_prm
 ! test_domain = 1
-! gmsh_file   = '../gmsh_3d/cylinder_2d'
+! gmsh_file   = '../../gmsh/cylinder_2d'
 /
 
 ! test_domain = 1
@@ -29,7 +29,7 @@
 ! lx(2:3) = 2*2.5132741228718345907520D+1  ! AR =  4
 ! lx(2:3) = 2*5.0265482457436691815040D+1  ! AR =  8
 ! lx(2:3) = 2*1.0053096491487338363008D+2  ! AR = 16
-  lx(2:3) = 2*2.0106192982974676726016D+2  ! AR = 32
+! lx(2:3) = 2*2.0106192982974676726016D+2  ! AR = 32
   np = 1,1,1
   ep = 2,2,2
   periodic = 3*T
@@ -85,20 +85,20 @@
 
   po = 8, 8, 8, 8
 
-! ml_elliptic_opt%penalty           =  2.0   ! penalty parameter > 1    [2]
-  ml_elliptic_opt%schwarz%delta     =  0.125 ! relative overlap  ≤ 1    [?]
-  ml_elliptic_opt%schwarz%no_min    =   1    ! min overlap in points    [?]
-  ml_elliptic_opt%projection_method =  'I'   ! {'I','P'}                ['I']
-  ml_elliptic_opt%start_method      =   1    ! none/CASC/FMG = 0/1/2    [2]
-  ml_elliptic_opt%smooth_method     =   3    ! CG/WS/SPCG    = 1/2,3    [2]
-  ml_elliptic_opt%coarse_solver     =   3    ! CG/WS/SPCG    = 1/2,3    [3]
+! ml_elliptic_opt%penalty        =  2.0   ! penalty parameter > 1    [2]
+  ml_elliptic_opt%schwarz%delta  =  0.125 ! relative overlap  ≤ 1    [?]
+  ml_elliptic_opt%schwarz%no_min =   1    ! min overlap in points    [?]
+  ml_elliptic_opt%fc_projection  =  'I'   ! {'I','P'}                ['I']
+  ml_elliptic_opt%start_method   =   1    ! none/CASC/FMG = 0/1/2    [2]
+  ml_elliptic_opt%smooth_method  =   3    ! CG/WS/SPCG    = 1/2,3    [2]
+  ml_elliptic_opt%coarse_solver  =   3    ! CG/WS/SPCG    = 1/2,3    [3]
 
-  ml_elliptic_opt%i_crs =  1000 ! max num coarse solver iterations      [1]
-  ml_elliptic_opt%i_max =   500 ! max num multigrid iterations          [1]
-  ml_elliptic_opt%ns_1  =     2 ! num pre-smoothing steps               [1]
-  ml_elliptic_opt%ns_2  =     2 ! num post-smoothing steps              [1]
-  ml_elliptic_opt%ns_c  =     2 ! num continuation smoothing steps      [1]
-  ml_elliptic_opt%r_red = 1e-10 ! min residual reduction                [-1]
-  ml_elliptic_opt%r_max = 1e-12 ! max admissible residual               [-1]
+  ml_elliptic_opt%i_crs =  1000 ! max num coarse solver iterations   [1]
+  ml_elliptic_opt%i_max =   500 ! max num multigrid iterations       [1]
+  ml_elliptic_opt%ns_1  =     2 ! num pre-smoothing steps            [1]
+  ml_elliptic_opt%ns_2  =     2 ! num post-smoothing steps           [1]
+  ml_elliptic_opt%ns_c  =     2 ! num continuation smoothing steps   [1]
+  ml_elliptic_opt%r_red = 1e-10 ! min residual reduction             [-1]
+  ml_elliptic_opt%r_max = 1e-12 ! max admissible residual            [-1]
 
 /

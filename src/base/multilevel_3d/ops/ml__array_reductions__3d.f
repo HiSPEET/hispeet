@@ -149,7 +149,7 @@ contains
         nw = size(w_l, 5)
 
         if (l < l_top_ .and. leaf_only) then
-          !$omp do collapse(2) reduction(+:r_loc) private(i,j)
+          !$omp do collapse(2) reduction(+:r_loc) private(i,k)
           do k = 1, nc
           do i = 1, ne
             if (mesh % element(i) % IsLeaf()) then

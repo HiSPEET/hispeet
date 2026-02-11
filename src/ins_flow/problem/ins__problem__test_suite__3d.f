@@ -10,6 +10,7 @@ module INS__Problem__Test_Suite__3D
   use INS__Problem__Channel__3D           , only: INS_Problem_Channel_3D
   use INS__Problem__Cylinder_2D__3D       , only: INS_Problem_Cylinder2D_3D
   use INS__Problem__Hagen_Poiseuille__3D  , only: INS_Problem_HagenPoiseuille_3D
+  use INS__Problem__Linear_Cascade__3D    , only: INS_Problem_LinearCascade_3D
   use INS__Problem__No_Flow__3D           , only: INS_Problem_NoFlow_3D
   use INS__Problem__Poiseuille__3D        , only: INS_Problem_Poiseuille_3D
   use INS__Problem__Stokes_DKM__3D        , only: INS_Problem_Stokes_DKM_3D
@@ -44,10 +45,12 @@ contains
       allocate(INS_Problem_Cylinder2D_3D        :: problem)
     case('HagenPoiseuille')
       allocate(INS_Problem_HagenPoiseuille_3D   :: problem)
-    case('Poiseuille')
-      allocate(INS_Problem_Poiseuille_3D        :: problem)
+    case('LinearCascade')
+      allocate(INS_Problem_LinearCascade_3D     :: problem)
     case('NoFlow')
       allocate(INS_Problem_NoFlow_3D            :: problem)
+    case('Poiseuille')
+      allocate(INS_Problem_Poiseuille_3D        :: problem)
     case('Stokes_DKM')
       allocate(INS_Problem_Stokes_DKM_3D        :: problem)
     case('Stokes_Linke')

@@ -9,7 +9,7 @@ program Mesh3d_Import_Generic
   use Verify_Mesh__3D
   use Assembly__3D
   use Export_VTK_Volume_Data__3D
-  use Root_Mesh_Partitioning__3D
+  use Export_VTK_Mesh_SFC__3D
   implicit none
 
   character(len=*), parameter :: input_file = 'mesh3d_import_generic.prm'
@@ -187,6 +187,10 @@ program Mesh3d_Import_Generic
                                , file    = 'cuboid_mesh'  &
                                , part    = mesh % part    &
                                , n_parts = mesh % n_parts )
+
+     if (mesh % has_sfc) then
+       call ExportVTK_MeshSFC(mesh, file = 'sfc')
+     end if
 
     end if
 

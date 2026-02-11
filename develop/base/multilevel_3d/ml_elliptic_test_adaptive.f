@@ -5,6 +5,9 @@
 !===============================================================================
 
 program ML_Elliptic_Test_Adaptive
+
+  use, intrinsic :: ieee_arithmetic
+
   use Kind_Parameters
   use Constants
   use OpenMP_Binding
@@ -14,6 +17,7 @@ program ML_Elliptic_Test_Adaptive
   use Array_Assignments
   use Array_Reductions
 
+  use TPO__Grad__3D
   use Elliptic_Problem__3D
   use Elliptic_Problem__Sphere__3D
 
@@ -27,6 +31,7 @@ program ML_Elliptic_Test_Adaptive
   use Mesh__3D
   use Verify_Mesh__3D
   use Data_Exchange__3D
+  use Export_VTK_Mesh_SFC__3D
 
   use ML__Mesh__3D
   use ML__Mesh_Operators__3D
@@ -74,7 +79,7 @@ program ML_Elliptic_Test_Adaptive
                              !   2  cuboidal with unstructured "diamond" mesh
                              !   3  cylindrical domain
 
-  character(len=80) :: gmsh_file = '../gmsh_3d/cylinder_2d'
+  character(len=80) :: gmsh_file = '../../gmsh/cylinder_2d'
 
   namelist/domain_prm/ test_domain, gmsh_file
 
@@ -118,7 +123,7 @@ program ML_Elliptic_Test_Adaptive
 
   ! adaptation parameters ......................................................
 
-  integer   :: adapt_criterion = 1
+  integer   :: adapt_criterion = 4
   real(RNP) :: adapt_remove = 0.0
   real(RNP) :: adapt_refine = 0.7
 
@@ -131,25 +136,29 @@ program ML_Elliptic_Test_Adaptive
   character(len=:), allocatable, save :: name_var(:) ! names of variables
   type(ML_MeshVariable_3D), save :: var ! container of variables
 
-  type(ML_MeshVariable_3D), save :: mm  ! diagonal mass matrix
-  type(ML_MeshVariable_3D), save :: f   ! sources
-  type(ML_MeshVariable_3D), save :: u   ! numerical solution
-  type(ML_MeshVariable_3D), save :: s   ! exact solution
-  type(ML_MeshVariable_3D), save :: e   ! error
-  type(ML_MeshVariable_3D), save :: r   ! residual or just workspace
+  type(ML_MeshVariable_3D), save :: mm     ! diagonal mass matrix
+  type(ML_MeshVariable_3D), save :: f      ! sources
+  type(ML_MeshVariable_3D), save :: u      ! numerical solution
+  type(ML_MeshVariable_3D), save :: s      ! exact solution
+  type(ML_MeshVariable_3D), save :: e      ! H0/H1 errors per element
+  type(ML_MeshVariable_3D), save :: r      ! residual or just workspace
+  type(ML_MeshVariable_3D), save :: grad_u ! gradient of numerical solution
+  type(ML_MeshVariable_3D), save :: grad_s ! gradient of exact solution
 
   type(ML_BoundaryVariable_3D), save :: bv ! boundary values
 
   ! auxiliaries ................................................................
 
   character(:), allocatable, save :: domain_name
+  real(RNP)   , allocatable, save :: t_adapt(:), t_setup(:), t_solve(:)
 
-  character(len=100), save :: message
-  logical, save :: exists, passed, all_passed
-  integer, save :: l_top, l_max, l_adapt
-  integer, save :: io, stat
+  character(80), save :: message
+  real(RNP)    , save :: t_start
+  real(RNP)    , save :: max_e(4)
+  logical      , save :: exists, passed, all_passed
+  integer      , save :: l_top, l_max, l_adapt
+  integer      , save :: io, stat
 
-  logical :: singular
   integer :: i, l, m
 
   !-----------------------------------------------------------------------------
@@ -206,10 +215,10 @@ program ML_Elliptic_Test_Adaptive
   call XMPI_Bcast_LoggingLevels(0, comm)
 
   ! globalize remaining parameters
-  call XMPI_Bcast(case_name       , 0, comm)
-  call XMPI_Bcast(export_vtk      , 0, comm)
-  call XMPI_Bcast(test_domain     , 0, comm)
-  call XMPI_Bcast(gmsh_file       , 0, comm)
+  call XMPI_Bcast(case_name   , 0, comm)
+  call XMPI_Bcast(export_vtk  , 0, comm)
+  call XMPI_Bcast(test_domain , 0, comm)
+  call XMPI_Bcast(gmsh_file   , 0, comm)
 
   ! base mesh ..................................................................
 
@@ -259,7 +268,7 @@ program ML_Elliptic_Test_Adaptive
 
   ml_mesh = ML_Mesh_3D(base_mesh, ml_mesh_opt)
 
-  l_top   = ml_mesh_opt % l_top
+  l_top   = size(ml_mesh % mesh)
   l_max   = ml_mesh_opt % l_max
   l_adapt = ml_mesh_opt % l_adapt
 
@@ -309,8 +318,6 @@ program ML_Elliptic_Test_Adaptive
   ! enforce periodicity at coupled boundaries
   where(base_mesh % boundary % coupled > 0) bc = 'P'
 
-  singular = lambda == ZERO .and. all(bc == 'P' .or. bc == 'N')
-
   if (rank == 0) then
     write(*,'(T3,A,T26,9(G0,X))') 'problem name:'        , trim(problem_name)
     write(*,'(T3,A,T26,9(G0,X))') 'boundary conditions:' , bc
@@ -335,10 +342,17 @@ program ML_Elliptic_Test_Adaptive
   call XMPI_Bcast(adapt_remove   , 0, comm)
   call XMPI_Bcast(adapt_refine   , 0, comm)
 
+  allocate(t_adapt(n_cycle), source = ZERO)
+  allocate(t_setup, t_solve, source = t_adapt)
+
   !-----------------------------------------------------------------------------
   ! first iteration
 
   ! preliminaries ..............................................................
+
+  if (rank == 0) then
+    t_start = MPI_Wtime()
+  end if
 
   ml_op = ML_MeshOperators_3D(ml_mesh, po)
   ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt)
@@ -347,22 +361,27 @@ program ML_Elliptic_Test_Adaptive
   call f  % Init(ml_op, 1)
   call u  % Init(ml_op, 1)
   call s  % Init(ml_op, 1)
-  call e  % Init(ml_op, 1)
   call r  % Init(ml_op, 1)
   call bv % Init(ml_op, 1)
+
+  call grad_u % Init(ml_op, 3)
+  call grad_s % Init(ml_op, 3)
+
+  call e % Init(ml_mesh, po = 0, nc = 4)
 
   ! RHS, BC and start values ...................................................
 
   do l = 1, l_top
-    associate( x_l   => ml_op % sem(l) % metrics % x   &
-             , mm_l  => mm % level(l) % val(:,:,:,:,1) &
-             , f_l   => f  % level(l) % val(:,:,:,:,1) &
-             , s_l   => s  % level(l) % val(:,:,:,:,1) &
-             , u_l   => u  % level(l) % val(:,:,:,:,1) )
+    associate( x_l  => ml_op % sem(l) % metrics % x   &
+             , mm_l => mm % level(l) % val(:,:,:,:,1) &
+             , f_l  => f  % level(l) % val(:,:,:,:,1) &
+             , s_l  => s  % level(l) % val(:,:,:,:,1) &
+             , u_l  => u  % level(l) % val(:,:,:,:,1) )
 
       call ml_op % sem(l) % Get_DG_DiagonalMassMatrix(mm_l)
 
       call problem % GetExactSolution(x_l, s_l)
+      call problem % GetExactGradient(x_l, grad_s % level(l) % val)
       call problem % GetSource(x_l, f_l)
       f_l = mm_l * f_l
 
@@ -388,13 +407,22 @@ program ML_Elliptic_Test_Adaptive
     end associate
   end do
 
+  if (rank == 0) then
+    t_setup(1) = MPI_Wtime() - t_start
+  end if
+
   ! solution ...................................................................
 
   if (rank == 0) then
-     write(*,'(/,A,I0)') 'Cycle ', 1
+    write(*,'(/,A,I0)') 'Cycle ', 1
+    t_start = MPI_Wtime()
   end if
 
-  call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, u, f, bv)
+  call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, bv, f, u)
+
+  if (rank == 0) then
+    t_solve(1) = MPI_Wtime() - t_start
+  end if
 
   call Evaluation
 
@@ -412,7 +440,15 @@ program ML_Elliptic_Test_Adaptive
     end if
     call SetAdaptationMarks
 
+    if (rank == 0) then
+      t_start = MPI_Wtime()
+    end if
+
     call ml_mesh % Adapt(ml_mesh_opt % partition, x_plan)
+
+    if (rank == 0) then
+      t_adapt(m) = MPI_Wtime() - t_start
+    end if
 
     ! verification
     associate(mesh => ml_mesh%mesh)
@@ -428,19 +464,48 @@ program ML_Elliptic_Test_Adaptive
     l_top = size(ml_mesh % mesh)
     ml_op = ML_MeshOperators_3D(ml_mesh, po)
 
+    if (rank == 0) then
+      t_start = MPI_Wtime()
+    end if
+
     ! rebuild elliptic operators -- can be optimized
     ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt)
 
+    if (rank == 0) then
+      t_setup(m) = MPI_Wtime() - t_start
+      t_start = MPI_Wtime()
+    end if
+
     ! interpolate/redistribute solution
     call u % FitAdapt(ml_op, x_plan)
+
+    if (rank == 0) then
+      t_adapt(m) = t_adapt(m) + MPI_Wtime() - t_start
+    end if
+
+    do l = 1, l_top
+      associate(u_l => u  % level(l) % val(:,:,:,:,1))
+        if (any(ieee_is_nan(u_l))) then
+          print '(99G0)', '#1 [',ml_mesh%mesh(l)%proc,'] u_',l,' has NaN'
+        end if
+      end associate
+    end do
+
+    if (rank == 0) then
+      t_start = MPI_Wtime()
+    end if
 
     ! adjust remaining variables
     call mm % Init(ml_op, 1)
     call f  % Init(ml_op, 1)
     call s  % Init(ml_op, 1)
-    call e  % Init(ml_op, 1)
     call r  % Init(ml_op, 1)
     call bv % Init(ml_op, 1)
+
+    call grad_u % Init(ml_op, 3)
+    call grad_s % Init(ml_op, 3)
+
+    call e % Init(ml_mesh, po = 0, nc = 4)
 
     ! RHS and BC
     do l = 1, l_top
@@ -452,6 +517,7 @@ program ML_Elliptic_Test_Adaptive
         ! right hand side
         call ml_op % sem(l) % Get_DG_DiagonalMassMatrix(mm_l)
         call problem % GetExactSolution(x_l, s_l)
+        call problem % GetExactGradient(x_l, grad_s % level(l) % val)
         call problem % GetSource(x_l, f_l)
         f_l = mm_l * f_l
 
@@ -466,29 +532,71 @@ program ML_Elliptic_Test_Adaptive
       end associate
     end do
 
-    call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, u, f, bv)
+    if (rank == 0) then
+      t_setup(m) = t_setup(m) + MPI_Wtime() - t_start
+      t_start = MPI_Wtime()
+    end if
+
+    call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, bv, f, u)
+
+    if (rank == 0) then
+      t_solve(m) = MPI_Wtime() - t_start
+    end if
+
+    do l = 1, l_top
+      associate(u_l => u  % level(l) % val(:,:,:,:,1))
+        if (any(ieee_is_nan(u_l))) then
+          print '(99G0)', '#2 [',ml_mesh%mesh(l)%proc,'] u_',l,' has NaN'
+        end if
+      end associate
+    end do
 
     call Evaluation
 
   end do
 
+  ! print times
+  if (rank == 0) then
+    write(*,'(/,2X,A5,3(4X,A7,X))') 'cycle', 't_adapt', 't_setup', 't_solve'
+    do m = 1, n_cycle
+      write(*,'(I5,2X,3(2X,ES10.3))') m, t_adapt(m), t_setup(m), t_solve(m)
+    end do
+    write(*,'(A5,2X,3(2X,ES10.3))') &
+        'sum', sum(t_adapt), sum(t_setup), sum(t_solve)
+  end if
+
   !-----------------------------------------------------------------------------
   ! VTK export
 
-  name_var = [ 'f ', 'u ', 's ', 'e ', 'r ' ]
+  name_var = [ 'f ', 'u ', 's ', 'r ' ]
   call var % Init(ml_op, size(name_var), name_var)
 
   do l = 1, l_top
     call SetArray(var%level(l)%val(:,:,:,:,1), f%level(l)%val(:,:,:,:,1))
     call SetArray(var%level(l)%val(:,:,:,:,2), u%level(l)%val(:,:,:,:,1))
     call SetArray(var%level(l)%val(:,:,:,:,3), s%level(l)%val(:,:,:,:,1))
-    call SetArray(var%level(l)%val(:,:,:,:,4), e%level(l)%val(:,:,:,:,1))
-    call SetArray(var%level(l)%val(:,:,:,:,5), r%level(l)%val(:,:,:,:,1))
+    call SetArray(var%level(l)%val(:,:,:,:,4), r%level(l)%val(:,:,:,:,1))
   end do
 
   if (export_vtk) then
+
+    ! mesh and variables
     call var % ExportVTK(ml_op, trim(case_name)//'_full', mode=1)
     call var % ExportVTK(ml_op, trim(case_name)//'_leaf', mode=3)
+
+    ! space filling curve
+    associate(mesh => ml_mesh%mesh)
+      block
+        character(len=9) :: tag
+        do l = 1, size(mesh)
+          if (mesh(l) % has_sfc) then
+            write(tag,'(A,I0,A)') '_sfc_l', l
+            call ExportVTK_MeshSFC(mesh(l), file = trim(case_name)//trim(tag))
+          end if
+        end do
+      end block
+    end associate
+
   end if
 
   !-----------------------------------------------------------------------------
@@ -503,128 +611,84 @@ contains
 
   subroutine Evaluation
 
-    real(RNP), parameter :: eps = epsilon(ONE) / 1000
+    real(RNP), save :: int_e_loc(2), int_e(2)
+    real(RNP), save :: max_e_loc(4)
+    real(RNP), save :: e_h(2), r_h0
 
-    real(RNP), save :: int_1, int_1_loc
-    real(RNP), save :: int_e, int_e_loc
-    real(RNP), save :: e_l2, r_l2
-
-    integer, save :: ne_max, ne_min, ne_tot, ne_leaf, ne_leaf_loc
-    integer, save :: ne_tot_sum, ne_leaf_sum
-    integer, save :: np_tot_sum, np_leaf_sum
-
-    real(RNP) :: e_avg
-    integer   :: i, l
+    real(RNP)    :: c_norm
 
     associate(mesh => ml_mesh%mesh)
 
-      ! residual .................................................................
-
-      call ml_elliptic % FAS_MG_Residual(bc, lambda, problem%nu_0, f, bv, u, r)
-      r_l2 = sqrt(ML_WeightedScalarProduct_3D(mm, r, r, leaf = .true.))
-
-      ! error ....................................................................
-
-      int_1_loc = 0
-      int_e_loc = 0
-
-      do l = 1, l_top
-        associate( mm_l   => mm % level(l) % val(:,:,:,:,1) &
-                 , s_l    => s  % level(l) % val(:,:,:,:,1) &
-                 , u_l    => u  % level(l) % val(:,:,:,:,1) &
-                 , e_l    => e  % level(l) % val(:,:,:,:,1) )
-
-          do i = 1, mesh(l) % n_elem
-            e_l(:,:,:,i) = u_l(:,:,:,i) - s_l(:,:,:,i)
-            if (mesh(l)%element(i)%IsLeaf()) then
-              int_1_loc = int_1_loc + sum(mm_l(:,:,:,i))
-              int_e_loc = int_e_loc + sum(mm_l(:,:,:,i) * e_l(:,:,:,i))
-            end if
-          end do
-
-        end associate
-      end do
-
-      ! mean error for calibration in singular case
-      if (singular) then
-        call XMPI_Allreduce(int_1_loc, int_1, MPI_SUM, comm)
-        call XMPI_Allreduce(int_e_loc, int_e, MPI_SUM, comm)
-        e_avg = int_e / int_1
-      else
-        e_avg = 0
-      end if
-
-      ! calibration and maximum norm
-      do l = 1, l_top
-        associate(e_l => e % level(l) % val(:,:,:,:,1))
-          do i = 1, mesh(l) % n_elem
-            e_l(:,:,:,i) = e_l(:,:,:,i) - e_avg
-          end do
-        end associate
-      end do
-
-      ! L2 norm
-      e_l2 = sqrt(ML_WeightedScalarProduct_3D(mm, e, e, leaf = .true.))
-
       ! mesh metrics .............................................................
 
-      if (rank == 0) then
-        write(*,'(/,A7,5A9,A5)') '  level'   &
-                               , '  n_parts' &
-                               , '   ne_min' &
-                               , '   ne_max' &
-                               , '   ne_tot' &
-                               , '  ne_leaf' &
-                               , '  po'
-      end if
+      call ml_op % Print_MeshCharacteristics()
 
-      ne_tot_sum  = 0
-      np_tot_sum  = 0
-      ne_leaf_sum = 0
-      np_leaf_sum = 0
+      ! residual ...............................................................
+
+      call ml_elliptic % FAS_MG_Residual(bc, lambda, problem%nu_0, bv, f, u, r)
+      r_h0 = sqrt(ML_WeightedScalarProduct_3D(mm, r, r, leaf = .true.))
+
+      ! H0 and H1 semi-norm errors .............................................
+
+      int_e_loc = 0
+      max_e_loc = 0
 
       do l = 1, l_top
 
-        ne_leaf_loc = 0
+        associate( mm_l => mm % level(l) % val(:,:,:,:,1) &
+                 , e_l  => e  % level(l) % val(0,0,0,:,:) &
+                 , s_l  => s  % level(l) % val(:,:,:,:,1) &
+                 , u_l  => u  % level(l) % val(:,:,:,:,1) &
+                 , Vs_l => grad_s % level(l) % val        &
+                 , Vu_l => grad_u % level(l) % val        )
 
-        if (mesh(l)%part >= 0) then
-          do i = 1, mesh(l) % n_elem_active
-            if (mesh(l) % element(i) % IsLeaf()) then
-              ne_leaf_loc = ne_leaf_loc + 1
+          ! gradient of approximate solution
+          call TPO_Grad( eop = ml_op % sem(l) % std_op &
+                       , sem = ml_op % sem(l)          &
+                       , u   = u_l                     &
+                       , v   = Vu_l                    )
+
+          do i = 1, mesh(l) % n_elem
+
+            ! H0 norm in element i
+            e_l(i,1) = sqrt(sum( mm_l(:,:,:,i)                        &
+                               * ( u_l(:,:,:,i) - s_l(:,:,:,i)) **2 ) )
+
+            ! H1 semi-norm in element i
+            e_l(i,2) = sqrt(sum( mm_l(:,:,:,i) &
+                               * ( (Vu_l(:,:,:,i,1) - Vs_l(:,:,:,i,1))**2    &
+                                 + (Vu_l(:,:,:,i,2) - Vs_l(:,:,:,i,2))**2    &
+                                 + (Vu_l(:,:,:,i,3) - Vs_l(:,:,:,i,3))**2 ) ))
+
+            ! normalized errors
+            c_norm = 1 / sqrt(sum(mm_l(:,:,:,i)))
+            e_l(i,3) = e_l(i,1) * c_norm
+            e_l(i,4) = e_l(i,2) * c_norm
+
+            if (mesh(l)%element(i)%IsLeaf()) then
+              int_e_loc = int_e_loc + e_l(i,1:2)**2
+              max_e_loc = max(max_e_loc, e_l(i,1:4))
             end if
           end do
-          call XMPI_Reduce(mesh(l)%n_elem, ne_min , MPI_MIN, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(mesh(l)%n_elem, ne_max , MPI_MAX, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(mesh(l)%n_elem, ne_tot , MPI_SUM, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(ne_leaf_loc   , ne_leaf, MPI_SUM, 0, mesh(l)%comm_parts)
-        end if
 
-        call XMPI_Bcast(ne_min , mesh(l)%proc_part(0), mesh(l)%comm_world)
-        call XMPI_Bcast(ne_max , mesh(l)%proc_part(0), mesh(l)%comm_world)
-        call XMPI_Bcast(ne_tot , mesh(l)%proc_part(0), mesh(l)%comm_world)
-        call XMPI_Bcast(ne_leaf, mesh(l)%proc_part(0), mesh(l)%comm_world)
-
-        if (rank == 0) then
-          write(*,'(I7,5I9,I5)') l, mesh(l)%n_parts,             &
-                                 ne_min, ne_max, ne_tot,ne_leaf, &
-                                 po(l)
-
-          ne_tot_sum  = ne_tot_sum  + ne_tot
-          np_tot_sum  = np_tot_sum  + ne_tot  * (po(l) + 1)**3
-          ne_leaf_sum = ne_leaf_sum + ne_leaf
-          np_leaf_sum = np_leaf_sum + ne_leaf * (po(l) + 1)**3
-        end if
+        end associate
       end do
+
+      ! global measures
+      call XMPI_Allreduce(int_e_loc, int_e, MPI_SUM, comm)
+      call XMPI_Allreduce(max_e_loc, max_e, MPI_MAX, comm)
+      e_h = sqrt(int_e)
 
       if (rank == 0) then
         write(*,*)
-        write(*,'(2X,A)') 'overall metrics'
-        write(*,'(T5,A,T16,I0)')     'ne_tot  =', ne_tot_sum
-        write(*,'(T5,A,T16,I0)')     'np_tot  =', np_tot_sum
-        write(*,'(T5,A,T16,I0)')     'ne_leaf =', ne_leaf_sum
-        write(*,'(T5,A,T16,I0)')     'np_leaf =', np_leaf_sum
-        write(*,'(T5,A,T15,ES12.5)') 'r_l2    =', r_l2
-        write(*,'(T5,A,T15,ES12.5)') 'e_l2    =', e_l2
+        write(*,'(2X,A)') 'error metrics'
+        write(*,'(T5,A,T16,ES12.5)') 'r_h0(Ω) =', r_h0
+        write(*,'(T5,A,T16,ES12.5)') 'e_h0(Ω) =', e_h(1)
+        write(*,'(T5,A,T16,ES12.5)') 'e_h1(Ω) =', e_h(2)
+        write(*,'(T5,A,T15,ES12.5)') 'e_h0(K) =', max_e(1)
+        write(*,'(T5,A,T15,ES12.5)') 'e_h1(K) =', max_e(2)
+        write(*,'(T5,A,T15,ES12.5)') 'e_r0(K) =', max_e(3)
+        write(*,'(T5,A,T15,ES12.5)') 'e_r1(K) =', max_e(4)
       end if
 
     end associate
@@ -636,107 +700,82 @@ contains
 
   subroutine SetAdaptationMarks
 
-    type(ML_MeshVariable_3D), save :: qi
-    real(RNP), save :: qi_max, qi_max_loc
-    integer,   save :: n_ref_loc, n_ref
+    type(ML_MeshVariable_3D), allocatable, save :: qi
+    integer, allocatable, save :: n_refine_loc(:), n_refine(:)
+    integer, allocatable, save :: n_remove_loc(:), n_remove(:)
 
-    real(RNP) :: qi_remove, qi_refine
-    integer   :: i, l
+    real(RNP) :: qi_refine, qi_remove
 
     associate(mesh => ml_mesh%mesh)
 
-      n_ref_loc = 0
+      allocate(qi)
+      allocate(n_refine_loc(l_top), n_refine(l_top), source = 0)
+      allocate(n_remove_loc(l_top), n_remove(l_top), source = 0)
 
-      ! mark for global refinement ..............................................
+      ! select quantity of interest and criteria for refinement/removal ........
+
+      call e % GetSlice(qi, adapt_criterion, adapt_criterion)
+      qi_refine = adapt_refine * max_e(adapt_criterion)
+      qi_remove = adapt_remove * max_e(adapt_criterion)
+
+      ! mark elements in globally refined levels ...............................
 
       do l = 1, min(l_top,l_adapt-2)
         if (mesh(l)%n_elem > 0) then
           call mesh(l) % element % MarkForRefinement()
-          n_ref_loc = n_ref_loc + 1
         end if
       end do
 
-      ! quantity of interest for adaptation .....................................
-
-      call qi % Init(ml_mesh, po = 0, nc = 1)
-      qi_max_loc = 0
-
-      ! evaluation
-      do l = l_adapt-1, l_top
-        associate( mesh_l => ml_op % sem(l) % mesh          &
-                 , mm_l   => mm % level(l) % val(:,:,:,:,1) &
-                 , qi_l   => qi % level(l) % val(0,0,0,:,1) &
-                 , e_l    => e  % level(l) % val(:,:,:,:,1) )
-
-          call SetArray(qi_l, ZERO)
-
-          do i = 1, mesh_l % n_elem_active
-            select case(adapt_criterion)
-            case(1)
-              qi_l(i) = sum(mm_l(:,:,:,i) * e_l(:,:,:,i)**2)
-            case default
-              qi_l(i) = sum(mm_l(:,:,:,i) * e_l(:,:,:,i)**2) &
-                      / sum(mm_l(:,:,:,i))
-            end select
-            qi_max_loc = max(qi_max_loc, qi_l(i))
-         end do
-
-        end associate
-      end do
-
-      ! global maximum
-      call XMPI_Reduce(qi_max_loc, qi_max, MPI_MAX, 0, comm)
-
       ! mark for adaptation ....................................................
-
-      select case(adapt_criterion)
-      case(1:2)
-        qi_remove = adapt_remove * qi_max
-        qi_refine = adapt_refine * qi_max
-      case default ! 3
-        qi_remove = adapt_remove
-        qi_refine = adapt_refine
-      end select
 
       ! l < l_max: mark elements for removal or refinement
       do l = l_adapt-1, min(l_top,l_max-1)
-        do i = 1, mesh(l) % n_elem
-          associate( element => mesh(l) % element(i)      &
-                   , qi => qi % level(l) % val(0,0,0,i,1) )
-            if (qi < adapt_remove) then
-              call element % MarkForRemoval()
-            else if (qi > qi_refine) then
-              call element % MarkForRefinement()
-              n_ref_loc = n_ref_loc + 1
+        associate(qi_l => qi % level(l) % val(0,0,0,:,1))
+          do i = 1, mesh(l) % n_elem
+            if (.not. mesh(l) % element(i) % IsLeaf()) then
+              call mesh(l) % element(i) % MarkForRemoval()
+            else if (qi_l(i) > qi_refine) then
+              call mesh(l) % element(i) % MarkForRefinement()
+              n_refine_loc(l) = n_refine_loc(l) + 1
+            else if (qi_l(i) < adapt_remove) then
+              call mesh(l) % element(i) % MarkForRemoval()
+              n_remove_loc(l) =  n_remove_loc(l) + 1
             else
-              call element % Unmark()
+              call mesh(l) % element(i) % Unmark()
             end if
-          end associate
-        end do
+          end do
+        end associate
       end do
 
       ! l = l_max: mark elements for removal
       if (l_top == l_max) then
-        do i = 1, mesh(l_top) % n_elem
-          associate( element => mesh(l_top) % element(i)      &
-                   , qi => qi % level(l_top) % val(0,0,0,i,1) )
-            if (qi < adapt_remove) then
-              call element % MarkForRemoval()
+        associate(qi_l => qi % level(l_top) % val(0,0,0,:,1))
+          do i = 1, mesh(l_top) % n_elem
+            if (qi_l(i) < adapt_remove) then
+              call mesh(l_top) % element(i) % MarkForRemoval()
+              n_remove_loc(l_top) =  n_remove_loc(l_top) + 1
             else
-              call element % Unmark()
+              call mesh(l_top) % element(i) % Unmark()
             end if
-          end associate
-        end do
+          end do
+        end associate
       end if
 
+      deallocate(qi)
+
       ! number of leaf elements marked for refinement
-      call XMPI_Reduce(n_ref_loc, n_ref, MPI_SUM, 0, comm)
+      call XMPI_Reduce(n_refine_loc, n_refine, MPI_SUM, 0, comm)
+      call XMPI_Reduce(n_remove_loc, n_remove, MPI_SUM, 0, comm)
 
       ! control output .........................................................
 
       if (rank == 0) then
-        write(*,'(/,2X,A,I0)') 'elements marked for refinement: ', n_ref
+        write(*,'(/,2X,A,99(X,G0))') 'elements marked for refinement: ',n_refine
+        write(*,'(  2X,A,99(X,G0))') 'elements marked for removal:    ',n_remove
       end if
+
+      deallocate(n_refine_loc, n_refine)
+      deallocate(n_remove_loc, n_remove)
 
     end associate
 

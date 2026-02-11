@@ -1,8 +1,91 @@
 !> summary:  Base type of one-step ML time integrators for incompressible flows
 !> author:   Joerg Stiller
-!> date:     2025/04/??
+!> date:     2025/05/12
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module ML_INS__Integrator__3D
-end module ML_INS__Integrator__3D
+module ML__INS__Integrator__3D
+  use Kind_Parameters, only: RNP
+  use XMPI
+  use INS__Problem__3D
+  use ML__Mesh_Variable__3D
+  use ML__INS__Operator__3D
+  implicit none
+  private
+
+  public :: ML_INS_Integrator_3D
+  public :: ML_INS_IntegratorOptions_3D
+
+  !-----------------------------------------------------------------------------
+  !> Base type for one-step multilevel IMEX INS integrators
+
+  type, abstract :: ML_INS_Integrator_3D
+    class(INS_Problem_3D),    pointer :: problem => null() !< flow problem
+    type(ML_INS_Operator_3D), pointer :: ml_ins  => null() !< ML INS operator
+  contains
+    procedure, non_overridable    :: Init_ML_INS_Integrator_3D
+    procedure(TimeStep), deferred :: TimeStep
+  end type ML_INS_Integrator_3D
+
+  !=============================================================================
+  ! deferred module procedures
+
+  abstract interface
+
+    !---------------------------------------------------------------------------
+    !> Execution of a multilevel time step
+
+    subroutine TimeStep(this, t, dt, u, first, last)
+      import :: RNP, ML_MeshVariable_3D, ML_INS_Integrator_3D
+      class(ML_INS_Integrator_3D), intent(inout) :: this
+      real(RNP),                 intent(inout) :: t     !< time t₀ → t
+      real(RNP),                 intent(in)    :: dt    !< step size ∆t = t-t₀
+      class(ML_MeshVariable_3D), intent(inout) :: u     !< u(x,t₀) → u(x,t)
+      logical,         optional, intent(in)    :: first !< T for first step [F]
+      logical,         optional, intent(in)    :: last  !< T for last  step [F]
+    end subroutine TimeStep
+
+  end interface
+
+  !-----------------------------------------------------------------------------
+  !> Base type for providing multilevel integrator options
+
+  type ML_INS_IntegratorOptions_3D
+  contains
+    procedure :: Bcast => Bcast_ML_INS_IntegratorOptions_3D
+  end type ML_INS_IntegratorOptions_3D
+
+contains
+
+  !=============================================================================
+  ! ML_INS_Integrator_3D: type-bound procedures
+
+  !-----------------------------------------------------------------------------
+  !> Basic initialization of one-step multilevel IMEX INS integrators
+
+  subroutine Init_ML_INS_Integrator_3D(this, problem, ml_ins, opt)
+    class(ML_INS_Integrator_3D),        intent(inout) :: this
+    class(INS_Problem_3D),      target, intent(in)    :: problem
+    class(ML_INS_Operator_3D),  target, intent(in)    :: ml_ins
+    class(ML_INS_IntegratorOptions_3D), intent(in)    :: opt
+
+    this % problem => problem
+    this % ml_ins  => ml_ins
+
+  end subroutine Init_ML_INS_Integrator_3D
+
+  !=============================================================================
+  ! ML_INS_IntegratorOptions_3D: type-bound procedures
+
+  !-----------------------------------------------------------------------------
+  !> MPI broadcasting of multilevel integrator options
+
+  subroutine Bcast_ML_INS_IntegratorOptions_3D(this, root, comm)
+    class(ML_INS_IntegratorOptions_3D), intent(inout) :: this
+    integer,        intent(in) :: root !< rank of broadcast root
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
+  end subroutine Bcast_ML_INS_IntegratorOptions_3D
+
+  !=============================================================================
+
+end module ML__INS__Integrator__3D

@@ -41,6 +41,11 @@ contains
     integer :: v1, v2, vp(3,8)
     integer(IXS) :: o
 
+    if (mesh%n_elem == 0) then
+      mesh%n_edge = 0
+      return
+    end if
+
     ! build ordered list of element edges ......................................
 
     ! extract element edges, orientation = 1 (aligned) by definition
@@ -89,11 +94,14 @@ contains
               ! vertex 1 on extremity, vertex 2 inside
               element_edge(3,i) = element_edge(3,i) + vp(j,v1)
             else if (vp(j,v1) < vp(j,v2)) then
+              element_edge(3,i) = element_edge(3,i) + vp(j,v2)
               cycle
             else if (element_edge(1,i) == element_edge(2,i)) then
               ! edge spans over full length, flip to align with polarity
-              element_edge(1:2,i) =  element_edge([2,1],i) ! swap vertices
-              element_edge( 6 ,i) = -element_edge(  6  ,i) ! switch orientation
+              element_edge(1:2,i) = element_edge([2,1],i)   ! swap vertices
+              element_edge( 3 ,i) = element_edge(3,i)     & ! update ..
+                                  + max(vp(j,v1), vp(j,v2)) ! polarity
+              element_edge( 6 ,i) = -element_edge(6,i)      ! switch orientation
             end if
           end do
 

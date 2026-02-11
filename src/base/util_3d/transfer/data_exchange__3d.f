@@ -31,6 +31,7 @@ module Data_Exchange__3D
   !> Plan containing complete set of maps for exchanging element data
 
   type DataExchangePlan_3D
+    logical :: identity = .false. !< set true for identity mapping
     type(DataExchangeMap_3D), allocatable :: send_map(:) !< send maps    (1:)
     type(DataExchangeMap_3D), allocatable :: recv_map(:) !< receive maps (1:)
   end type DataExchangePlan_3D

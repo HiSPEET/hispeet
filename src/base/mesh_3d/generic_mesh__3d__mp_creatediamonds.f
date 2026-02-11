@@ -217,8 +217,10 @@ contains
     if (periodic) then
       mesh%boundary(5) % coupled  =  6
       mesh%boundary(5) % polarity = -3
+      mesh%boundary(5) % map(3,4) =  lz
       mesh%boundary(6) % coupled  =  5
       mesh%boundary(6) % polarity =  3
+      mesh%boundary(6) % map(3,4) = -lz
     end if
 
   end subroutine CreateDiamonds

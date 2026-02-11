@@ -1,6 +1,6 @@
 &control
 ! log_level = 0
-! gmsh_file = '../gmsh_3d/cylinder_2d'
+! gmsh_file = '../../gmsh/cylinder_2d'
 /
 
 &ml_mesh_options_3d__static

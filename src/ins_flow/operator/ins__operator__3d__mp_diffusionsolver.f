@@ -20,7 +20,7 @@ contains
   !-----------------------------------------------------------------------------
   !>  IPCG Diffusion solver with Schwarz preconditioner
 
-  module subroutine DiffusionSolver(this, tau, mu, nu, f, bv_u, v, precon, ni)
+  module subroutine DiffusionSolver(this, tau, mu, nu, f, bv, v, precon, ni)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -37,7 +37,7 @@ contains
     real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
     !< sources, f(np,np,np,ne,3)
 
-    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
+    class(BoundaryVariable_3D), intent(in) :: bv(:)
     !< boundary values at final time t
     !!   - Γᴰ :  vᵇ    in components 1:3
     !!   - Γᴼ :  τ_nn  in component    4
@@ -58,12 +58,14 @@ contains
     real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
     real(RNP) :: alpha, beta, delta, pq, rr
     real(RNP) :: r_max, r_red
-    integer   :: i, i_max
+    integer   :: d, i, i_max, na
     logical   :: check_convergence
 
     associate(mesh => this % mesh)
 
       ! initialization .........................................................
+
+      na = mesh % n_elem_active
 
       i_max = this % i_max_v
       r_red = this % r_red
@@ -92,7 +94,7 @@ contains
       !$omp barrier
 
       ! initial residual
-      call this % GetDiffusionResidual(tau, mu, nu, f, bv_u, v, r)
+      call this % GetDiffusionResidual(tau, mu, nu, f, bv, v, r)
 
       ! termination conditions
       if (check_convergence) then
@@ -123,16 +125,17 @@ contains
 
       ! element-averaged viscosity .............................................
 
-      if (present(nu)) then
+      if (this % HasVariableViscosity()) then
         call TPO_Average(this%eop_u%w, nu, nu_avg)
       else
-        call SetArray(nu_avg, this % problem % nu_ref)
+        call SetArray(nu_avg, this % nu_0)
       end if
 
       ! iteration ..............................................................
 
       do i = 1, i_max
 
+        ! preconditioner, result set to zero in frozen elements
         select case(this % diffusion_solver)
         case('DPCG')
           call Diagonal_Preconditioner(this, tau, r, z, standby = i < i_max)
@@ -146,7 +149,7 @@ contains
                     , 'INS__Operator__3D'            )
         end select
 
-        ! set/update search vector
+        ! set/update search vector, include frozen elements for definiteness
         if (i == 1) then
           call SetArray(p, z, multi = .true.)                 ! p = z
         else
@@ -159,17 +162,20 @@ contains
         ! save old residual
         call SetArray(s, r, multi = .true.)
 
-        ! correction
+        ! apply homogeneous operator, requires zero values in frozen elements
         call this % ApplyDiffusionOperator(tau, mu, nu, p, q)  ! q = Ap
 
+        ! correction
         delta = ScalarProduct(r, z, mesh%comm_parts)
         pq    = ScalarProduct(p, q, mesh%comm_parts)
         alpha = delta / pq
-        call MergeArrays(ONE, v, alpha, p, multi = .true.)
+        do d = 1, 3
+          call MergeArrays(ONE, v(:,:,:,1:na,d), alpha, p(:,:,:,1:na,d))
+        end do
 
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
-          call this % GetDiffusionResidual(tau, mu, nu, f, bv_u, v, r)
+          call this % GetDiffusionResidual(tau, mu, nu, f, bv, v, r)
         else
           call MergeArrays(ONE, r, -alpha, q, multi = .true.)
         end if
@@ -273,6 +279,7 @@ contains
       z(:,:,:,e,2) = tau * mm_inv(:,:,:,e) * r(:,:,:,e,2)
       z(:,:,:,e,3) = tau * mm_inv(:,:,:,e) * r(:,:,:,e,3)
     end do
+    !$omp end do nowait
 
     !$omp do
     do e = na+1, ne
@@ -466,6 +473,10 @@ contains
           call schwarz % MergeCorrections(mesh, buf_zs, zs_dp, z(:,:,:,:,d))
 
         end select
+
+        if (na < ne) then
+          call SetArray(z(:,:,:,na+1:ne,d), ZERO)
+        end if
 
       end do
 
