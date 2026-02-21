@@ -1,12 +1,12 @@
 !> summary:  Projection operator
 !> author:   Joerg Stiller
-!> date:     2019/02/22, 2024/12/09
+!> date:     2019/02/22, 2024/12/09, 2026/02/20
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
 module Projection_Operator__1D
   use Kind_Parameters, only: RNP
-  use Constants,       only: ZERO, TWO
+  use Constants,       only: ZERO, HALF
   use Gauss_Jacobi
   use Lagrange_Interpolation
   use Standard_Element_Operators__1D
@@ -18,16 +18,21 @@ module Projection_Operator__1D
   !-----------------------------------------------------------------------------
   !> Element-based projection operators
   !>
-  !> Provides the one-dimensional operators `A` and `MA` such that
+  !> Provides the one-dimensional operators `A` and `MA` for projecting a
+  !> function `f` given at the collocation points `x(0:po_f) ∈ [-1,1]` to
+  !> the polynomial basis functions `{𝓁ᵢ}` of degree `po_b` as defined in
+  !> the standard operators `eop`.
+  !>
+  !> The operator `MA` yields the mass-weighted projection
   !>
   !>      (MA f)ᵢ ≈ ∫ 𝓁ᵢ(ξ) f(ξ) dξ
   !>
-  !> is the mass-weighted projection of the function f  in the standard element
-  !> [-1,1] and
+  !> and `A` the L² projection
   !>
-  !>      (A u)ᵢ = (M⁻¹ MA u)ᵢ ≈ ∫ 𝓁ᵢ(ξ) f(ξ) dξ / ∫𝓁ᵢ𝓁ᵢ dξ
+  !>      A f = M⁻¹ MA f.
   !>
-  !> is the L2 projection of f.
+  !> Both projections refer to the standard element [-1,1] and must be
+  !> scaled properly when applied to physical elements.
 
   type ProjectionOperator_1D
     integer :: po_b = -1 !< polynomial order of the basis {𝓁ᵢ}
@@ -65,10 +70,9 @@ contains
     real(RNP),              intent(in) :: x(0:) !< node coordinates
     character(*), optional, intent(in) :: nodes !< node type
 
-    real(RNP), allocatable :: x_g(:), w_g(:)
     real(RNP), allocatable :: x_q(:), w_q(:)
-    real(RNP), allocatable :: C(:,:), VL_inv(:,:)
-    real(RNP) :: z
+    real(RNP), allocatable :: l_b(:,:), l_f(:,:)
+    real(RNP), allocatable :: VL(:,:), ML_inv(:), M_inv(:,:)
 
     character(2) :: nodes_f
     integer :: po_b, po_f, po_q
@@ -92,63 +96,75 @@ contains
     allocate(this % A  (0:po_b, 0:po_f), source = ZERO)
     allocate(this % MA (0:po_b, 0:po_f), source = ZERO)
 
-    ! Gauss points and weights to basis order
-    allocate(x_g(0:po_b), source = GaussPoints(po_b))
-    allocate(w_g(0:po_b), source = GaussWeights(x_g))
-
     ! Gauss points and weights for exact integration
     allocate(x_q(0:po_q), source = GaussPoints(po_q))
     allocate(w_q(0:po_q), source = GaussWeights(x_q))
 
+    ! operator basis functions at quadrature points
+    allocate(l_b(0:po_q, 0:po_b))
+    do i = 0, po_b
+    do q = 0, po_q
+      select case(eop % nodes)
+      case('G')
+        l_b(q,i) = GaussPolynomial(i, eop%x, x_q(q))
+      case('L')
+        l_b(q,i) = LobattoPolynomial(i, eop%x, x_q(q))
+      case('RL','RR')
+        l_b(q,i) = RadauPolynomial(i, eop%x, x_q(q))
+      end select
+    end do
+    end do
+
+    ! Lagrange cardinal functions to `x` at quadrature points
+    allocate(l_f(0:po_q, 0:po_f))
+    do j = 0, po_f
+    do q = 0, po_q
+      select case(nodes_f)
+      case('G')
+        l_f(q,j) = GaussPolynomial(j, x, x_q(q))
+      case('L')
+        l_f(q,j) = LobattoPolynomial(j, x, x_q(q))
+      case('RL','RR')
+        l_f(q,j) = RadauPolynomial(j, x, x_q(q))
+      case default
+        l_f(q,j) = LagrangePolynomial(j, x, x_q(q))
+      end select
+    end do
+    end do
+
+
     associate(A => this % A, MA => this % MA)
-
-      ! intermediate projection to Gauss points ................................
-
-      allocate(C(0:po_b,0:po_f), source = ZERO)
-
-      do j = 0, po_f
-      do q = 0, po_q
-        select case(nodes_f)
-        case('G')
-          z = GaussPolynomial(j, x, x_q(q))
-        case('L')
-          z = LobattoPolynomial(j, x, x_q(q))
-        case('RL','RR')
-          z = RadauPolynomial(j, x, x_q(q))
-        case default
-          z = LagrangePolynomial(j, x, x_q(q))
-        end select
-        do k = 0, po_b
-          C(k,j) = C(k,j) + w_q(q) / w_g(k) * z * GaussPolynomial(k, x_g, x_q(q))
-        end do
-      end do
-      end do
-
-      ! combine with interpolation to collocation points .......................
-
-      do i = 0, po_b
-      do k = 0, po_b
-        z = GaussPolynomial(k, x_g, eop%x(i))
-        do j = 0, po_f
-          A(i,j) = A(i,j) + z * C(k,j)
-        end do
-      end do
-      end do
 
       ! mass weighted projection operator ......................................
 
-      ! inverse Vandermonde matrix V⁻¹
-      allocate(VL_inv(0:po_b,0:po_b))
-      call eop % Get_Inverse_Legendre_VDM(VL_inv)
-
-      ! MA = V⁻ᵀ V⁻¹ A
-      MA = matmul(VL_inv, A)
-      do k = 0, po_f
+      do j = 0, po_f
       do i = 0, po_b
-        MA(i,k) = TWO/(2*i + 1) * A(i,k)
+        MA(i,j) = sum(w_q * l_b(:,i) * l_f(:,j))
       end do
       end do
-      MA = matmul(transpose(VL_inv), MA)
+
+      ! L² projection operator .................................................
+
+      ! Vandermode matrix to operator basis functions
+      allocate(VL(0:po_b,0:po_b))
+      call eop % Get_Legendre_VDM(VL)
+
+      ! inverse diagonal Legendre mass matrix
+      allocate(ML_inv(0:po_b))
+      do k = 0, po_b
+        ML_inv(k) = HALF + k
+      end do
+
+      ! inverse mass matrix
+      allocate(M_inv(0:po_b,0:po_b), source = ZERO)
+      do j = 0, po_b
+      do i = 0, po_b
+        M_inv(i,j) = sum(VL(i,:) * ML_inv * VL(j,:))
+      end do
+      end do
+
+      ! projection operator
+      A = matmul(M_inv, MA)
 
     end associate
 

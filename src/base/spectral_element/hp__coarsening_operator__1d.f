@@ -96,7 +96,9 @@ contains
     class(HP_CoarseningOperator_1D), intent(inout) :: this
     class(HP_CoarseningOptions_1D), intent(in) :: opt
 
-    real(RNP), allocatable :: x_f(:), x_c(:), x_g(:), x_q(:), w_g(:), w_q(:)
+    type(StandardElementOperators_1D) :: sop_c
+
+    real(RNP), allocatable :: x_f(:), x_c(:), x_q(:), w_q(:)
     integer :: po_c, po_f, po_q, smooth
 
     ! initialization ...........................................................
@@ -130,36 +132,32 @@ contains
       allocate(this % A(0:po_c,0:po_f,2), source = ZERO)
     end select
 
+    ! coarse element operators
+    sop_c = StandardElementOperators_1D(po_c, this % nodes)
+
     ! collocation points .......................................................
+
+    allocate(x_c(0:po_c), source = sop_c % x)
 
     select case(this % nodes)
     case('E')
       block
         integer :: i
         allocate(x_f(0:po_f), source = [(i * TWO/po_f - ONE, i = 0, po_f)])
-        allocate(x_c(0:po_c), source = [(i * TWO/po_c - ONE, i = 0, po_c)])
       end block
     case('G')
       allocate(x_f(0:po_f), source = GaussPoints(po_f))
-      allocate(x_c(0:po_c), source = GaussPoints(po_c))
     case('L')
       allocate(x_f(0:po_f), source = LobattoPoints(po_f))
-      allocate(x_c(0:po_c), source = LobattoPoints(po_c))
     case('RL')
       allocate(x_f(0:po_f), source = RadauPoints(po_f, right = .false.))
-      allocate(x_c(0:po_c), source = RadauPoints(po_c, right = .false.))
     case('RR')
       allocate(x_f(0:po_f), source = RadauPoints(po_f, right = .true.))
-      allocate(x_c(0:po_c), source = RadauPoints(po_c, right = .true.))
     end select
 
     ! quadrature points and weights ............................................
 
     if (this % mode > 0 .and. this % method == 'P') then
-
-      ! Gauss points and weights to coarse element degree
-      allocate(x_g(0:po_c), source = GaussPoints(po_c))
-      allocate(w_g(0:po_c), source = GaussWeights(x_g))
 
       ! Gauss points and weights for exact integration
       allocate(x_q(0:po_q), source = GaussPoints(po_q))
@@ -196,17 +194,15 @@ contains
 
     if (opt % filter > 0) then
       block
-        type(StandardElementOperators_1D) :: sop
         real(RNP) :: Af(0:po_c,0:po_c), pf
         integer :: k
 
-        sop = StandardElementOperators_1D(po_c, this % nodes)
         pf = real(opt%filter, RNP)
         select case(this % method)
         case('P')
-          call sop % Get_ErfcLogFilter(pf, Af, modes = 'L', left_half=.true.)
+          call sop_c % Get_ErfcLogFilter(pf, Af, modes = 'L', left_half=.true.)
         case('I')
-          call sop % Get_ErfcLogFilter(pf, Af, modes = 'B', left_half=.true.)
+          call sop_c % Get_ErfcLogFilter(pf, Af, modes = 'B', left_half=.true.)
         end select
 
         do k = 1, this % mode
@@ -223,42 +219,81 @@ contains
 
     subroutine Build_L2_Projection_Operator_1
 
-      real(RNP), allocatable :: C(:,:)
-      real(RNP) :: z
-      integer   :: i, j, k, q
+      real(RNP), allocatable :: l_c(:,:), l_f(:,:)
+      real(RNP), allocatable :: MA(:,:), M_inv(:,:)
+      real(RNP), allocatable :: VL(:,:), ML_inv(:)
+      integer :: i, j, k, q
 
-      allocate(C(0:po_c,0:po_f), source = ZERO)
+      ! coarse basis functions at quadrature points ............................
 
-      ! intermediate projection to Gauss points ................................
+      allocate(l_c(0:po_q, 0:po_c))
+      do i = 0, po_c
+      do q = 0, po_q
+        select case(this % nodes)
+        case('E')
+          l_c(q,i) = LagrangePolynomial(i, x_c, x_q(q))
+        case('G')
+          l_c(q,i) = GaussPolynomial(i, x_c, x_q(q))
+        case('L')
+          l_c(q,i) = LobattoPolynomial(i, x_c, x_q(q))
+        case('RL','RR')
+          l_c(q,i) = RadauPolynomial(i, x_c, x_q(q))
+        end select
+      end do
+      end do
 
+      ! fine basis functions at quadrature points ..............................
+
+      allocate(l_f(0:po_q, 0:po_f))
       do j = 0, po_f
       do q = 0, po_q
         select case(this % nodes)
         case('E')
-          z = LagrangePolynomial(j, x_f, x_q(q))
+          l_f(q,j) = LagrangePolynomial(j, x_f, x_q(q))
         case('G')
-          z = GaussPolynomial(j, x_f, x_q(q))
+          l_f(q,j) = GaussPolynomial(j, x_f, x_q(q))
         case('L')
-          z = LobattoPolynomial(j, x_f, x_q(q))
+          l_f(q,j) = LobattoPolynomial(j, x_f, x_q(q))
         case('RL','RR')
-          z = RadauPolynomial(j, x_f, x_q(q))
+          l_f(q,j) = RadauPolynomial(j, x_f, x_q(q))
+        case default
+          l_f(q,j) = LagrangePolynomial(j, x_f, x_q(q))
         end select
-        do k = 0, po_c
-          C(k,j) = C(k,j) + w_q(q) / w_g(k) * z * GaussPolynomial(k, x_g, x_q(q))
-        end do
       end do
       end do
 
-      ! combine with interpolation to collocation points .......................
+      ! mass weighted projection operator ......................................
 
+      allocate(MA(0:po_c, 0:po_f), source = ZERO)
+
+      do j = 0, po_f
       do i = 0, po_c
+        MA(i,j) = sum(w_q * l_c(:,i) * l_f(:,j))
+      end do
+      end do
+
+      ! L² projection operator .................................................
+
+      ! Vandermode matrix to operator basis functions
+      allocate(VL(0:po_c,0:po_c))
+      call sop_c % Get_Legendre_VDM(VL)
+
+      ! inverse diagonal Legendre mass matrix
+      allocate(ML_inv(0:po_c))
       do k = 0, po_c
-        z = GaussPolynomial(k, x_g, x_c(i))
-        do j = 0, po_f
-          this % A(i,j,1) = this % A(i,j,1) + z * C(k,j)
-        end do
+        ML_inv(k) = HALF + k
+      end do
+
+      ! inverse mass matrix
+      allocate(M_inv(0:po_c,0:po_c), source = ZERO)
+      do j = 0, po_c
+      do i = 0, po_c
+        M_inv(i,j) = sum(VL(i,:) * ML_inv * VL(j,:))
       end do
       end do
+
+      ! projection operator
+      this % A(:,:,1) = matmul(M_inv, MA)
 
     end subroutine Build_L2_Projection_Operator_1
 
@@ -308,45 +343,91 @@ contains
 
     subroutine Build_L2_Projection_Operator_2
 
-      real(RNP), allocatable :: C(:,:,:)
-      real(RNP) :: w, z
-      integer   :: i, j, k, q
+      real(RNP), allocatable :: l_c(:,:,:), l_f(:,:)
+      real(RNP), allocatable :: MA(:,:,:), M_inv(:,:)
+      real(RNP), allocatable :: VL(:,:), ML_inv(:)
+      real(RNP) :: x_q1, x_q2
+      integer :: i, j, k, q
 
-      allocate(C(0:po_c,0:po_f,2), source = ZERO)
+      ! coarse basis functions at quadrature points in fine elements 1 and 2 ...
 
-      ! intermediate projection to Gauss points ................................
+      allocate(l_c(0:po_q, 0:po_c, 2))
+      do i = 0, po_c
+      do q = 0, po_q
+        x_q1 = HALF*(x_q(q) - 1)
+        x_q2 = HALF*(x_q(q) + 1)
+        select case(this % nodes)
+        case('E')
+          l_c(q,i,1) = LagrangePolynomial(i, x_c, x_q1)
+          l_c(q,i,2) = LagrangePolynomial(i, x_c, x_q2)
+        case('G')
+          l_c(q,i,1) = GaussPolynomial(i, x_c, x_q1)
+          l_c(q,i,2) = GaussPolynomial(i, x_c, x_q2)
+        case('L')
+          l_c(q,i,1) = LobattoPolynomial(i, x_c, x_q1)
+          l_c(q,i,2) = LobattoPolynomial(i, x_c, x_q2)
+        case('RL','RR')
+          l_c(q,i,1) = RadauPolynomial(i, x_c, x_q1)
+          l_c(q,i,2) = RadauPolynomial(i, x_c, x_q2)
+        end select
+      end do
+      end do
 
+      ! fine basis functions at quadrature points ..............................
+
+      allocate(l_f(0:po_q, 0:po_f))
       do j = 0, po_f
       do q = 0, po_q
         select case(this % nodes)
         case('E')
-          z = LagrangePolynomial(j, x_f, x_q(q))
+          l_f(q,j) = LagrangePolynomial(j, x_f, x_q(q))
         case('G')
-          z = GaussPolynomial(j, x_f, x_q(q))
+          l_f(q,j) = GaussPolynomial(j, x_f, x_q(q))
         case('L')
-          z = LobattoPolynomial(j, x_f, x_q(q))
-        case('RL','RR') ! Radau
-          z = RadauPolynomial(j, x_f, x_q(q))
+          l_f(q,j) = LobattoPolynomial(j, x_f, x_q(q))
+        case('RL','RR')
+          l_f(q,j) = RadauPolynomial(j, x_f, x_q(q))
+        case default
+          l_f(q,j) = LagrangePolynomial(j, x_f, x_q(q))
         end select
-        do k = 0, po_c
-          w = w_q(q) / (2 * w_g(k)) * z
-          C(k,j,1) = C(k,j,1) + w * GaussPolynomial(k, x_g, HALF*(x_q(q) - 1))
-          C(k,j,2) = C(k,j,2) + w * GaussPolynomial(k, x_g, HALF*(x_q(q) + 1))
-        end do
       end do
       end do
 
-      ! combine with interpolation to collocation points .......................
+      ! mass weighted projection operator ......................................
 
+      allocate(MA(0:po_c, 0:po_f, 2), source = ZERO)
+
+      do j = 0, po_f
       do i = 0, po_c
+        MA(i,j,1) = HALF * sum(w_q * l_c(:,i,1) * l_f(:,j))
+        MA(i,j,2) = HALF * sum(w_q * l_c(:,i,2) * l_f(:,j))
+      end do
+      end do
+
+      ! L² projection operator .................................................
+
+      ! Vandermode matrix to operator basis functions
+      allocate(VL(0:po_c,0:po_c))
+      call sop_c % Get_Legendre_VDM(VL)
+
+      ! inverse diagonal Legendre mass matrix
+      allocate(ML_inv(0:po_c))
       do k = 0, po_c
-        z = GaussPolynomial(k, x_g, x_c(i))
-        do j = 0, po_f
-          this % A(i,j,1) = this % A(i,j,1) + z * C(k,j,1)
-          this % A(i,j,2) = this % A(i,j,2) + z * C(k,j,2)
-        end do
+        ML_inv(k) = HALF + k
+      end do
+
+      ! inverse mass matrix
+      allocate(M_inv(0:po_c,0:po_c), source = ZERO)
+      do j = 0, po_c
+      do i = 0, po_c
+        M_inv(i,j) = sum(VL(i,:) * ML_inv * VL(j,:))
       end do
       end do
+
+      ! projection operator
+      this % A(:,:,1) = matmul(M_inv, MA(:,:,1))
+      this % A(:,:,2) = matmul(M_inv, MA(:,:,2))
+
 
     end subroutine Build_L2_Projection_Operator_2
 
