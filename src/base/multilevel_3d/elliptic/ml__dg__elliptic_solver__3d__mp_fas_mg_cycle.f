@@ -182,8 +182,16 @@ contains
             end select
 
             ! restrict residual
-            call ChildToParentRestriction_3D &
-                     (mesh_l, mesh_p, iop_cf(l-1), r_l, r_p)
+            select case(this % fc_restriction)
+            case('C')
+              ! canonical restriction
+              call ChildToParentRestriction_3D &
+                       (mesh_l, mesh_p, iop_cf(l-1), r_l, r_p)
+            case('P')
+              ! L²-projection
+              call ChildToParentProjection_3D &
+                       (mesh_l, mesh_p, pop_fc(l), r_l, r_p)
+            end select
 
             ! parent FAS-RHS .................................................
 

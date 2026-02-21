@@ -139,7 +139,14 @@ contains
           end select
 
           ! restrict residual
-          call ChildToParentRestriction_3D(mesh_l, mesh_p, iop_pl, r_l, r_p)
+          select case(this % fc_restriction)
+          case('C')
+            ! canonical restriction
+            call ChildToParentRestriction_3D(mesh_l, mesh_p, iop_pl, r_l, r_p)
+          case('P')
+            ! L²-projection
+            call ChildToParentProjection_3D(mesh_l, mesh_p, pop_lp, r_l, r_p)
+          end select
 
           do e = 1, mesh_p % n_elem
             if (mesh_p % element(e) % adaptation % refinement >= 1000) then

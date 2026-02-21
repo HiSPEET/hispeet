@@ -113,7 +113,8 @@ contains
 
     associate( sem    => this % ml_op % sem      &
              , iop_cf => this % ml_op % iop_cf_x &
-             , iop_fc => this % ml_op % iop_fc_x )
+             , iop_fc => this % ml_op % iop_fc_x &
+             , pop_fc => this % ml_op % pop_fc_x )
 
       ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -218,8 +219,16 @@ contains
 
             ! restriction ....................................................
 
-            call ChildToParentRestriction_3D &
-                     (mesh_l, mesh_p, iop_cf(l-1), r_l, f_p)
+            select case(this % fc_restriction)
+            case('C')
+              ! canonical restriction
+              call ChildToParentRestriction_3D &
+                       (mesh_l, mesh_p, iop_cf(l-1), r_l, f_p)
+            case('P')
+              ! L²-projection
+              call ChildToParentProjection_3D &
+                       (mesh_l, mesh_p, pop_fc(l), r_l, f_p)
+            end select
 
           end associate
         end do V_DOWN

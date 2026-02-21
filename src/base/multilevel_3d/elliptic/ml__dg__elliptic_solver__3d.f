@@ -58,6 +58,7 @@ module ML__DG__Elliptic_Solver__3D
     integer   :: smooth_method  !< smoothing method
     integer   :: coarse_solver  !< coarse grid solver
     character :: fc_projection  !< fine-to-coarse projection method
+    character :: fc_restriction !< fine-to-coarse restriction method
 
     integer   :: i_crs   !< max number of coarse solver iterations
     integer   :: i_max   !< max number of multigrid iterations (cycles)
@@ -124,8 +125,9 @@ module ML__DG__Elliptic_Solver__3D
     integer   :: smooth_method = SOLVER_WS   !< smoothing method
     integer   :: coarse_solver = SOLVER_SPCG !< coarse grid solver
 
-    character :: fc_projection = 'I' !< projection method {'I','P'}
-    character :: interior_bc   = ' ' !< coupling with frozen elements {' ','D'}
+    character :: fc_projection  = 'I' !< projection method {'I','P'}
+    character :: fc_restriction = 'C' !< restriction method {'C','P'}
+    character :: interior_bc    = ' ' !< coupling with frozen elements {' ','D'}
 
     integer   :: i_crs   =  1 !< max num coarse solver iterations
     integer   :: i_max   =  1 !< max num multigrid iterations (cycles)
@@ -551,10 +553,11 @@ contains
 
     this % ml_op => ml_op
 
-    this % start_method  = opt % start_method
-    this % smooth_method = opt % smooth_method
-    this % coarse_solver = opt % coarse_solver
-    this % fc_projection = opt % fc_projection
+    this % start_method   = opt % start_method
+    this % smooth_method  = opt % smooth_method
+    this % coarse_solver  = opt % coarse_solver
+    this % fc_projection  = opt % fc_projection
+    this % fc_restriction = opt % fc_restriction
 
     this % i_crs = opt % i_crs
     this % i_max = opt % i_max
@@ -635,23 +638,24 @@ contains
     integer       , intent(in) :: root !< rank root process
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    call XMPI_Bcast(this % penalty       , root, comm)
-    call XMPI_Bcast(this % start_method  , root, comm)
-    call XMPI_Bcast(this % smooth_method , root, comm)
-    call XMPI_Bcast(this % coarse_solver , root, comm)
-    call XMPI_Bcast(this % fc_projection , root, comm)
-    call XMPI_Bcast(this % i_crs         , root, comm)
-    call XMPI_Bcast(this % i_max         , root, comm)
-    call XMPI_Bcast(this % ns_0          , root, comm)
-    call XMPI_Bcast(this % ns_1          , root, comm)
-    call XMPI_Bcast(this % ns_2          , root, comm)
-    call XMPI_Bcast(this % ns_c          , root, comm)
-    call XMPI_Bcast(this % ns_f          , root, comm)
-    call XMPI_Bcast(this % vs_mode       , root, comm)
-    call XMPI_Bcast(this % vs_lmin       , root, comm)
-    call XMPI_Bcast(this % vs_lmax       , root, comm)
-    call XMPI_Bcast(this % r_red         , root, comm)
-    call XMPI_Bcast(this % r_max         , root, comm)
+    call XMPI_Bcast(this % penalty        , root, comm)
+    call XMPI_Bcast(this % start_method   , root, comm)
+    call XMPI_Bcast(this % smooth_method  , root, comm)
+    call XMPI_Bcast(this % coarse_solver  , root, comm)
+    call XMPI_Bcast(this % fc_projection  , root, comm)
+    call XMPI_Bcast(this % fc_restriction , root, comm)
+    call XMPI_Bcast(this % i_crs          , root, comm)
+    call XMPI_Bcast(this % i_max          , root, comm)
+    call XMPI_Bcast(this % ns_0           , root, comm)
+    call XMPI_Bcast(this % ns_1           , root, comm)
+    call XMPI_Bcast(this % ns_2           , root, comm)
+    call XMPI_Bcast(this % ns_c           , root, comm)
+    call XMPI_Bcast(this % ns_f           , root, comm)
+    call XMPI_Bcast(this % vs_mode        , root, comm)
+    call XMPI_Bcast(this % vs_lmin        , root, comm)
+    call XMPI_Bcast(this % vs_lmax        , root, comm)
+    call XMPI_Bcast(this % r_red          , root, comm)
+    call XMPI_Bcast(this % r_max          , root, comm)
 
     call this % schwarz % Bcast(root, comm)
 
