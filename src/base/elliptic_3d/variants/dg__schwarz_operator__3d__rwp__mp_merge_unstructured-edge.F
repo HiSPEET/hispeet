@@ -251,6 +251,40 @@
                                     no, us, ue                           )
               u( :,  0,  0, e) = u( :,  0,  0, e) + ue
 
+              if (no > 1) then
+
+                o = [ c0, c1, c1 ]
+
+                ! additional contributions from first neighbor (k = 0)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                k = 0
+                do j = 1, lo
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, j, k, e) = u(i, j, k, e) + us(ii, jj, kk, l)
+                end do
+                end do
+
+                ! additional contributions from last neighbor (j = 0)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                j = 0
+                do k = 1, lo
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, j, k, e) = u(i, j, k, e) + us(ii, jj, kk, l)
+                end do
+                end do
+
+              end if
+
             end if
           end if
 
@@ -284,6 +318,42 @@
                                     element(e) % edge( 2) % orientation, &
                                     no, us, ue                           )
               u( :, po,  0, e) = u( :, po,  0, e) + ue
+
+              if (no > 1) then
+
+                o = [ c0,  1, c1 ]
+
+                ! additional contributions from first neighbor (j = lo)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                j = lo
+                do k = 1, lo
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, ro + j, k, e) = u(i, ro + j, k, e) &
+                                     + us(ii, jj, kk, l)
+                end do
+                end do
+
+                ! additional contributions from last neighbor (k = 0)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                k = 0
+                do j = 0, lo-1
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, ro + j, k, e) = u(i, ro + j, k, e) &
+                                     + us(ii, jj, kk, l)
+                end do
+                end do
+
+              end if
 
             end if
           end if
@@ -319,6 +389,42 @@
                                     no, us, ue                           )
               u( :,  0, po, e) = u( :,  0, po, e) + ue
 
+              if (no > 1) then
+
+                o = [ c0, c1,  1 ]
+
+                ! additional contributions from first neighbor (j = 0)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                j = 0
+                do k = 0, lo-1
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, j, ro + k, e) = u(i, j, ro + k, e) &
+                                     + us(ii, jj, kk, l)
+                end do
+                end do
+
+                ! additional contributions from last neighbor (k = lo)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                k = lo
+                do j = 1, lo
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, j, ro + k, e) = u(i, j, ro + k, e) &
+                                     + us(ii, jj, kk, l)
+                end do
+                end do
+
+              end if
+
             end if
           end if
 
@@ -352,6 +458,42 @@
                                     element(e) % edge( 4) % orientation, &
                                     no, us, ue                           )
               u( :, po, po, e) = u( :, po, po, e) + ue
+
+              if (no > 1) then
+
+                o = [ c0,  1,  1 ]
+
+                ! additional contributions from first neighbor (k = lo)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                k = lo
+                do j = 0, lo-1
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, ro + j, ro + k, e) = u(i, ro + j, ro + k, e) &
+                                          + us(ii, jj, kk, l)
+                end do
+                end do
+
+                ! additional contributions from last neighbor (j = lo)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                j = lo
+                do k = 0, lo-1
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, ro + j, ro + k, e) = u(i, ro + j, ro + k, e) &
+                                          + us(ii, jj, kk, l)
+                end do
+                end do
+
+              end if
 
             end if
           end if
@@ -387,6 +529,42 @@
                                     no, us, ue                           )
               u(  0, :,  0, e) = u(  0, :,  0, e) + ue
 
+              if (no > 1) then
+
+                o = [ c1, c0, c1 ]
+
+                ! additional contributions from first neighbor (i = 0)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                i = 0
+                do k = 1, lo
+                do j = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, j, k, e) = u(i, j, k, e) &
+                                + us(ii, jj, kk, l)
+                end do
+                end do
+
+                ! additional contributions from last neighbor (k = 0)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                k = 0
+                do j = 0, po
+                do i = 1, lo
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, j, k, e) = u(i, j, k, e) &
+                                + us(ii, jj, kk, l)
+                end do
+                end do
+
+              end if
+
             end if
           end if
 
@@ -420,6 +598,42 @@
                                     element(e) % edge( 6) % orientation, &
                                     no, us, ue                           )
               u( po, :,  0, e) = u( po, :,  0, e) + ue
+
+              if (no > 1) then
+
+                o = [  1, c0, c1 ]
+
+                ! additional contributions from first neighbor (k = 0)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                k = 0
+                do j = 0, po
+                do i = 0, lo-1
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(ro + i, j, k, e) = u(ro + i, j, k, e) &
+                                     + us(ii, jj, kk, l)
+                end do
+                end do
+
+                ! additional contributions from last neighbor (i = lo)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                i = lo
+                do k = 1, lo
+                do j = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(ro + i, j, k, e) = u(ro + i, j, k, e) &
+                                     + us(ii, jj, kk, l)
+                end do
+                end do
+
+              end if
 
             end if
           end if
@@ -455,6 +669,42 @@
                                     no, us, ue                           )
               u(  0, :, po, e) = u(  0, :, po, e) + ue
 
+              if (no > 1) then
+
+                o = [ c1, c0,  1 ]
+
+                ! additional contributions from first neighbor (k = lo)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                k = lo
+                do j = 0, po
+                do i = 1, lo
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, j, ro + k, e) = u(i, j, ro + k, e) &
+                                     + us(ii, jj, kk, l)
+                end do
+                end do
+
+                ! additional contributions from last neighbor (i = 0)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                i = 0
+                do k = 0, lo-1
+                do j = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, j, ro + k, e) = u(i, j, ro + k, e) &
+                                     + us(ii, jj, kk, l)
+                end do
+                end do
+
+              end if
+
             end if
           end if
 
@@ -488,6 +738,42 @@
                                     element(e) % edge( 8) % orientation, &
                                     no, us, ue                           )
               u( po, :, po, e) = u( po, :, po, e) + ue
+
+              if (no > 1) then
+
+                o = [  1, c0,  1 ]
+
+                ! additional contributions from first neighbor (i = lo)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                i = lo
+                do k = 0, lo-1
+                do j = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(ro + i, j, ro + k, e) = u(ro + i, j, ro + k, e) &
+                                          + us(ii, jj, kk, l)
+                end do
+                end do
+
+                ! additional contributions from last neighbor (k = lo)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                k = lo
+                do j = 0, po
+                do i = 0, lo-1
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(ro + i, j, ro + k, e) = u(ro + i, j, ro + k, e) &
+                                          + us(ii, jj, kk, l)
+                end do
+                end do
+
+              end if
 
             end if
           end if
@@ -523,6 +809,42 @@
                                     no, us, ue                           )
               u(  0,  0, :, e) = u(  0,  0, :, e) + ue
 
+              if (no > 1) then
+
+                o = [ c1, c1, c0 ]
+
+                ! additional contributions from first neighbor (j = 0)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                j = 0
+                do k = 0, po
+                do i = 1, lo
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, j, k, e) = u(i, j, k, e) &
+                                + us(ii, jj, kk, l)
+                end do
+                end do
+
+                ! additional contributions from last neighbor (i = 0)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                i = 0
+                do k = 0, po
+                do j = 1, lo
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, j, k, e) = u(i, j, k, e) &
+                                + us(ii, jj, kk, l)
+                end do
+                end do
+
+              end if
+
             end if
           end if
 
@@ -556,6 +878,42 @@
                                     element(e) % edge(10) % orientation, &
                                     no, us, ue                           )
               u( po,  0, :, e) = u( po,  0, :, e) + ue
+
+              if (no > 1) then
+
+                o = [  1, c1, c0 ]
+
+                ! additional contributions from first neighbor (i = lo)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                i = lo
+                do k = 0, po
+                do j = 1, lo
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(ro + i, j, k, e) = u(ro + i, j, k, e) &
+                                     + us(ii, jj, kk, l)
+                end do
+                end do
+
+                ! additional contributions from last neighbor (j = 0)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                j = 0
+                do k = 0, po
+                do i = 0, lo-1
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(ro + i, j, k, e) = u(ro + i, j, k, e) &
+                                     + us(ii, jj, kk, l)
+                end do
+                end do
+
+              end if
 
             end if
           end if
@@ -591,6 +949,42 @@
                                     no, us, ue                           )
               u(  0, po, :, e) = u(  0, po, :, e) + ue
 
+              if (no > 1) then
+
+                o = [ c1,  1, c0 ]
+
+                ! additional contributions from first neighbor (i = 0)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                i = 0
+                do k = 0, po
+                do j = 0, lo-1
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, ro + j, k, e) = u(i, ro + j, k, e) &
+                                     + us(ii, jj, kk, l)
+                end do
+                end do
+
+                ! additional contributions from last neighbor (j = lo)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                j = lo
+                do k = 0, po
+                do i = 1, lo
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(i, ro + j, k, e) = u(i, ro + j, k, e) &
+                                     + us(ii, jj, kk, l)
+                end do
+                end do
+
+              end if
+
             end if
           end if
 
@@ -624,6 +1018,42 @@
                                     element(e) % edge(12) % orientation, &
                                     no, us, ue                           )
               u( po, po, :, e) = u( po, po, :, e) + ue
+
+              if (no > 1) then
+
+                o = [  1,  1, c0 ]
+
+                ! additional contributions from first neighbor (j = lo)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                j = lo
+                do k = 0, po
+                do i = 0, lo-1
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(ro + i, ro + j, k, e) = u(ro + i, ro + j, k, e) &
+                                          + us(ii, jj, kk, l)
+                end do
+                end do
+
+                ! additional contributions from last neighbor (i = lo)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, ns, 1, o, 1, t, s)
+                i = lo
+                do k = 0, po
+                do j = 0, lo-1
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  u(ro + i, ro + j, k, e) = u(ro + i, ro + j, k, e) &
+                                          + us(ii, jj, kk, l)
+                end do
+                end do
+
+              end if
 
             end if
           end if

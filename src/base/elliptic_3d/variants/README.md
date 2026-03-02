@@ -15,3 +15,14 @@
   - vertex neighbors or
   - edge and vertex neighbors
 - optional renormalization of weights
+- default:
+  - skip edge and vertex neighbors
+  - keep original weights
+
+
+### Edge version
+
+- label `edge`
+- based on *orig*
+- additionally incudes nodes of edge neighbors that coincide with nodes of face neighbors
+

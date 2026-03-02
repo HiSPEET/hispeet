@@ -38,8 +38,8 @@ module DG__Schwarz_Operator__3D
     real(RNP) :: delta       = 0.125   !< relative overlap ≤ 1
     integer   :: no_min      = 1       !< min overlap in points
     integer   :: weighting   = 5       !< weighting method {0,1,3,5,7,9}
-    logical   :: edges       = .true.  !< use edge neighbors
-    logical   :: vertices    = .true.  !< use vertex neighbors
+    logical   :: edges       = .false. !< use edge neighbors
+    logical   :: vertices    = .false. !< use vertex neighbors
     logical   :: renormalize = .false. !< renormalize weights to 1
   contains
     procedure :: Bcast => Bcast_DG_SchwarzOptions_3D
@@ -134,7 +134,7 @@ module DG__Schwarz_Operator__3D
   !> where `I₁` ist the matching unit matrix etc. The inverse Helmholtz operator
   !> can be then expressed in the tensor-product form
   !>
-  !>     A⁻¹  =  (S₃ x S₂ x S₁ D⁻¹ (S₃ᵀ x S₂ᵀ x S₁ᵀ)
+  !>     A⁻¹  =  (S₃ x S₂ x S₁) D⁻¹ (S₃ᵀ x S₂ᵀ x S₁ᵀ)
   !>
   !> with the diagonal matrix
   !>
@@ -503,9 +503,9 @@ contains
         end if
       end do
 
-       cfg(1,e) = ConfigurationID( bc_face(1:2) )
-       cfg(2,e) = ConfigurationID( bc_face(3:4) )
-       cfg(3,e) = ConfigurationID( bc_face(5:6) )
+      cfg(1,e) = ConfigurationID( bc_face(1:2) )
+      cfg(2,e) = ConfigurationID( bc_face(3:4) )
+      cfg(3,e) = ConfigurationID( bc_face(5:6) )
 
     end do
 

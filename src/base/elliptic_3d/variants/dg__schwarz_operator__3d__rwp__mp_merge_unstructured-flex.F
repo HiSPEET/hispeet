@@ -49,8 +49,8 @@ max_wa = -huge(ONE)
       np = po + 1       ! number of element   points per direction
       ns = np + 2 * no  ! number of subdomain points per direction
 
-      lo = no - 1       ! last  point of left  element overlap zone
-      ro = po - lo      ! first point of right element overlap zone
+      lo = no - 1       ! left overlap end
+      ro = po - lo      ! right overlap start
 
       c0 = no + 1       ! first subdomain point inside core
       c1 = c0 + np      ! first subdomain point behind core
