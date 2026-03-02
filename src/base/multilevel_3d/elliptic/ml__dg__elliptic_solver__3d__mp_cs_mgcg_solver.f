@@ -98,6 +98,24 @@ contains
     logical   :: check_convergence
     integer   :: i, i_max_, l_top_
 
+    character(len=:), allocatable :: prefix
+    logical :: logging
+
+    ! start logging ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+    if (log_level > 0) then
+      associate(proc => this % ml_op % sem(1) % mesh % proc)
+        logging = proc == 0 .or. log_level > 1
+        prefix  = LoggingPrefix('CS_MGCG_Solver_X', proc)
+      end associate
+    else
+      logging = .false.
+    end if
+
+    if (logging) then
+      print '(2A)', prefix, 'start'
+    end if
+
     ! prerequisites ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
     if (present(l_top)) then
@@ -284,6 +302,12 @@ contains
     !$omp master
     deallocate(p, q, r, s, z)
     !$omp end master
+
+    ! exit logging :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+    if (logging) then
+      print '(2A)', prefix, 'exit'
+    end if
 
   end subroutine CS_MGCG_Solver_X
 

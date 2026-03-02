@@ -82,6 +82,24 @@ contains
     real(RNP), allocatable, save :: r0_2
     integer :: l_top
 
+    character(len=:), allocatable :: prefix
+    logical :: logging
+
+    ! start logging ............................................................
+
+    if (log_level > 0) then
+      associate(proc => this % ml_op % sem(1) % mesh % proc)
+        logging = proc == 0 .or. log_level > 1
+        prefix  = LoggingPrefix('FAS_MG_Solver_X', proc)
+      end associate
+    else
+      logging = .false.
+    end if
+
+    if (logging) then
+      print '(2A)', prefix, 'start'
+    end if
+
     ! initialization ...........................................................
 
     l_top = size(this % ml_op % sem)
@@ -116,6 +134,12 @@ contains
     !$omp master
     if (allocated(r0_2)) deallocate(r0_2)
     !$omp end master
+
+    ! exit logging .............................................................
+
+    if (logging) then
+      print '(2A)', prefix, 'exit'
+    end if
 
   end subroutine FAS_MG_Solver_X
 

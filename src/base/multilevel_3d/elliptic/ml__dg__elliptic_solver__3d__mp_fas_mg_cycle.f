@@ -56,6 +56,24 @@ contains
     integer   :: l_top_, n_cyc_
     integer   :: e, l, m, n
 
+    character(len=:), allocatable :: prefix
+    logical :: logging
+
+    ! start logging ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+    if (log_level > 0) then
+      associate(proc => this % ml_op % sem(1) % mesh % proc)
+        logging = proc == 0 .or. log_level > 1
+        prefix  = LoggingPrefix('FAS_MG_Cycle_X', proc)
+      end associate
+    else
+      logging = .false.
+    end if
+
+    if (logging) then
+      print '(2A)', prefix, 'start'
+    end if
+
     associate( sem    => this % ml_op % sem      &
              , iop_cf => this % ml_op % iop_cf_x &
              , iop_fc => this % ml_op % iop_fc_x &
@@ -299,6 +317,11 @@ contains
             else
               n = this % ns_f
             end if
+!### CHECK
+if (logging) then
+  print '(2A)', prefix, 'before post-smoothing'
+end if
+!### CHECK END
 
             if (present(nu_0)) then
               call this % Monitoring(l, 'c', bc, lambda, nu_0, g_l, bv_l, u_l)
@@ -311,6 +334,11 @@ contains
                 call this % Monitoring(l, '2', bc, lambda, nu_l, g_l, bv_l, u_l)
               end associate
             end if
+!### CHECK
+if (logging) then
+  print '(2A)', prefix, 'after post-smoothing'
+end if
+!### CHECK END
 
           end associate
         end do V_UP
@@ -369,6 +397,12 @@ contains
       !$omp end master
 
     end associate
+
+    ! exit logging :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+    if (logging) then
+      print '(2A)', prefix, 'exit'
+    end if
 
   end subroutine FAS_MG_Cycle_X
 

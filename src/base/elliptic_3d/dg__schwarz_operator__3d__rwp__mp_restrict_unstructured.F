@@ -232,6 +232,40 @@
                                     r, re                                )
               rs(c0 : c0+po, no, no, e) = c_sgn * real(re, RWP)
 
+              if (no > 1) then
+
+                o = [  0, ro, ro ]
+
+                ! additional entries from first neighbor (k = lo)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                k = lo
+                do j = 0, lo-1
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c0+i, 1+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+                ! additional entries from last neighbor (j = lo)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                j = lo
+                do k = 0, lo-1
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c0+i, 1+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+              end if
+
             end if
           end if
 
@@ -264,6 +298,40 @@
                                     element(e) % edge( 2) % orientation, &
                                     r, re                                )
               rs(c0 : c0+po, c1, no, e) = c_sgn * real(re, RWP)
+
+              if (no > 1) then
+
+                o = [  0,  0, ro ]
+
+                ! additional entries from first neighbor (j = 0)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                j = 0
+                do k = 0, lo-1
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c0+i, c1+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+                ! additional entries from last neighbor (k = lo)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                k = lo
+                do j = 1, lo
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c0+i, c1+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+              end if
 
             end if
           end if
@@ -298,6 +366,40 @@
                                     r, re                                )
               rs(c0 : c0+po, no, c1, e) = c_sgn * real(re, RWP)
 
+              if (no > 1) then
+
+                o = [  0, ro,  0 ]
+
+                ! additional entries from first neighbor (j = lo)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                j = lo
+                do k = 1, lo
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c0+i, 1+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+                ! additional entries from last neighbor (k = 0)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                k = 0
+                do j = 0, lo-1
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c0+i, 1+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+              end if
+
             end if
           end if
 
@@ -330,6 +432,40 @@
                                     element(e) % edge( 4) % orientation, &
                                     r, re                                )
               rs(c0 : c0+po, c1, c1, e) = c_sgn * real(re, RWP)
+
+              if (no > 1) then
+
+                o = [  0,  0,  0 ]
+
+                ! additional entries from first neighbor (k = 0)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                k = 0
+                do j = 1, lo
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c0+i, c1+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+                ! additional entries from last neighbor (j = 0)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                j = 0
+                do k = 1, lo
+                do i = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c0+i, c1+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+              end if
 
             end if
           end if
@@ -364,6 +500,40 @@
                                     r, re                                )
               rs(no, c0 : c0+po, no, e) = c_sgn * real(re, RWP)
 
+              if (no > 1) then
+
+                o = [ ro,  0, ro ]
+
+                ! additional entries from first neighbor (i = lo)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                i = lo
+                do k = 0, lo-1
+                do j = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(1+i, c0+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+                ! additional entries from last neighbor (k = lo)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                k = lo
+                do j = 0, po
+                do i = 0, lo-1
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(1+i, c0+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+              end if
+
             end if
           end if
 
@@ -396,6 +566,40 @@
                                     element(e) % edge( 6) % orientation, &
                                     r, re                                )
               rs(c1, c0 : c0+po, no, e) = c_sgn * real(re, RWP)
+
+              if (no > 1) then
+
+                o = [  0,  0, ro ]
+
+                ! additional entries from first neighbor (k = lo)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                k = lo
+                do j = 0, po
+                do i = 1, lo
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c1+i, c0+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+                ! additional entries from last neighbor (i = 0)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                i = 0
+                do k = 0, lo-1
+                do j = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c1+i, c0+j, 1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+              end if
 
             end if
           end if
@@ -430,6 +634,40 @@
                                     r, re                                )
               rs(no, c0 : c0+po, c1, e) = c_sgn * real(re, RWP)
 
+              if (no > 1) then
+
+                o = [ ro,  0,  0 ]
+
+                ! additional entries from first neighbor (k = 0)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                k = 0
+                do j = 0, po
+                do i = 0, lo-1
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(1+i, c0+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+                ! additional entries from last neighbor (i = lo)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                i = lo
+                do k = 1, lo
+                do j = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(1+i, c0+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+              end if
+
             end if
           end if
 
@@ -462,6 +700,40 @@
                                     element(e) % edge( 8) % orientation, &
                                     r, re                                )
               rs(c1, c0 : c0+po, c1, e) = c_sgn * real(re, RWP)
+
+              if (no > 1) then
+
+                o = [  0,  0,  0 ]
+
+                ! additional entries from first neighbor (i = 0)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                i = 0
+                do k = 1, lo
+                do j = 0, po
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c1+i, c0+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+                ! additional entries from last neighbor (k = 0)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                k = 0
+                do j = 0, po
+                do i = 1, lo
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c1+i, c0+j, c1+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+              end if
 
             end if
           end if
@@ -496,6 +768,40 @@
                                     r, re                                )
               rs(no, no, c0 : c0+po, e) = c_sgn * real(re, RWP)
 
+              if (no > 1) then
+
+                o = [ ro, ro,  0 ]
+
+                ! additional entries from first neighbor (j = lo)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                j = lo
+                do k = 0, po
+                do i = 0, lo-1
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(1+i, 1+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+                ! additional entries from last neighbor (i = lo)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                i = lo
+                do k = 0, po
+                do j = 0, lo-1
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(1+i, 1+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+              end if
+
             end if
           end if
 
@@ -528,6 +834,40 @@
                                     element(e) % edge(10) % orientation, &
                                     r, re                                )
               rs(c1, no, c0 : c0+po, e) = c_sgn * real(re, RWP)
+
+              if (no > 1) then
+
+                o = [  0, ro,  0 ]
+
+                ! additional entries from first neighbor (i = 0)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                i = 0
+                do k = 0, po
+                do j = 0, lo-1
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c1+i, 1+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+                ! additional entries from last neighbor (j = lo)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                j = lo
+                do k = 0, po
+                do i = 1, lo
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c1+i, 1+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+              end if
 
             end if
           end if
@@ -562,6 +902,40 @@
                                     r, re                                )
               rs(no, c1, c0 : c0+po, e) = c_sgn * real(re, RWP)
 
+              if (no > 1) then
+
+                o = [ ro,  0,  0 ]
+
+                ! additional entries from first neighbor (i = lo)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                i = lo
+                do k = 0, po
+                do j = 1, lo
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(1+i, c1+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+                ! additional entries from last neighbor (j = 0)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                j = 0
+                do k = 0, po
+                do i = 0, lo-1
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(1+i, c1+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+              end if
+
             end if
           end if
 
@@ -594,6 +968,40 @@
                                     element(e) % edge(12) % orientation, &
                                     r, re                                )
               rs(c1, c1, c0 : c0+po, e) = c_sgn * real(re, RWP)
+
+              if (no > 1) then
+
+                o = [  0,  0,  0 ]
+
+                ! additional entries from first neighbor (j = 0)
+                orientation = element(e) % neighbor(m) % orientation
+                l = element(e) % neighbor(m) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                j = 0
+                do k = 0, po
+                do i = 1, lo
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c1+i, c1+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+                ! additional entries from last neighbor (i = 0)
+                orientation = element(e) % neighbor(n) % orientation
+                l = element(e) % neighbor(n) % id
+                call TransformIndex(orientation, np, 0, o, 0, t, s)
+                i = 0
+                do k = 0, po
+                do j = 1, lo
+                  ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                  jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                  kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                  rs(c1+i, c1+j, c0+k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
+                end do
+                end do
+
+              end if
 
             end if
           end if

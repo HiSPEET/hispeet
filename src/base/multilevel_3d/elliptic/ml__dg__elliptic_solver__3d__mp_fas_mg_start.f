@@ -40,7 +40,27 @@ contains
 
     integer :: l, n
 
+    character(len=:), allocatable :: prefix
+    logical :: logging
+
     if (n_cyc < 0) return
+
+    ! start logging ............................................................
+
+    if (log_level > 0) then
+      associate(proc => this % ml_op % sem(1) % mesh % proc)
+        logging = proc == 0 .or. log_level > 1
+        prefix  = LoggingPrefix('FAS_MG_Start_X', proc)
+      end associate
+    else
+      logging = .false.
+    end if
+
+    if (logging) then
+      print '(2A)', prefix, 'start'
+    end if
+
+    ! ..........................................................................
 
     associate( sem    => this % ml_op % sem      &
              , iop_cf => this % ml_op % iop_cf_x )
@@ -101,6 +121,12 @@ contains
       end do
 
     end associate
+
+    ! exit logging .............................................................
+
+    if (logging) then
+      print '(2A)', prefix, 'exit'
+    end if
 
   end subroutine FAS_MG_Start_X
 

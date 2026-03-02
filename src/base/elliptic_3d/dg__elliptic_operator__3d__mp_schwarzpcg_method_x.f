@@ -78,11 +78,29 @@ contains
     integer   :: na, ne, ng, nl(3), no, np, ns, wp
     integer   :: i, i_max_
 
+    character(len=:), allocatable :: prefix
+    logical :: logging
+
     ! skip empty partition
     if (this % sem % mesh % part < 0) then
       if (present(ni)) ni = -1
       return
     end if
+
+    ! start logging ............................................................
+
+    if (log_level > 0) then
+      logging = this%sem%mesh%proc == 0 .or. log_level > 1
+      prefix  = LoggingPrefix('SchwarzPCG_Method_X', this%sem%mesh%proc)
+    else
+      logging = .false.
+    end if
+
+    if (logging) then
+      print '(2A)', prefix, 'start'
+    end if
+
+    ! ..........................................................................
 
     associate( mesh    => this % sem % mesh &
              , eop     => this % eop        &
@@ -332,6 +350,12 @@ contains
       !$omp end master
 
     end associate
+
+    ! exit logging .............................................................
+
+    if (logging) then
+      print '(2A)', prefix, 'exit'
+    end if
 
   end subroutine SchwarzPCG_Method_X
 

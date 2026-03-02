@@ -69,6 +69,26 @@ contains
 
     integer :: e, l, l_top_
 
+    character(len=:), allocatable :: prefix
+    logical :: logging
+
+    ! start logging ............................................................
+
+    if (log_level > 0) then
+      associate(proc => this % ml_op % sem(1) % mesh % proc)
+        logging = proc == 0 .or. log_level > 1
+        prefix  = LoggingPrefix('FAS_MG_Residual_X', proc)
+      end associate
+    else
+      logging = .false.
+    end if
+
+    if (logging) then
+      print '(2A)', prefix, 'start'
+    end if
+
+    ! initialization ...........................................................
+
     if (present(l_top)) then
       l_top_ = min(l_top, size(this%ml_op%sem))
     else
@@ -186,6 +206,12 @@ contains
     bv_l => null()
     bv_p => null()
     !$omp end master
+
+    ! exit logging .............................................................
+
+    if (logging) then
+      print '(2A)', prefix, 'exit'
+    end if
 
   end subroutine FAS_MG_Residual_X
 
