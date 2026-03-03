@@ -844,7 +844,7 @@
     integer   :: k, l, np
 
     np = size(re)
-    rk = 0
+    re = 0
 
     do k = m, n
 
