@@ -227,9 +227,7 @@
             else
 
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 1) % orientation, &
-                                    r, re                                )
+              call CollectEdgeData(element(e), 1, m, n, r, re)
               rs(c0 : c0+po, no, no, e) = c_sgn * real(re, RWP)
 
               if (no > 1) then
@@ -294,9 +292,7 @@
             else
 
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 2) % orientation, &
-                                    r, re                                )
+              call CollectEdgeData(element(e), 2, m, n, r, re)
               rs(c0 : c0+po, c1, no, e) = c_sgn * real(re, RWP)
 
               if (no > 1) then
@@ -361,9 +357,7 @@
             else
 
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 3) % orientation, &
-                                    r, re                                )
+              call CollectEdgeData(element(e), 3, m, n, r, re)
               rs(c0 : c0+po, no, c1, e) = c_sgn * real(re, RWP)
 
               if (no > 1) then
@@ -428,9 +422,7 @@
             else
 
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 4) % orientation, &
-                                    r, re                                )
+              call CollectEdgeData(element(e), 4, m, n, r, re)
               rs(c0 : c0+po, c1, c1, e) = c_sgn * real(re, RWP)
 
               if (no > 1) then
@@ -495,9 +487,7 @@
             else
 
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 5) % orientation, &
-                                    r, re                                )
+              call CollectEdgeData(element(e), 5, m, n, r, re)
               rs(no, c0 : c0+po, no, e) = c_sgn * real(re, RWP)
 
               if (no > 1) then
@@ -562,9 +552,7 @@
             else
 
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 6) % orientation, &
-                                    r, re                                )
+              call CollectEdgeData(element(e), 6, m, n, r, re)
               rs(c1, c0 : c0+po, no, e) = c_sgn * real(re, RWP)
 
               if (no > 1) then
@@ -629,9 +617,7 @@
             else
 
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 7) % orientation, &
-                                    r, re                                )
+              call CollectEdgeData(element(e), 7, m, n, r, re)
               rs(no, c0 : c0+po, c1, e) = c_sgn * real(re, RWP)
 
               if (no > 1) then
@@ -696,9 +682,7 @@
             else
 
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 8) % orientation, &
-                                    r, re                                )
+              call CollectEdgeData(element(e), 8, m, n, r, re)
               rs(c1, c0 : c0+po, c1, e) = c_sgn * real(re, RWP)
 
               if (no > 1) then
@@ -763,9 +747,7 @@
             else
 
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 9) % orientation, &
-                                    r, re                                )
+              call CollectEdgeData(element(e), 9, m, n, r, re)
               rs(no, no, c0 : c0+po, e) = c_sgn * real(re, RWP)
 
               if (no > 1) then
@@ -830,9 +812,7 @@
             else
 
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge(10) % orientation, &
-                                    r, re                                )
+              call CollectEdgeData(element(e), 10, m, n, r, re)
               rs(c1, no, c0 : c0+po, e) = c_sgn * real(re, RWP)
 
               if (no > 1) then
@@ -897,9 +877,7 @@
             else
 
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge(11) % orientation, &
-                                    r, re                                )
+              call CollectEdgeData(element(e), 11, m, n, r, re)
               rs(no, c1, c0 : c0+po, e) = c_sgn * real(re, RWP)
 
               if (no > 1) then
@@ -964,9 +942,7 @@
             else
 
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge(12) % orientation, &
-                                    r, re                                )
+              call CollectEdgeData(element(e), 12, m, n, r, re)
               rs(c1, c1, c0 : c0+po, e) = c_sgn * real(re, RWP)
 
               if (no > 1) then
@@ -1264,63 +1240,60 @@
   !-----------------------------------------------------------------------------
   !> Collect, align and average neighbor edge data
 
-  pure subroutine CollectEdgeData(neighbor, element, o, r, re)
-    class(MeshElementNeighbor_3D), intent(in)  :: neighbor(:)
-    class(MeshElement_3D),         intent(in)  :: element(:)
-    integer(IXS),                  intent(in)  :: o
-    real(RNP),                     intent(in)  :: r(:,:,:,:)
-    real(RNP),                     intent(out) :: re(:)
+  pure subroutine CollectEdgeData(element, e, m, n, r, re)
+    class(MeshElement_3D), intent(in)  :: element    !< current element
+    integer,               intent(in)  :: e          !< element edge ID
+    integer,               intent(in)  :: m          !< first neighbor ID
+    integer,               intent(in)  :: n          !< last neighbor ID
+    real(RNP),             intent(in)  :: r(:,:,:,:) !< element data
+    real(RNP),             intent(out) :: re(:)      !< avg neighbor edge data
 
-    real(RNP) :: rn(size(re))
-    integer :: nn, np
-    integer :: e, l, n
+    real(RNP) :: rk(size(re))
+    integer   :: k, l, np
 
-    nn = size(neighbor)
     np = size(re)
-
     re = 0
 
-    do n = 1, nn
+    do k = m, n
 
-      l = neighbor(n) % id
-      e = neighbor(n) % component - 6
+      l = element % neighbor(k) % id
 
-      select case(e)
+      select case(ElementEdgeID(element % neighbor(k) % component))
       case( 1)
-        rn = r( :, 1, 1,l)
+        rk = r( :, 1, 1,l)
       case( 2)
-        rn = r( :,np, 1,l)
+        rk = r( :,np, 1,l)
       case( 3)
-        rn = r( :, 1,np,l)
+        rk = r( :, 1,np,l)
       case( 4)
-        rn = r( :,np,np,l)
+        rk = r( :,np,np,l)
       case( 5)
-        rn = r( 1, :, 1,l)
+        rk = r( 1, :, 1,l)
       case( 6)
-        rn = r(np, :, 1,l)
+        rk = r(np, :, 1,l)
       case( 7)
-        rn = r( 1, :,np,l)
+        rk = r( 1, :,np,l)
       case( 8)
-        rn = r(np, :,np,l)
+        rk = r(np, :,np,l)
       case( 9)
-        rn = r( 1, 1, :,l)
+        rk = r( 1, 1, :,l)
       case(10)
-        rn = r(np, 1, :,l)
+        rk = r(np, 1, :,l)
       case(11)
-        rn = r( 1,np, :,l)
+        rk = r( 1,np, :,l)
       case(12)
-        rn = r(np,np, :,l)
+        rk = r(np,np, :,l)
       end select
 
-      if (element(l) % edge(e) % orientation == o) then
-        re = re + rn
+      if (element % NeigborEdgeIsAligned(e, k)) then
+        re = re + rk
       else
-        re = re + rn(np:1:-1)
+        re = re + rk(np:1:-1)
       end if
 
     end do
 
-    re = ONE/nn * re
+    re = re / (n - m + 1)
 
   end subroutine CollectEdgeData
 

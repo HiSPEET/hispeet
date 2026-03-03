@@ -32,11 +32,6 @@
     integer :: c0, c1, lo, ro
     integer :: o(3), s(3,3), t(3)
     logical :: merge_edge(12), merge_vertex(8)
-!### CHECK
-real(RNP) :: min_wa, max_wa
-min_wa =  huge(ONE)
-max_wa = -huge(ONE)
-!### CHECK END
 
     associate(po => this%po, no => this%no)
 
@@ -284,10 +279,7 @@ max_wa = -huge(ONE)
               j = 0
               k = 0
               n = m + nn - 1
-
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 1) % orientation, &
-                                    no, us, ue                           )
+              call CollectEdgeData(element(e), 1, m, n, no, us, ue)
               do i = 0, po
                 du(i, j, k) = du(i, j, k) + ue(i)
                 wa(i, j, k) = wa(i, j, k) + ws(c0+i, c0-1, c0-1)
@@ -324,9 +316,7 @@ max_wa = -huge(ONE)
               j = po
               k = 0
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 2) % orientation, &
-                                    no, us, ue                           )
+              call CollectEdgeData(element(e), 2, m, n, no, us, ue)
               do i = 0, po
                 du(i, j, k) = du(i, j, k) + ue(i)
                 wa(i, j, k) = wa(i, j, k) + ws(c0+i, c1, c0-1)
@@ -363,9 +353,7 @@ max_wa = -huge(ONE)
               j = 0
               k = po
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 3) % orientation, &
-                                    no, us, ue                           )
+              call CollectEdgeData(element(e), 3, m, n, no, us, ue)
               do i = 0, po
                 du(i, j, k) = du(i, j, k) + ue(i)
                 wa(i, j, k) = wa(i, j, k) + ws(c0+i, c0-1, c1)
@@ -402,9 +390,7 @@ max_wa = -huge(ONE)
               j = po
               k = po
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 4) % orientation, &
-                                    no, us, ue                           )
+              call CollectEdgeData(element(e), 4, m, n, no, us, ue)
               do i = 0, po
                 du(i, j, k) = du(i, j, k) + ue(i)
                 wa(i, j, k) = wa(i, j, k) + ws(c0+i, c1, c1)
@@ -441,9 +427,7 @@ max_wa = -huge(ONE)
               i = 0
               k = 0
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 5) % orientation, &
-                                    no, us, ue                           )
+              call CollectEdgeData(element(e), 5, m, n, no, us, ue)
               do j = 0, po
                 du(i, j, k) = du(i, j, k) + ue(j)
                 wa(i, j, k) = wa(i, j, k) + ws(c0-1, c0+j, c0-1)
@@ -480,9 +464,7 @@ max_wa = -huge(ONE)
               i = po
               k = 0
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 6) % orientation, &
-                                    no, us, ue                           )
+              call CollectEdgeData(element(e), 6, m, n, no, us, ue)
               do j = 0, po
                 du(i, j, k) = du(i, j, k) + ue(j)
                 wa(i, j, k) = wa(i, j, k) + ws(c1, c0+j, c0-1)
@@ -519,9 +501,7 @@ max_wa = -huge(ONE)
               i = 0
               k = po
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 7) % orientation, &
-                                    no, us, ue                           )
+              call CollectEdgeData(element(e), 7, m, n, no, us, ue)
               do j = 0, po
                 du(i, j, k) = du(i, j, k) + ue(j)
                 wa(i, j, k) = wa(i, j, k) + ws(c0-1, c0+j, c1)
@@ -558,9 +538,7 @@ max_wa = -huge(ONE)
               i = po
               k = po
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 8) % orientation, &
-                                    no, us, ue                           )
+              call CollectEdgeData(element(e), 8, m, n, no, us, ue)
               do j = 0, po
                 du(i, j, k) = du(i, j, k) + ue(j)
                 wa(i, j, k) = wa(i, j, k) + ws(c1, c0+j, c1)
@@ -597,9 +575,7 @@ max_wa = -huge(ONE)
               i = 0
               j = 0
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge( 9) % orientation, &
-                                    no, us, ue                           )
+              call CollectEdgeData(element(e), 9, m, n, no, us, ue)
               do k = 0, po
                 du(i, j, k) = du(i, j, k) + ue(k)
                 wa(i, j, k) = wa(i, j, k) + ws(c0-1, c0-1, c0+k)
@@ -636,9 +612,7 @@ max_wa = -huge(ONE)
               i = po
               j = 0
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge(10) % orientation, &
-                                    no, us, ue                           )
+              call CollectEdgeData(element(e), 10, m, n, no, us, ue)
               do k = 0, po
                 du(i, j, k) = du(i, j, k) + ue(k)
                 wa(i, j, k) = wa(i, j, k) + ws(c1, c0-1, c0+k)
@@ -675,9 +649,7 @@ max_wa = -huge(ONE)
               i = 0
               j = po
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge(11) % orientation, &
-                                    no, us, ue                           )
+              call CollectEdgeData(element(e), 11, m, n, no, us, ue)
               do k = 0, po
                 du(i, j, k) = du(i, j, k) + ue(k)
                 wa(i, j, k) = wa(i, j, k) + ws(c0-1, c1, c0+k)
@@ -714,9 +686,7 @@ max_wa = -huge(ONE)
               i = po
               j = po
               n = m + nn - 1
-              call CollectEdgeData( element(e) % neighbor(m:n), element, &
-                                    element(e) % edge(12) % orientation, &
-                                    no, us, ue                           )
+              call CollectEdgeData(element(e), 12, m, n, no, us, ue)
               do k = 0, po
                 du(i, j, k) = du(i, j, k) + ue(k)
                 wa(i, j, k) = wa(i, j, k) + ws(c1, c1, c0+k)
@@ -991,10 +961,6 @@ max_wa = -huge(ONE)
 
           ! add correction
           if (this % renormalize) then
-!### CHECK
-min_wa = min(min_wa, minval(wa))
-max_wa = max(max_wa, maxval(wa))
-!### CHECK END
             u(:,:,:,e) = u(:,:,:,e) + du / wa
           else
             u(:,:,:,e) = u(:,:,:,e) + du
@@ -1004,78 +970,70 @@ max_wa = max(max_wa, maxval(wa))
       end do
 
     end associate
-!### CHECK
-if (this % renormalize) then
-  print '(A,2(2X,ES10.3))', 'min/max(wa) =',min_wa,max_wa
-end if
-!### CHECK END
 
   end subroutine Merge_Unstructured
 
   !-----------------------------------------------------------------------------
   !> Collect, align and average neighbor edge data
 
-  pure subroutine CollectEdgeData(neighbor, element, o, no, us, ue)
-    class(MeshElementNeighbor_3D), intent(in)  :: neighbor(:)
-    class(MeshElement_3D),         intent(in)  :: element(:)
-    integer(IXS),                  intent(in)  :: o
-    integer,                       intent(in)  :: no
-    real(RWP),                     intent(in)  :: us(:,:,:,:)
-    real(RNP),                     intent(out) :: ue(:)
+  pure subroutine CollectEdgeData(element, e, m, n, no, us, ue)
+    class(MeshElement_3D), intent(in)  :: element     !< current element
+    integer,               intent(in)  :: e           !< element edge ID
+    integer,               intent(in)  :: m           !< first neighbor ID
+    integer,               intent(in)  :: n           !< last neighbor ID
+    integer,               intent(in)  :: no          !< overlapped layers
+    real(RWP),             intent(in)  :: us(:,:,:,:) !< element data
+    real(RNP),             intent(out) :: ue(:)       !< avg neighbor edge data
 
-    real(RNP) :: un(size(ue))
-    integer :: nn, np
-    integer :: i0, ip
-    integer :: e, l, n
+    real(RNP) :: uk(size(ue))
+    integer   :: i0, ip, np
+    integer   :: k, l
 
-    nn = size(neighbor)
     np = size(ue)
     i0 = no + 1
     ip = no + np
-
     ue = 0
 
-    do n = 1, nn
+    do k = m, n
 
-      l = neighbor(n) % id
-      e = neighbor(n) % component - 6
+      l = element % neighbor(k) % id
 
-      select case(e)
+      select case(ElementEdgeID(element % neighbor(k) % component))
       case( 1)
-        un = us( i0:ip, i0, i0, l)
+        uk = us( i0:ip, i0, i0, l)
       case( 2)
-        un = us( i0:ip, ip, i0, l)
+        uk = us( i0:ip, ip, i0, l)
       case( 3)
-        un = us( i0:ip, i0, ip, l)
+        uk = us( i0:ip, i0, ip, l)
       case( 4)
-        un = us( i0:ip, ip, ip, l)
+        uk = us( i0:ip, ip, ip, l)
       case( 5)
-        un = us( i0, i0:ip, i0, l)
+        uk = us( i0, i0:ip, i0, l)
       case( 6)
-        un = us( ip, i0:ip, i0, l)
+        uk = us( ip, i0:ip, i0, l)
       case( 7)
-        un = us( i0, i0:ip, ip, l)
+        uk = us( i0, i0:ip, ip, l)
       case( 8)
-        un = us( ip, i0:ip, ip, l)
+        uk = us( ip, i0:ip, ip, l)
       case( 9)
-        un = us( i0, i0, i0:ip, l)
+        uk = us( i0, i0, i0:ip, l)
       case(10)
-        un = us( ip, i0, i0:ip, l)
+        uk = us( ip, i0, i0:ip, l)
       case(11)
-        un = us( i0, ip, i0:ip, l)
+        uk = us( i0, ip, i0:ip, l)
       case(12)
-        un = us( ip, ip, i0:ip, l)
+        uk = us( ip, ip, i0:ip, l)
       end select
 
-      if (element(l) % edge(e) % orientation == o) then
-        ue = ue + un
+      if (element % NeigborEdgeIsAligned(e, k)) then
+        ue = ue + uk
       else
-        ue = ue + un(np:1:-1)
+        ue = ue + uk(np:1:-1)
       end if
 
     end do
 
-    ue = ONE/nn * ue
+    ue = ue / (n - m + 1)
 
   end subroutine CollectEdgeData
 
