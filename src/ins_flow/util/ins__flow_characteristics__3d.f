@@ -251,20 +251,20 @@ contains
 
       !$omp master
       write(*,'(A,2X)'   ,advance='NO') '#'
-      write(*,'(2X,A,7X)',advance='NO') 't'
+      write(*,'(3X,A,8X)',advance='NO') 't'
       if (this % dt >= 0) then
-        write(*,'(2X,A,6X)',advance='NO') 'dt'
+        write(*,'(3X,A,7X)',advance='NO') 'dt'
       end if
-      write(*,'(1X,A,4X)',advance='NO') 'dx_min'
-      write(*,'(1X,A,4X)',advance='NO') 'dx_max'
+      write(*,'(2X,A,5X)',advance='NO') 'dx_min'
+      write(*,'(2X,A,5X)',advance='NO') 'dx_max'
       write(*,'(1X,A,2X)',advance='NO') 'po'
-      write(*,'(1X,A,5X)',advance='NO') 'v_max'
-      write(*,'(1X,A,5X)',advance='NO') 'e_kin'
-      write(*,'(1X,A,5X)',advance='NO') 'div_v'
+      write(*,'(2X,A,6X)',advance='NO') 'v_max'
+      write(*,'(2X,A,6X)',advance='NO') 'e_kin'
+      write(*,'(2X,A,6X)',advance='NO') 'div_v'
 
       if (this % has_errors) then
-        write(*,'(1X,A,5X)',advance='NO') 'err_v'
-        write(*,'(1X,A,5X)',advance='NO') 'err_p'
+        write(*,'(2X,A,6X)',advance='NO') 'err_v'
+        write(*,'(2X,A,6X)',advance='NO') 'err_p'
       end if
 
       if (present(tag)) then
@@ -288,20 +288,20 @@ contains
     if (this % part == 0) then
 
       !$omp master
-      write(*,'(ES10.3,1X)',advance='NO') this % t
+      write(*,'(ES12.5,1X)',advance='NO') this % t
       if (this % dt >= 0) then
-        write(*,'(ES10.3,1X)',advance='NO') this % dt
+        write(*,'(ES12.5,1X)',advance='NO') this % dt
       end if
-      write(*,'(ES10.3,1X)',advance='NO') this % dx_min
-      write(*,'(ES10.3,1X)',advance='NO') this % dx_max
+      write(*,'(ES12.5,1X)',advance='NO') this % dx_min
+      write(*,'(ES12.5,1X)',advance='NO') this % dx_max
       write(*,'(I4    ,1X)',advance='NO') this % po
-      write(*,'(ES10.3,1X)',advance='NO') this % v_max
-      write(*,'(ES10.3,1X)',advance='NO') this % e_kin
-      write(*,'(ES10.3,1X)',advance='NO') this % div_v
+      write(*,'(ES12.5,1X)',advance='NO') this % v_max
+      write(*,'(ES12.5,1X)',advance='NO') this % e_kin
+      write(*,'(ES12.5,1X)',advance='NO') this % div_v
 
       if (this % has_errors) then
-        write(*,'(ES10.3,1X)',advance='NO') this % err_v
-        write(*,'(ES10.3,1X)',advance='NO') this % err_p
+        write(*,'(ES12.5,1X)',advance='NO') this % err_v
+        write(*,'(ES12.5,1X)',advance='NO') this % err_p
       end if
 
       if (present(tag)) then
