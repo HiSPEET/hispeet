@@ -69,18 +69,19 @@ program ISP_Flow__SDC_Test
   logical :: compute_p  = .false. ! recompute p at the end of time step
   logical :: write_stat = .false. ! evaluate+print solution metrics each step
   logical :: write_vtk  = .false. ! export results to VTK file
-  logical :: eval_rms   = .true.  ! evaluate rms errors and divergence
+  logical :: eval_l2    = .true.  ! evaluate normalized L² errors and divergence
+  logical :: eval_rms   = .false. ! evaluate rms errors and divergence
   logical :: eval_max   = .false. ! evaluate max errors and divergence
   logical :: eval_eps   = .false. ! evaluate dissipation, ε = ∫ν∇v:∇v dΩ
   logical :: average    = .false. ! compute temporal averages
   integer :: i_avg      =  10     ! sampling rate for temporal averaging
   type(FlowOpControl) :: flow_op_control
 
-  namelist /control/ flow_type, flow_case,         &
-                     restart, compute_p,           &
-                     write_stat, write_vtk,        &
-                     eval_rms, eval_max, eval_eps, &
-                     average, i_avg,               &
+  namelist /control/ flow_type, flow_case,                  &
+                     restart, compute_p,                    &
+                     write_stat, write_vtk,                 &
+                     eval_l2, eval_rms, eval_max, eval_eps, &
+                     average, i_avg,                        &
                      flow_op_control
 
   ! discretization parameters ..................................................
@@ -245,6 +246,7 @@ program ISP_Flow__SDC_Test
   call XMPI_Bcast(compute_p   , 0, comm)
   call XMPI_Bcast(write_stat  , 0, comm)
   call XMPI_Bcast(write_vtk   , 0, comm)
+  call XMPI_Bcast(eval_l2     , 0, comm)
   call XMPI_Bcast(eval_rms    , 0, comm)
   call XMPI_Bcast(eval_max    , 0, comm)
   call XMPI_Bcast(eval_eps    , 0, comm)
@@ -641,25 +643,24 @@ subroutine Evaluation(failed, last)
   ! local variables ............................................................
 
   ! shared with OpenMP
+  real(RNP), save :: v_max     = -1, v_max_loc   = 0
   real(RNP), save :: err_v_max = -1, err_v_loc   = 0
   real(RNP), save :: err_p_max = -1, err_p_loc   = 0
   real(RNP), save :: div_v_max = -1, div_v_loc   = 0
   real(RNP), save :: e_kin     = -1, e_kin_loc   = 0
   real(RNP), save :: eps       = -1, eps_loc     = 0
   real(RNP), save :: eps_svv   = -1, eps_svv_loc = 0
-  integer,   save :: n         = -1, n_loc
+  integer,   save :: ne_tot    = -1
   logical,   save :: head = .true.
 
   real(RNP), allocatable, save :: grad_v(:,:,:,:,:,:)
 
+  real(RNP) :: np_tot
+  real(RNP) :: err_v_l2 , err_p_l2 , div_v_l2
   real(RNP) :: err_v_rms, err_p_rms, div_v_rms
 
   logical   :: failed_, failed_nan, failed_max
   integer   :: e, i, j, k
-
-  err_v_rms = -1
-  err_p_rms = -1
-  div_v_rms = -1
 
   associate( eop   => flow_op % eop_u     &
            , x     => flow_op % x         &
@@ -669,10 +670,35 @@ subroutine Evaluation(failed, last)
 
     ! preliminaries ............................................................
 
-    ! total number of mesh points
+    ! total number of mesh elements and points
     !$omp master
-    n_loc = size(x) / 3
-    call XMPI_Allreduce(n_loc, n, MPI_SUM, mesh%comm)
+    call XMPI_Allreduce(mesh%ne, ne_tot, MPI_SUM, mesh%comm)
+    !$omp end master
+
+    np_tot = ne_tot * (eop%po + 1)**3
+
+    ! velocity magnitude .......................................................
+
+    !$omp master
+    v_max_loc = 0
+    !$omp end master
+
+    !$omp do reduction(+:v_max_loc) schedule(static)
+    do e = 1, size(u,4)
+      do k = 0, eop%po
+      do j = 0, eop%po
+      do i = 0, eop%po
+        v_max_loc = max( v_max_loc, u(i,j,k,e,1)**2 &
+                                  + u(i,j,k,e,2)**2 &
+                                  + u(i,j,k,e,3)**2 )
+      end do
+      end do
+      end do
+    end do
+
+    !$omp master
+    v_max_loc = sqrt(v_max_loc)
+    call XMPI_Reduce(v_max_loc, v_max, MPI_MAX, 0, mesh%comm)
     !$omp end master
 
     ! exact solution and error .................................................
@@ -688,10 +714,46 @@ subroutine Evaluation(failed, last)
       ! remove constant from pressure error
       call CalibrateArray(err_p, mesh%comm)
 
+      ! normalized L² error
+      if (eval_l2) then
+        associate(po => eop%po, Ms => eop%w)
+          !$omp master
+          err_v_loc = 0
+          err_p_loc = 0
+          !$omp end master
+
+          !$omp do reduction(+:err_v_loc,err_p_loc) schedule(static)
+          do e = 1, size(u,4)
+            do k = 0, po
+            do j = 0, po
+            do i = 0, po
+              err_v_loc = err_v_loc  &
+                        + Ms(i)*Ms(j)*Ms(k) * ( err_u(i,j,k,e,1) ** 2 &
+                                              + err_u(i,j,k,e,2) ** 2 &
+                                              + err_u(i,j,k,e,3) ** 2 )
+              err_p_loc = err_p_loc &
+                        + Ms(i)*Ms(j)*Ms(k) * err_p(i,j,k,e) ** 2
+            end do
+            end do
+            end do
+          end do
+        end associate
+
+        !$omp master
+        call XMPI_Reduce(err_v_loc, err_v_l2, MPI_SUM, 0, mesh%comm)
+        call XMPI_Reduce(err_p_loc, err_p_l2, MPI_SUM, 0, mesh%comm)
+        err_v_l2 = sqrt(err_v_l2 / (8 * ne_tot))
+        err_p_l2 = sqrt(err_p_l2 / (8 * ne_tot))
+        !$omp end master
+      else
+        err_v_l2 = -1
+        err_p_l2 = -1
+      end if
+
       ! rms error
       if (eval_rms) then
-        err_v_rms = sqrt(ScalarProduct(err_v, err_v, mesh%comm) / n)
-        err_p_rms = sqrt(ScalarProduct(err_p, err_p, mesh%comm) / n)
+        err_v_rms = sqrt(ScalarProduct(err_v, err_v, mesh%comm) / np_tot)
+        err_p_rms = sqrt(ScalarProduct(err_p, err_p, mesh%comm) / np_tot)
       else
         err_v_rms = -1
         err_p_rms = -1
@@ -710,15 +772,53 @@ subroutine Evaluation(failed, last)
       end if
       !$omp end master
 
+    else
+
+      err_v_l2  = -1
+      err_p_l2  = -1
+      div_v_l2  = -1
+
+      err_v_rms = -1
+      err_p_rms = -1
+      div_v_rms = -1
+
     end if
 
     ! divergence ...............................................................
 
     call WeakDivergence(mesh, eop%w, eop%D, u, div_v)
 
+    ! normalized L² divergence
+    if (eval_l2) then
+      associate(po => eop%po, Ms => eop%w)
+        !$omp master
+        div_v_loc = 0
+        !$omp end master
+
+        !$omp do reduction(+:div_v_loc) schedule(static)
+        do e = 1, size(u,4)
+          do k = 0, po
+          do j = 0, po
+          do i = 0, po
+            div_v_loc = div_v_loc + Ms(i)*Ms(j)*Ms(k) * div_v(i,j,k,e) ** 2
+          end do
+          end do
+          end do
+        end do
+      end associate
+
+      !$omp master
+      call XMPI_Reduce(div_v_loc, div_v_l2, MPI_SUM, 0, mesh%comm)
+      div_v_l2 = sqrt(div_v_l2 / (8 * ne_tot))
+      !$omp end master
+    else
+      err_v_l2 = -1
+      err_p_l2 = -1
+    end if
+
     ! rms divergence
     if (eval_rms) then
-      div_v_rms = sqrt(ScalarProduct(div_v, div_v, mesh%comm) / n)
+      div_v_rms = sqrt(ScalarProduct(div_v, div_v, mesh%comm) / np_tot)
     end if
 
     ! max divergence
@@ -731,7 +831,11 @@ subroutine Evaluation(failed, last)
     end if
     !$omp end master
 
-    ! kinetic energy ...........................................................
+    ! kinetic energy per volume ................................................
+
+    !$omp master
+    e_kin_loc = 0
+    !$omp end master
 
     associate(po => eop%po, Ms => eop%w)
       !$omp do reduction(+:e_kin_loc) schedule(static)
@@ -750,9 +854,8 @@ subroutine Evaluation(failed, last)
     end associate
 
     !$omp master
-    e_kin_loc = product(mesh%dx) / 16 * e_kin_loc
+    e_kin_loc = e_kin_loc / (16 * ne_tot)
     call XMPI_Reduce(e_kin_loc, e_kin, MPI_SUM, 0, mesh%comm)
-    e_kin_loc = 0
     !$omp end master
 
     ! dissipation -- for constant viscosity only ...............................
@@ -862,20 +965,23 @@ subroutine Evaluation(failed, last)
 
       write(*,'(A,  6X)',advance='NO') '#'
       write(*,'(A, 11X)',advance='NO') 't'
-      write(*,'(A, 11X)',advance='NO') 'dt'
-      write(*,'(A, 11X)',advance='NO') 'dx'
-      write(*,'(A, 11X)',advance='NO') 'dy'
-      write(*,'(A,  7X)',advance='NO') 'dz'
-      write(*,'(A,  3X)',advance='NO') 'po'
-      if (err_v_rms >= 0) write(*,'(A, 3X)',advance='NO') 'err_v_rms '
-      if (err_p_rms >= 0) write(*,'(A, 3X)',advance='NO') 'err_p_rms '
-      if (div_v_rms >= 0) write(*,'(A, 3X)',advance='NO') 'div_v_rms '
-      if (err_v_max >= 0) write(*,'(A, 3X)',advance='NO') 'err_v_max '
-      if (err_p_max >= 0) write(*,'(A, 3X)',advance='NO') 'err_p_max '
-      if (div_v_max >= 0) write(*,'(A, 3X)',advance='NO') 'div_v_max '
-      if (e_kin     >= 0) write(*,'(A, 3X)',advance='NO') '  e_kin   '
-      if (eps       >= 0) write(*,'(A, 3X)',advance='NO') '   eps    '
-      if (eps_svv   >= 0) write(*,'(A, 3X)',advance='NO') ' eps_svv  '
+      write(*,'(A,  9X)',advance='NO') 'dt'
+      write(*,'(A,  7X)',advance='NO') 'dx_min'
+      write(*,'(A,  5X)',advance='NO') 'dx_max'
+      write(*,'(A,  5X)',advance='NO') 'po'
+      write(*,'(A,  8X)',advance='NO') 'v_max'
+      write(*,'(A,  6X)',advance='NO') 'e_kin'
+      if (eval_l2 ) write(*,'(A, 3X)',advance='NO') '  div_v   '
+      if (eval_l2 ) write(*,'(A, 3X)',advance='NO') '  err_v   '
+      if (eval_l2 ) write(*,'(A, 3X)',advance='NO') '  err_p   '
+      if (eval_rms) write(*,'(A, 3X)',advance='NO') 'err_v_rms '
+      if (eval_rms) write(*,'(A, 3X)',advance='NO') 'err_p_rms '
+      if (eval_rms) write(*,'(A, 3X)',advance='NO') 'div_v_rms '
+      if (eval_max) write(*,'(A, 3X)',advance='NO') 'err_v_max '
+      if (eval_max) write(*,'(A, 3X)',advance='NO') 'err_p_max '
+      if (eval_max) write(*,'(A, 3X)',advance='NO') 'div_v_max '
+      if (eps     >= 0) write(*,'(A, 3X)',advance='NO') '   eps    '
+      if (eps_svv >= 0) write(*,'(A, 3X)',advance='NO') ' eps_svv  '
       write(*,*)
 
       head = .false.
@@ -883,19 +989,22 @@ subroutine Evaluation(failed, last)
 
     write(*,'(ES12.5,1X)',advance='NO') t
     write(*,'(ES12.5,1X)',advance='NO') dt
-    write(*,'(ES12.5,1X)',advance='NO') dx(1)
-    write(*,'(ES12.5,1X)',advance='NO') dx(2)
-    write(*,'(ES12.5,1X)',advance='NO') dx(3)
+    write(*,'(ES12.5,1X)',advance='NO') minval(mesh%dx)
+    write(*,'(ES12.5,1X)',advance='NO') maxval(mesh%dx)
     write(*,'(I4    ,1X)',advance='NO') po_u
-    if (err_v_rms >= 0) write(*,'(ES12.5,1X)',advance='NO') err_v_rms
-    if (err_p_rms >= 0) write(*,'(ES12.5,1X)',advance='NO') err_p_rms
-    if (div_v_rms >= 0) write(*,'(ES12.5,1X)',advance='NO') div_v_rms
-    if (err_v_max >= 0) write(*,'(ES12.5,1X)',advance='NO') err_v_max
-    if (err_p_max >= 0) write(*,'(ES12.5,1X)',advance='NO') err_p_max
-    if (div_v_max >= 0) write(*,'(ES12.5,1X)',advance='NO') div_v_max
-    if (e_kin     >= 0) write(*,'(ES12.5,1X)',advance='NO') e_kin
-    if (eps       >= 0) write(*,'(ES12.5,1X)',advance='NO') eps
-    if (eps_svv   >= 0) write(*,'(ES12.5,1X)',advance='NO') eps_svv
+    write(*,'(ES12.5,1X)',advance='NO') v_max
+    write(*,'(ES12.5,1X)',advance='NO') e_kin
+    if (eval_l2 ) write(*,'(ES12.5,1X)',advance='NO') div_v_l2
+    if (eval_l2 ) write(*,'(ES12.5,1X)',advance='NO') err_v_l2
+    if (eval_l2 ) write(*,'(ES12.5,1X)',advance='NO') err_p_l2
+    if (eval_rms) write(*,'(ES12.5,1X)',advance='NO') err_v_rms
+    if (eval_rms) write(*,'(ES12.5,1X)',advance='NO') err_p_rms
+    if (eval_rms) write(*,'(ES12.5,1X)',advance='NO') div_v_rms
+    if (eval_max) write(*,'(ES12.5,1X)',advance='NO') err_v_max
+    if (eval_max) write(*,'(ES12.5,1X)',advance='NO') err_p_max
+    if (eval_max) write(*,'(ES12.5,1X)',advance='NO') div_v_max
+    if (eps     >= 0) write(*,'(ES12.5,1X)',advance='NO') eps
+    if (eps_svv >= 0) write(*,'(ES12.5,1X)',advance='NO') eps_svv
     if (present(last)) then
       if (last) write(*,'(A)') ' #last#'
     end if
