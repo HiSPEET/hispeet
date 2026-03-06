@@ -68,7 +68,8 @@ program ISP_Flow__SDC_Test
   logical :: restart    = .false. ! continue computation from snapshot
   logical :: compute_p  = .false. ! recompute p at the end of time step
   logical :: write_stat = .false. ! evaluate+print solution metrics each step
-  logical :: write_vtk  = .false. ! export results to VTK file
+  logical :: export_vtk = .false. ! export results to VTK file
+  logical :: subdiv_vtk = .false. ! use quadratic subdivision for VTK export
   logical :: eval_l2    = .true.  ! evaluate normalized L² errors and divergence
   logical :: eval_rms   = .false. ! evaluate rms errors and divergence
   logical :: eval_max   = .false. ! evaluate max errors and divergence
@@ -79,7 +80,7 @@ program ISP_Flow__SDC_Test
 
   namelist /control/ flow_type, flow_case,                  &
                      restart, compute_p,                    &
-                     write_stat, write_vtk,                 &
+                     write_stat, export_vtk, subdiv_vtk,    &
                      eval_l2, eval_rms, eval_max, eval_eps, &
                      average, i_avg,                        &
                      flow_op_control
@@ -245,7 +246,8 @@ program ISP_Flow__SDC_Test
   call XMPI_Bcast(restart     , 0, comm)
   call XMPI_Bcast(compute_p   , 0, comm)
   call XMPI_Bcast(write_stat  , 0, comm)
-  call XMPI_Bcast(write_vtk   , 0, comm)
+  call XMPI_Bcast(export_vtk  , 0, comm)
+  call XMPI_Bcast(subdiv_vtk  , 0, comm)
   call XMPI_Bcast(eval_l2     , 0, comm)
   call XMPI_Bcast(eval_rms    , 0, comm)
   call XMPI_Bcast(eval_max    , 0, comm)
@@ -474,7 +476,7 @@ program ISP_Flow__SDC_Test
   !-----------------------------------------------------------------------------
   ! Export results
 
-  if (write_vtk) then
+  if (export_vtk) then
 
     call problem % GetDiffusivity(flow_op%x, t, u, nu)
     call GetDerivedVariables(flow_op, u, div_v, lmb_2)
@@ -491,7 +493,8 @@ program ISP_Flow__SDC_Test
                                 , name_var             & ! variable names
                                 , file   = flow_case   & ! VTK file base name
                                 , part   = mesh%part   & ! partition ID
-                                , n_part = mesh%n_part ) ! number of partitions
+                                , n_part = mesh%n_part & ! number of partitions
+                                , subdiv = subdiv_vtk  ) !
     end if
     !$omp end master
 

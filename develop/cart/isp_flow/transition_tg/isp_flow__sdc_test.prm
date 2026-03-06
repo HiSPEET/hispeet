@@ -4,7 +4,7 @@
   restart       =  F
   compute_p     =  F
   write_stat    =  T
-  write_vtk     =  F
+  export_vtk    =  F
   eval_rms      =  T
   eval_max      =  F
   eval_eps      =  T

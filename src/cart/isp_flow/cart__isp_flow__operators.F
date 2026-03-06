@@ -34,7 +34,7 @@ module CART__ISP_Flow__Operators
 
   type FlowOpControl
 
-    real(RNP) :: chi           = -2.0    !< factor of ∇[ν∇·v] such that with
+    real(RNP) :: chi           = -1.0    !< factor of ∇[ν∇·v] such that with
                                          !! constant viscosity
                                          !!   χ = -2.   ⟺ ∇·τ = -ν∇×∇×v
                                          !!   χ = -1.   ⟺ ∇·τ = ν∇²v
