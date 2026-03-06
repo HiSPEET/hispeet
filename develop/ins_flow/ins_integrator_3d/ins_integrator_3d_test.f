@@ -20,6 +20,7 @@ program INS_Integrator_3D_Test
 
   use Mesh__3D
   use Boundary_Variable__3D
+  use TPO__Div__3D
   use Trace_Operators__3D
   use Volume_Integrals__3D
   use Surface_Integrals__3D
@@ -95,8 +96,9 @@ program INS_Integrator_3D_Test
   integer :: char_freq  = 1        ! characteristics output frequency
   integer :: avg_rate   = 0        ! sampling rate for averaging, 0 if none
   logical :: export_vtk = .false.  ! generate VTK files
+  logical :: subdiv_vtk = .true.   ! use quadratic subdivision for VTK export
 
-  namelist/control_prm/ mesh_stat, char_freq, avg_rate, export_vtk
+  namelist/control_prm/ mesh_stat, char_freq, avg_rate, export_vtk, subdiv_vtk
 
   ! restart options
   character(len=80) :: restart_tag_in  = ''  ! tag for restart input files
@@ -184,6 +186,7 @@ program INS_Integrator_3D_Test
   real(RNP), pointer, contiguous, save :: u(:,:,:,:,:)    ! u = [v, p]
   real(RNP), pointer, contiguous, save :: v(:,:,:,:,:)    ! velocity
   real(RNP), pointer, contiguous, save :: p(:,:,:,:)      ! pressure
+  real(RNP), pointer, contiguous, save :: div_v(:,:,:,:)  ! ∇⋅v
 
   real(RNP), pointer, contiguous, save :: u_ex(:,:,:,:,:) ! u_ex = [v_ex, p_ex]
   real(RNP), pointer, contiguous, save :: v_ex(:,:,:,:,:) ! exact velocity
@@ -195,6 +198,7 @@ program INS_Integrator_3D_Test
 
   real(RNP), pointer, contiguous, save :: q_avg(:,:,:,:,:) ! averaged quantities
 
+  real(RNP), allocatable, save :: vp(:,:,:,:,:)  ! velocity trace
   real(RNP), allocatable, save :: w(:,:,:,:,:)   ! workspace
 
   type(BoundaryVariable_3D), allocatable, save :: bv_vn(:) ! n⋅v on Γ=∂Ω
@@ -278,6 +282,7 @@ program INS_Integrator_3D_Test
   call XMPI_Bcast(char_freq      , 0, comm)
   call XMPI_Bcast(avg_rate       , 0, comm)
   call XMPI_Bcast(export_vtk     , 0, comm)
+  call XMPI_Bcast(subdiv_vtk     , 0, comm)
   call XMPI_Bcast(restart_tag_in , 0, comm)
   call XMPI_Bcast(restart_tag_out, 0, comm)
 
@@ -440,7 +445,7 @@ program INS_Integrator_3D_Test
 
   ! variables ..................................................................
 
-  n_var = 4
+  n_var = 5
 
   if (problem % HasExactSolution()) then
     n_var = n_var + 8
@@ -456,10 +461,11 @@ program INS_Integrator_3D_Test
   u(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,1:4)
   v(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,1:3)
   p(0:,0:,0:,1:)     =>  var(:,:,:,:,4)
+  div_v(0:,0:,0:,1:) =>  var(:,:,:,:,5)
 
-  var_name(1:4) = [ 'v_x', 'v_y', 'v_z', 'p  ']
+  var_name(1:5) = [ 'v_x  ', 'v_y  ', 'v_z  ', 'p    ', 'div_v']
 
-  i = 4
+  i = 5
 
   if (problem % HasExactSolution()) then
 
@@ -475,7 +481,7 @@ program INS_Integrator_3D_Test
     err_v(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,i+1:i+3)
     err_p(0:,0:,0:,1:)     =>  var(:,:,:,:,i+1)
 
-    var_name(9:12) = [ 'error(v_x)', 'error(v_y)', 'error(v_z)', 'error(p)  ']
+    var_name(i+1:i+4) = [ 'error(v_x)', 'error(v_y)', 'error(v_z)', 'error(p)  ']
 
     i = i + 4
 
@@ -497,7 +503,8 @@ program INS_Integrator_3D_Test
     q_avg => null()
   end if
 
-  allocate(w(0:po_u,0:po_u,0:po_u,1:n_elem,1:4) )
+  allocate(vp(0:po_u,0:po_u,1:6,1:n_elem,1:3))
+  allocate(w (0:po_u,0:po_u,0:po_u,1:n_elem,1:4) )
 
   ! initial conditions .........................................................
 
@@ -641,12 +648,18 @@ program INS_Integrator_3D_Test
   ! Write plot files
 
   if (export_vtk .and. ins_op % mesh%part >= 0) then
+
+    ! compute divergence
+    call GetOuterVectorTraces_3D(ins_op%mesh, v, vp)   ! vp = v⁺
+    call TPO_Div(ins_op%eop_u, ins_op%sem_u, v, vp, div_v)
+
     call ExportVTK_VolumeData( x       = ins_op % sem_u % metrics % x &
                              , s       = var                          &
                              , sname   = var_name                     &
                              , file    = flow_case                    &
                              , part    = ins_op % mesh % part         &
-                             , n_parts = ins_op % mesh % n_parts      )
+                             , n_parts = ins_op % mesh % n_parts      &
+                             , subdiv  = subdiv_vtk                   )
   end if
 
   !-----------------------------------------------------------------------------
