@@ -180,19 +180,19 @@ contains
       ! u' = u₀ ≡ u(x,t₀)
       call SetArray(u_i, u, multi=.true.)
 
-      ! update boundary conditions
-      call GetBoundaryValues(problem, mesh, flow_op%bv_x, t, flow_op%bv_u)
+      ! boundary conditions at old time
+      call GetBoundaryValues(problem, mesh, flow_op%bv_x, t_0, flow_op%bv_u)
 
       ! w = -∇⋅v₀v₀ + ∇⋅ν₀(∇v₀)ᵀ - 2∇(ν₀∇⋅v₀)    for v
       ! w = -∇⋅v₀u₀                              for u \ (v,p)
-      call TimeDerivative( problem, flow_op, t    &
+      call TimeDerivative( problem, flow_op, t_0  &
                          , u      = u             &
                          , chi    = chi           &
                          , nu     = nu            &
                          , F      = w             &
                          , F_d1   = F_d1          &
                          , F_d3   = F_d3          &
-                         )
+                         , source = .false.       )
 
       ! u' += ∆t w
       do i = 1, problem % nc
@@ -200,6 +200,16 @@ contains
         call MergeArrays(ONE, u_i(:,:,:,:,i), dt, w   (:,:,:,:,i))
         call MergeArrays(ONE, u_i(:,:,:,:,i), dt, F_d3(:,:,:,:,i))
       end do
+
+      ! add sources
+      call problem % GetExternalSources(flow_op%x, t, w)
+      do i = 1, problem % nc
+        if (i == 4) cycle
+        call MergeArrays(ONE, u_i(:,:,:,:,i), dt, w(:,:,:,:,i))
+      end do
+
+      ! update BC
+      call GetBoundaryValues(problem, mesh, flow_op%bv_x, t, flow_op%bv_u)
 
       ! pressure, continuity and diffusion .....................................
 
