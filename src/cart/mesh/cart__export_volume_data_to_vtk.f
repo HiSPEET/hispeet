@@ -30,7 +30,7 @@ contains
 !> file.
 
 subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
-    part, n_part)
+    part, n_part, subdiv)
 
   ! dimensions
   integer, intent(in) :: po  !< polynomial order
@@ -55,6 +55,7 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
   character(len=*),  intent(in) :: file   !< VTK output file
   integer, optional, intent(in) :: part   !< partition (piece)
   integer, optional, intent(in) :: n_part !< number of partitions (pieces)
+  logical, optional, intent(in) :: subdiv !< T: quadratic subdivision [auto]
 
   ! VTK data ...................................................................
 
@@ -76,12 +77,18 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
   ! initialization .............................................................
 
   ! automatic selection of interpolation order
-  if (po == 1) then
-    interpolation_order = 1
-  else if (po > 1) then
-    interpolation_order = 2
-  else
+  if (po < 1) then
     return
+  else if (po == 1) then
+    interpolation_order = 1
+  else if (present(subdiv)) then
+    if (subdiv) then
+      interpolation_order = 2
+    else
+      interpolation_order = 1
+    end if
+  else
+    interpolation_order = 2
   end if
 
   if (present(part)) then
