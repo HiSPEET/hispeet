@@ -50,6 +50,10 @@ module INS__Integrator__Euler__3D
     procedure :: Bcast => Bcast_INS_Integrator_Euler_Options
   end type INS_Integrator_Euler_Options_3D
 
+
+  ! enforce boundary conditions for convective fluxes (NOT RECOMMENDED)
+  logical, parameter :: use_bc_for_convection = .false.
+
 contains
 
   !-----------------------------------------------------------------------------
@@ -212,6 +216,10 @@ contains
       if (problem % stokes) then
         call SetArray(f_c, ZERO, multi = .true.)
       else
+        if (.not. use_bc_for_convection) then
+          ! extract velocity trace without imposing BC
+          call GetOuterVectorTraces_3D(mesh, v, vp)
+        end if
         call ins_op % GetConvectionTerm(v, vp, f_c)
       end if
 

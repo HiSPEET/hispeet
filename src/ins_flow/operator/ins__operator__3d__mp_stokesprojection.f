@@ -13,6 +13,9 @@ submodule (INS__Operator__3D) MP_StokesProjection
   use Element_Face_Transfer_Buffer__3D
   implicit none
 
+  ! enforce BC before computation of divergence (NOT RECOMMENDED)
+  logical, parameter :: use_bc_for_div = .false.
+
 contains
 
   !-----------------------------------------------------------------------------
@@ -57,7 +60,7 @@ contains
     ! internal variables .......................................................
 
     real(RNP), allocatable, save :: w  (:,:,:,:,:) ! work
-    real(RNP), allocatable, save :: wp (:,:,:,:,:) ! outer traces w⁺
+    real(RNP), allocatable, save :: tr (:,:,:,:,:) ! traces
 
     type(BoundaryVariable_3D), allocatable, save :: bv_w(:), bv_p(:), bv_dp(:)
 
@@ -81,7 +84,7 @@ contains
 
       !$omp master
 
-      allocate( wp (np, np,  6, ne, 6), source = ZERO )
+      allocate( tr (np, np,  6, ne, 6), source = ZERO )
       allocate( w  (np, np, np, ne, 5), source = ZERO )
 
       ! provide handles for velocity and pressure boundary values
@@ -113,8 +116,8 @@ contains
         ! corrector
         associate( f_d => w (:,:,:,:,1:3) &
                  , mm  => w (:,:,:,:, 4 ) &
-                 , vp  => wp(:,:,:,:,1:3) &
-                 , sp  => wp(:,:,:,:,4:6) )
+                 , vp  => tr(:,:,:,:,1:3) &
+                 , sp  => tr(:,:,:,:,4:6) )
 
           call this % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_w &
                                       , xout = .true. , form = 2     )
@@ -135,21 +138,31 @@ contains
       ! projection step ........................................................
 
       ! sources
-      associate( div_v => w (:,:,:,:, 4)  &
-               , vp    => wp(:,:,:,:,1:3) )
-        ! compute divergence of approximate velocity
+      associate( div_v => w (:,:,:,:, 4 ) &
+               , vp    => tr(:,:,:,:,1:3) )
+
+        ! outer traces of extrapolated velocity
         call GetOuterVectorTraces_3D(mesh, v, vp)
+
+        ! optionally enforce boundary conditions
+        if (use_bc_for_div) then
+          call this % ApplyEssentialBC(bv_w, vp, vp)
+        end if
+
+        ! divergence of approximate velocity
         call TPO_Div(this % eop_u, this % sem_u, v, vp, div_v)
+
         ! add additional sources
         if (size(f, 5) >= 4) then
           call MergeArrays(ONE, div_v, -ONE, f(:,:,:,:,4))
         end if
+
       end associate
 
       ! pressure and velocity correction
       associate( grad_p => w (:,:,:,:,1:3) &
                , div_v  => w (:,:,:,:, 4)  &
-               , pp     => wp(:,:,:,:, 4 ) )
+               , pp     => tr(:,:,:,:, 4 ) )
         ! compute pressure
         call this % PressureSolver(tau, bv_w, v, div_v, p, precon)
         ! compute pressure gradient
@@ -175,7 +188,7 @@ contains
       end do
 
       associate( q  => w (:,:,:,:,1:3) &
-               , pp => wp(:,:,:,:, 4 ) )
+               , pp => tr(:,:,:,:, 4 ) )
 
         if (predictor) then
 
@@ -209,7 +222,7 @@ contains
       ! cleanup ................................................................
 
       !$omp master
-      deallocate(w, wp)
+      deallocate(w, tr)
       deallocate(bv_w, bv_p, bv_dp)
       !$omp end master
 

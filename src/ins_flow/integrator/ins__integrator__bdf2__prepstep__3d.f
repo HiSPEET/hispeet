@@ -10,6 +10,7 @@ module INS__Integrator__BDF2__PrepStep__3D
   use Execution_Control
   use Array_Assignments
   use Boundary_Variable__3D
+  use Trace_Operators__3D
   use INS__Operator__3D
   implicit none
   private
@@ -171,6 +172,7 @@ contains
       if (problem % stokes) then
         call SetArray(f_c, ZERO, multi = .true.)
       else
+        call GetOuterVectorTraces_3D(mesh, v, vp)
         call ins_op % GetConvectionTerm(v, vp, f_c)
       end if
 

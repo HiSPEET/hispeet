@@ -277,6 +277,7 @@ contains
           if (problem % stokes) then
             call SetArray(f_c(:,:,:,:,:,1), ZERO, multi = .true.)
           else
+            call GetOuterVectorTraces_3D(mesh, v, vp)
             call ins_op % GetConvectionTerm(v, vp, f_c(:,:,:,:,:,1))
           end if
 
@@ -409,6 +410,7 @@ contains
           if (problem % stokes) then
             call SetArray(f_c(:,:,:,:,:,i), ZERO, multi = .true.)
           else
+            call GetOuterVectorTraces_3D(mesh, v, vp)
             call ins_op % GetConvectionTerm(v, vp, f_c(:,:,:,:,:,i))
           end if
 
@@ -468,7 +470,6 @@ contains
 
           ! velocity divergence
           call GetOuterVectorTraces_3D(mesh, v, vp)    ! vp = v⁺ on Γᴵ and v⁻ on ∂Ω
-          call ins_op % ApplyEssentialBC(bv_u, vp, vp) ! vp = v⁺ on ∂Ω
           call TPO_Div(ins_op % eop_u, sem_u, v, vp, div_v)
 
           ! pressure potential
