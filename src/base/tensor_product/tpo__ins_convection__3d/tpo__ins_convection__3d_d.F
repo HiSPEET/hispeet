@@ -1,6 +1,6 @@
 !> summary:  3D curvilinear convection operator for INS
-!> author:   Jerome Michel
-!> date:     2022/01/21
+!> author:   Jerome Michel, Jörg Stiller
+!> date:     2022/01/21 - 2026/03/08
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
@@ -19,12 +19,14 @@ module TPO__INS_Convection__3D_D
 
 contains
 
-  subroutine TPO_INS_Convection_D_RDP( nv, nq, ne, D_v, I_vq, w_q, Jd_q, Ji_q &
-                                     , a_q, n_q, v, vp, F_c, form             )
+  subroutine TPO_INS_Convection_D_RDP( nv, nq, ne, bc, D_v, I_vq, w_q, Jd_q &
+                                     , Ji_q , a_q, n_q, v, vp, F_c, form    )
 
     integer, intent(in) :: nv !< number of velocity points per element direction
     integer, intent(in) :: nq !< number of quadrature points per direction
     integer, intent(in) :: ne !< number of elements
+
+    character, intent(in) :: bc(6,ne) !< element face BC
 
     real(RDP), intent(in) :: D_v (nv,nv) !< 1D diff operator on v-points
     real(RDP), intent(in) :: I_vq(nq,nv) !< 1D interpolation from to q-points
@@ -59,10 +61,10 @@ contains
     end select
 
 #ifdef __LIBXSMM__
-    call TPO_INS_Convection_D_XSMM(nv, nq, ne, alpha, &
+    call TPO_INS_Convection_D_XSMM(nv, nq, ne, bc, alpha, &
              D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_c)
 #else
-    call TPO_INS_Convection_D_Gen(nv, nq, ne, alpha, &
+    call TPO_INS_Convection_D_Gen(nv, nq, ne, bc, alpha, &
              D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_c)
 #endif
 

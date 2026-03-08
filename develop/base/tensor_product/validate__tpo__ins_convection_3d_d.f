@@ -24,6 +24,7 @@ program Validate__TPO_INS_Convection_D
 
   ! operators and variables ....................................................
 
+  character, allocatable, save :: bc    (:,:)         !< face BC
   real(RNP), allocatable, save :: D_v   (:,:)         !< 1D diff operator
   real(RNP), allocatable, save :: I_vq  (:,:)         !< 1D interpolation
   real(RNP), allocatable, save :: w_q   (:)           !< 1D quadrature weights
@@ -60,6 +61,8 @@ program Validate__TPO_INS_Convection_D
 
   nv = po_v + 1
   nq = po_q + 1
+
+  allocate( bc(6,ne), source = ' ')
 
   allocate( D_v   (nv,nv)           )
   allocate( I_vq  (nq,nv)           )
@@ -154,13 +157,13 @@ program Validate__TPO_INS_Convection_D
 
   !$omp parallel
 
-  call TPO_INS_Convection_D_Gen(nv, nq, ne, alpha, &
+  call TPO_INS_Convection_D_Gen(nv, nq, ne, bc, alpha, &
            D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_ref)
 
   call system_clock(count0, rate)
 
   do i = 1, nt
-    call TPO_INS_Convection_D_Gen(nv, nq, ne, alpha, &
+    call TPO_INS_Convection_D_Gen(nv, nq, ne, bc, alpha, &
              D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_gen)
   end do
 
@@ -180,13 +183,13 @@ program Validate__TPO_INS_Convection_D
 
   !$omp parallel
 
-  call TPO_INS_Convection_D_XSMM(nv, nq, ne, alpha, &
+  call TPO_INS_Convection_D_XSMM(nv, nq, ne, bc, alpha, &
            D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_opt)
 
   call system_clock(count0, rate)
 
   do i = 1, nt
-    call TPO_INS_Convection_D_XSMM(nv, nq, ne, alpha, &
+    call TPO_INS_Convection_D_XSMM(nv, nq, ne, bc, alpha, &
              D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_opt)
   end do
 

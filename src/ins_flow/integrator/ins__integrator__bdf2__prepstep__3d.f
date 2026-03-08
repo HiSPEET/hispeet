@@ -172,7 +172,6 @@ contains
       if (problem % stokes) then
         call SetArray(f_c, ZERO, multi = .true.)
       else
-        call GetOuterVectorTraces_3D(mesh, v, vp)
         call ins_op % GetConvectionTerm(v, vp, f_c)
       end if
 

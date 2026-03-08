@@ -603,30 +603,69 @@ contains
   !-----------------------------------------------------------------------------
   !> Diffusion term with constant viscosity
 
-  subroutine GetConvectionTerm(this, v, vp, f_c)
+  subroutine GetConvectionTerm(this, v, vp, f_c, frozen)
     class(INS_Operator_3D), intent(in) :: this
     real(RNP), contiguous, intent(in)  :: v(:,:,:,:,:)   !< velocity
     real(RNP), contiguous, intent(in)  :: vp(:,:,:,:,:)  !< outer velocity v⁺
     real(RNP), contiguous, intent(out) :: f_c(:,:,:,:,:) !< convection term
 
-!   if (this % mesh % regular) then
-!     not implemented yet
-!   else
-      call TPO_INS_Convection( nv   = this % eop_u % po + 1       &
-                             , nq   = this % sop_q % po + 1       &
-                             , ne   = this % mesh % n_elem        &
-                             , D_v  = this % eop_u  % D           &
-                             , I_vq = this % iop_uq % A           &
-                             , w_q  = this % sop_q  % w           &
-                             , Jd_q = this % sem_q % metrics % Jd &
-                             , Ji_q = this % sem_q % metrics % Ji &
-                             , a_q  = this % sem_q % metrics % a  &
-                             , n_q  = this % sem_q % metrics % n  &
-                             , v    = v                           &
-                             , vp   = vp                          &
-                             , f_c  = f_c                         &
-                             , form = this % convection_term      )
-!   end if
+    logical, optional, intent(in) :: frozen !< T/F in/exclude frozen elements [F]
+
+    character, allocatable, save :: bc_elem_face(:,:)
+    character :: bc
+    integer :: b, k, ne
+
+    ! range ....................................................................
+
+    ne = this % mesh % n_elem_active
+
+    if (present(frozen)) then
+      if (frozen) then
+        ne = this % mesh % n_elem
+      end if
+    end if
+
+    ! element face boundary conditions .........................................
+
+    !$omp master
+    allocate(bc_elem_face(6,this%mesh%n_elem), source = ' ')
+    do b = 1, this % mesh % n_bound
+      bc = this % problem % bc_v(b)
+      select case(bc)
+      case('D')
+        associate(bface => this % mesh % boundary(b) % face)
+          do k = 1, this % mesh % boundary(b) % n_face
+            bc_elem_face(bface(k)%element_face, bface(k)%element_id) = bc
+          end do
+        end associate
+      end select
+    end do
+    !$omp end master
+    !$omp barrier
+
+    ! evaluation ...............................................................
+
+    call TPO_INS_Convection( nv   = this % eop_u % po + 1       &
+                           , nq   = this % sop_q % po + 1       &
+                           , ne   = ne                          &
+                           , bc   = bc_elem_face                &
+                           , D_v  = this % eop_u  % D           &
+                           , I_vq = this % iop_uq % A           &
+                           , w_q  = this % sop_q  % w           &
+                           , Jd_q = this % sem_q % metrics % Jd &
+                           , Ji_q = this % sem_q % metrics % Ji &
+                           , a_q  = this % sem_q % metrics % a  &
+                           , n_q  = this % sem_q % metrics % n  &
+                           , v    = v                           &
+                           , vp   = vp                          &
+                           , f_c  = f_c                         &
+                           , form = this % convection_term      )
+
+    ! finalization .............................................................
+
+    !$omp master
+    deallocate(bc_elem_face)
+    !$omp end master
 
   end subroutine GetConvectionTerm
 

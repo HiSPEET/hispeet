@@ -1,6 +1,6 @@
 !> summary:   3D element convection operator using LIBXSMM for real(RDP) (D)
 !> author:    Jerome Michel, Jörg Stiller
-!> date:      2021/01/21, extended 2026/02/08
+!> date:      2021/01/21 - 2026/03/08
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
@@ -24,12 +24,15 @@ contains
   !-----------------------------------------------------------------------------
   !> 3D convection element operator for INS based on LIBXSMM (D)
 
-  subroutine TPO_INS_Convection_D_XSMM_RDP( nv, nq, ne, alpha, D_v, I_vq, w_q &
-                                          , Jd_q, Ji_q, a_q, n_q, v, vp, F_c  )
+  subroutine TPO_INS_Convection_D_XSMM_RDP( nv, nq, ne, bc, alpha, D_v, I_vq  &
+                                          , w_q , Jd_q, Ji_q, a_q, n_q, v, vp &
+                                          , F_c                               )
 
     integer, intent(in) :: nv !< number of velocity points per element direction
     integer, intent(in) :: nq !< number of quadrature points per direction
     integer, intent(in) :: ne !< number of elements
+
+    character, intent(in) :: bc(6,ne) !< element face BC
 
     real(RDP), intent(in) :: alpha !< 0/0.5/1: flux/skew-sym/convective form
 
@@ -74,6 +77,7 @@ contains
     real(RDP) :: v1v1, v1v2, v1v3, v2v2, v2v3, v3v3
     real(RDP) :: vm_1, vm_2, vm_3, vm_n
     real(RDP) :: vp_1, vp_2, vp_3, vp_n
+    real(RDP) :: vb_1, vb_2, vb_3, vb_n
     real(RDP) :: cf, vn
 
     integer   :: c, e, f, i, j, k
@@ -426,7 +430,7 @@ contains
       !-------------------------------------------------------------------------
       ! face integrals
 
-      ! Γ₁ ∪ Γ₂ ................................................................
+      ! Γ₁ ∪ Γ₂ ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       Faces_1_and_2: do f = 1, 2
 
@@ -436,7 +440,7 @@ contains
         if (interpolate) then
           associate(zf => z1(:,:,1))
 
-            ! v⁻ at q-points . . . . . . . . . . . . . . . . . . . . . . . . . .
+            ! v⁻ at q-points ...................................................
 
             if (lobatto) then
 
@@ -463,7 +467,7 @@ contains
 
             end if
 
-            ! v⁺ at q-points . . . . . . . . . . . . . . . . . . . . . . . . . .
+            ! v⁺ at q-points ...................................................
 
             ! interpolation from v-points to face q-points
             do c = 1, 3
@@ -479,7 +483,7 @@ contains
 
         else ! no interpolation
 
-          ! extract v⁻ and v⁺  . . . . . . . . . . . . . . . . . . . . . . . . .
+          ! extract v⁻ and v⁺ ..................................................
 
           do c = 1, 3
             do k = 1, nv
@@ -499,36 +503,70 @@ contains
 
         end if
 
-        ! integrand  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        ! integrand ............................................................
 
-        do k = 1, nq
-        do j = 1, nq
+        select case(bc(f,e))
 
-          vm_1 = vm_qf(j,k,1)
-          vm_2 = vm_qf(j,k,2)
-          vm_3 = vm_qf(j,k,3)
-          vm_n = n_q(j,k,f,e,1) * vm_1  &
-               + n_q(j,k,f,e,2) * vm_2  &
-               + n_q(j,k,f,e,3) * vm_3
+        case('D')
 
-          vp_1 = vp_qf(j,k,1)
-          vp_2 = vp_qf(j,k,2)
-          vp_3 = vp_qf(j,k,3)
-          vp_n = n_q(j,k,f,e,1) * vp_1  &
-               + n_q(j,k,f,e,2) * vp_2  &
-               + n_q(j,k,f,e,3) * vp_3
+          ! boundary flux, assuming vb = {v} . . . . . . . . . . . . . . . . . . .
 
-          cf = -w_q(j) * w_q(k) * a_q(j,k,f,e)
-          vn = max(abs(vm_n), abs(vp_n))
+          do k = 1, nq
+          do j = 1, nq
 
-          ff(j,k,1) = cf * (0.5 * (vm_n * vm_1 + vp_n * vp_1) + vn * (vm_1 - vp_1))
-          ff(j,k,2) = cf * (0.5 * (vm_n * vm_2 + vp_n * vp_2) + vn * (vm_2 - vp_2))
-          ff(j,k,3) = cf * (0.5 * (vm_n * vm_3 + vp_n * vp_3) + vn * (vm_3 - vp_3))
+            vb_1 = 0.5 * (vm_qf(j,k,1) + vp_qf(j,k,1))
+            vb_2 = 0.5 * (vm_qf(j,k,2) + vp_qf(j,k,2))
+            vb_3 = 0.5 * (vm_qf(j,k,3) + vp_qf(j,k,3))
 
-        end do
-        end do
+            vb_n = n_q(j,k,f,e,1) * vb_1  &
+                 + n_q(j,k,f,e,2) * vb_2  &
+                 + n_q(j,k,f,e,3) * vb_3
 
-        ! face integral contributions  . . . . . . . . . . . . . . . . . . . . .
+            cf = -w_q(j) * w_q(k) * a_q(j,k,f,e) * vb_n
+
+            ff(j,k,1) = cf * vb_1
+            ff(j,k,2) = cf * vb_2
+            ff(j,k,3) = cf * vb_3
+
+          end do
+          end do
+
+        case default
+
+          ! local Lax-Friedrichs flux  . . . . . . . . . . . . . . . . . . . . . .
+
+          do k = 1, nq
+          do j = 1, nq
+
+            vm_1 = vm_qf(j,k,1)
+            vm_2 = vm_qf(j,k,2)
+            vm_3 = vm_qf(j,k,3)
+
+            vm_n = n_q(j,k,f,e,1) * vm_1  &
+                 + n_q(j,k,f,e,2) * vm_2  &
+                 + n_q(j,k,f,e,3) * vm_3
+
+            vp_1 = vp_qf(j,k,1)
+            vp_2 = vp_qf(j,k,2)
+            vp_3 = vp_qf(j,k,3)
+
+            vp_n = n_q(j,k,f,e,1) * vp_1  &
+                 + n_q(j,k,f,e,2) * vp_2  &
+                 + n_q(j,k,f,e,3) * vp_3
+
+            cf = -w_q(j) * w_q(k) * a_q(j,k,f,e)
+            vn = max(abs(vm_n), abs(vp_n))
+
+            ff(j,k,1) = cf * (0.5 * (vm_n * vm_1 + vp_n * vp_1) + vn * (vm_1 - vp_1))
+            ff(j,k,2) = cf * (0.5 * (vm_n * vm_2 + vp_n * vp_2) + vn * (vm_2 - vp_2))
+            ff(j,k,3) = cf * (0.5 * (vm_n * vm_3 + vp_n * vp_3) + vn * (vm_3 - vp_3))
+
+          end do
+          end do
+
+        end select
+
+        ! face integral contributions ..........................................
 
         if (interpolate) then
 
@@ -559,7 +597,7 @@ contains
 
       end do Faces_1_and_2
 
-      ! Γ₃ ∪ Γ₄ ................................................................
+      ! Γ₃ ∪ Γ₄ :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       Faces_3_and_4: do f = 3, 4
 
@@ -569,7 +607,7 @@ contains
         if (interpolate) then
           associate(zf => z1(:,:,1))
 
-            ! v⁻ at q-points . . . . . . . . . . . . . . . . . . . . . . . . . .
+            ! v⁻ at q-points ...................................................
 
             if (lobatto) then
 
@@ -597,7 +635,7 @@ contains
 
             end if
 
-            ! v⁺ at q-points . . . . . . . . . . . . . . . . . . . . . . . . . .
+            ! v⁺ at q-points ...................................................
 
             ! interpolation from v-points to face q-points
             do c = 1, 3
@@ -614,7 +652,7 @@ contains
 
         else ! no interpolation
 
-          ! extract v⁻ and v⁺  . . . . . . . . . . . . . . . . . . . . . . . . .
+          ! extract v⁻ and v⁺ ..................................................
 
           do c = 1, 3
             do k = 1, nv
@@ -634,36 +672,70 @@ contains
 
         end if
 
-        ! integrand  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        ! integrand ............................................................
 
-        do k = 1, nq
-        do i = 1, nq
+        select case(bc(f,e))
 
-          vm_1 = vm_qf(i,k,1)
-          vm_2 = vm_qf(i,k,2)
-          vm_3 = vm_qf(i,k,3)
-          vm_n = n_q(i,k,f,e,1) * vm_1  &
-               + n_q(i,k,f,e,2) * vm_2  &
-               + n_q(i,k,f,e,3) * vm_3
+        case('D')
 
-          vp_1 = vp_qf(i,k,1)
-          vp_2 = vp_qf(i,k,2)
-          vp_3 = vp_qf(i,k,3)
-          vp_n = n_q(i,k,f,e,1) * vp_1  &
-               + n_q(i,k,f,e,2) * vp_2  &
-               + n_q(i,k,f,e,3) * vp_3
+          ! boundary flux, assuming vb = {v} . . . . . . . . . . . . . . . . . .
 
-          cf = -w_q(i) * w_q(k) * a_q(i,k,f,e)
-          vn = max(abs(vm_n), abs(vp_n))
+          do k = 1, nq
+          do i = 1, nq
 
-          ff(i,k,1) = cf * (0.5 * (vm_n * vm_1 + vp_n * vp_1) + vn * (vm_1 - vp_1))
-          ff(i,k,2) = cf * (0.5 * (vm_n * vm_2 + vp_n * vp_2) + vn * (vm_2 - vp_2))
-          ff(i,k,3) = cf * (0.5 * (vm_n * vm_3 + vp_n * vp_3) + vn * (vm_3 - vp_3))
+            vb_1 = 0.5 * (vm_qf(i,k,1) + vp_qf(i,k,1))
+            vb_2 = 0.5 * (vm_qf(i,k,2) + vp_qf(i,k,2))
+            vb_3 = 0.5 * (vm_qf(i,k,3) + vp_qf(i,k,3))
 
-        end do
-        end do
+            vb_n = n_q(i,k,f,e,1) * vb_1  &
+                 + n_q(i,k,f,e,2) * vb_2  &
+                 + n_q(i,k,f,e,3) * vb_3
 
-        ! face integral contributions  . . . . . . . . . . . . . . . . . . . . .
+            cf = -w_q(i) * w_q(k) * a_q(i,k,f,e) * vb_n
+
+            ff(i,k,1) = cf * vb_1
+            ff(i,k,2) = cf * vb_2
+            ff(i,k,3) = cf * vb_3
+
+          end do
+          end do
+
+        case default
+
+          ! local Lax-Friedrichs flux  . . . . . . . . . . . . . . . . . . . . .
+
+          do k = 1, nq
+          do i = 1, nq
+
+            vm_1 = vm_qf(i,k,1)
+            vm_2 = vm_qf(i,k,2)
+            vm_3 = vm_qf(i,k,3)
+
+            vm_n = n_q(i,k,f,e,1) * vm_1  &
+                 + n_q(i,k,f,e,2) * vm_2  &
+                 + n_q(i,k,f,e,3) * vm_3
+
+            vp_1 = vp_qf(i,k,1)
+            vp_2 = vp_qf(i,k,2)
+            vp_3 = vp_qf(i,k,3)
+
+            vp_n = n_q(i,k,f,e,1) * vp_1  &
+                 + n_q(i,k,f,e,2) * vp_2  &
+                 + n_q(i,k,f,e,3) * vp_3
+
+            cf = -w_q(i) * w_q(k) * a_q(i,k,f,e)
+            vn = max(abs(vm_n), abs(vp_n))
+
+            ff(i,k,1) = cf * (0.5 * (vm_n * vm_1 + vp_n * vp_1) + vn * (vm_1 - vp_1))
+            ff(i,k,2) = cf * (0.5 * (vm_n * vm_2 + vp_n * vp_2) + vn * (vm_2 - vp_2))
+            ff(i,k,3) = cf * (0.5 * (vm_n * vm_3 + vp_n * vp_3) + vn * (vm_3 - vp_3))
+
+          end do
+          end do
+
+        end select
+
+        ! face integral contributions ..........................................
 
         if (interpolate) then
 
@@ -694,7 +766,7 @@ contains
 
       end do Faces_3_and_4
 
-      ! Γ₅ ∪ Γ₆ ................................................................
+      ! Γ₅ ∪ Γ₆ ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       Faces_5_and_6: do f = 5, 6
 
@@ -704,7 +776,7 @@ contains
         if (interpolate) then
           associate(zf => z1(:,:,1))
 
-            ! v⁻ at q-points . . . . . . . . . . . . . . . . . . . . . . . . . .
+            ! v⁻ at q-points ...................................................
 
             if (lobatto) then
 
@@ -732,7 +804,7 @@ contains
 
             end if
 
-            ! v⁺ at q-points . . . . . . . . . . . . . . . . . . . . . . . . . .
+            ! v⁺ at q-points ...................................................
 
             ! interpolation from v-points to face q-points
             do c = 1, 3
@@ -749,7 +821,7 @@ contains
 
         else ! no interpolation
 
-          ! extract v⁻ and v⁺  . . . . . . . . . . . . . . . . . . . . . . . . .
+          ! extract v⁻ and v⁺ ..................................................
 
           do c = 1, 3
             do j = 1, nv
@@ -769,36 +841,68 @@ contains
 
         end if
 
-        ! integrand  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        ! integrand ............................................................
 
-        do j = 1, nq
-        do i = 1, nq
+        select case(bc(f,e))
 
-          vm_1 = vm_qf(i,j,1)
-          vm_2 = vm_qf(i,j,2)
-          vm_3 = vm_qf(i,j,3)
-          vm_n = n_q(i,j,f,e,1) * vm_1  &
-               + n_q(i,j,f,e,2) * vm_2  &
-               + n_q(i,j,f,e,3) * vm_3
+        case('D')
 
-          vp_1 = vp_qf(i,j,1)
-          vp_2 = vp_qf(i,j,2)
-          vp_3 = vp_qf(i,j,3)
-          vp_n = n_q(i,j,f,e,1) * vp_1  &
-               + n_q(i,j,f,e,2) * vp_2  &
-               + n_q(i,j,f,e,3) * vp_3
+          ! boundary flux, assuming vb = {v} . . . . . . . . . . . . . . . . . .
 
-          cf = -w_q(i) * w_q(j) * a_q(i,j,f,e)
-          vn = max(abs(vm_n), abs(vp_n))
+          do j = 1, nq
+          do i = 1, nq
 
-          ff(i,j,1) = cf * (0.5 * (vm_n * vm_1 + vp_n * vp_1) + vn * (vm_1 - vp_1))
-          ff(i,j,2) = cf * (0.5 * (vm_n * vm_2 + vp_n * vp_2) + vn * (vm_2 - vp_2))
-          ff(i,j,3) = cf * (0.5 * (vm_n * vm_3 + vp_n * vp_3) + vn * (vm_3 - vp_3))
+            vb_1 = 0.5 * (vm_qf(i,j,1) + vp_qf(i,j,1))
+            vb_2 = 0.5 * (vm_qf(i,j,2) + vp_qf(i,j,2))
+            vb_3 = 0.5 * (vm_qf(i,j,3) + vp_qf(i,j,3))
 
-        end do
-        end do
+            vb_n = n_q(i,j,f,e,1) * vb_1  &
+                 + n_q(i,j,f,e,2) * vb_2  &
+                 + n_q(i,j,f,e,3) * vb_3
 
-        ! face integral contributions  . . . . . . . . . . . . . . . . . . . . .
+            cf = -w_q(i) * w_q(j) * a_q(i,j,f,e) * vb_n
+
+            ff(i,j,1) = cf * vb_1
+            ff(i,j,2) = cf * vb_2
+            ff(i,j,3) = cf * vb_3
+
+          end do
+          end do
+
+        case default
+
+          ! local Lax-Friedrichs flux  . . . . . . . . . . . . . . . . . . . . .
+
+          do j = 1, nq
+          do i = 1, nq
+
+            vm_1 = vm_qf(i,j,1)
+            vm_2 = vm_qf(i,j,2)
+            vm_3 = vm_qf(i,j,3)
+            vm_n = n_q(i,j,f,e,1) * vm_1  &
+                 + n_q(i,j,f,e,2) * vm_2  &
+                 + n_q(i,j,f,e,3) * vm_3
+
+            vp_1 = vp_qf(i,j,1)
+            vp_2 = vp_qf(i,j,2)
+            vp_3 = vp_qf(i,j,3)
+            vp_n = n_q(i,j,f,e,1) * vp_1  &
+                 + n_q(i,j,f,e,2) * vp_2  &
+                 + n_q(i,j,f,e,3) * vp_3
+
+            cf = -w_q(i) * w_q(j) * a_q(i,j,f,e)
+            vn = max(abs(vm_n), abs(vp_n))
+
+            ff(i,j,1) = cf * (0.5 * (vm_n * vm_1 + vp_n * vp_1) + vn * (vm_1 - vp_1))
+            ff(i,j,2) = cf * (0.5 * (vm_n * vm_2 + vp_n * vp_2) + vn * (vm_2 - vp_2))
+            ff(i,j,3) = cf * (0.5 * (vm_n * vm_3 + vp_n * vp_3) + vn * (vm_3 - vp_3))
+
+          end do
+          end do
+
+        end select
+
+        ! face integral contributions ..........................................
 
         if (interpolate) then
 

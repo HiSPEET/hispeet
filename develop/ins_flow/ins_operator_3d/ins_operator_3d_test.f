@@ -333,35 +333,6 @@ program INS_Operator_3D_Test
 
   end associate
 
-  ! convection term: F_c = -∇·vv ...............................................
-
-  associate(metrics => ins_op % sem_q % metrics)
-
-    call TPO_INS_Convection( nv   = ins_op % eop_u % po + 1  &
-                           , nq   = ins_op % sop_q % po + 1  &
-                           , ne   = n_elem                   &
-                           , D_v  = ins_op % eop_u  % D      &
-                           , I_vq = ins_op % iop_uq % A      &
-                           , w_q  = ins_op % sop_q  % w      &
-                           , Jd_q = metrics % Jd             &
-                           , Ji_q = metrics % Ji             &
-                           , a_q  = metrics % a              &
-                           , n_q  = metrics % n              &
-                           , v    = v                        &
-                           , vp   = vp                       &
-                           , F_c  = w(:,:,:,:,1:3)           &
-                           , form = ins_op % convection_term )
-  end associate
-
-  do i = 1, 3
-    F_ch(:,:,:,:,i) = w(:,:,:,:,i) / mm
-  end do
-
-  ! error
-  w(:,:,:,:,1:3) = F_ch - F_ce
-  e_c = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), comm)
-  e_c = sqrt(e_c / n_point)
-
   ! viscous term: F_d = ∇·τ ....................................................
 
   if (problem % HasVariableProperties()) then
@@ -420,6 +391,19 @@ program INS_Operator_3D_Test
     d_d1 = sqrt(d_d1 / n_point)
 
   end if
+
+  ! convection term: F_c = -∇·vv ...............................................
+
+  call ins_op % GetConvectionTerm(v, vp, f_c = w(:,:,:,:,1:3))
+
+  do i = 1, 3
+    F_ch(:,:,:,:,i) = w(:,:,:,:,i) / mm
+  end do
+
+  ! error
+  w(:,:,:,:,1:3) = F_ch - F_ce
+  e_c = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), comm)
+  e_c = sqrt(e_c / n_point)
 
   !-----------------------------------------------------------------------------
   ! Result info
