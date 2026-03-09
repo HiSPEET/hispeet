@@ -4,8 +4,8 @@
 &control_prm
 
 ! log_level                 = 1  ! activate/increase
-  log_level_inner_iteration = 1  ! for higher
-  log_level_outer_iteration = 1  ! verbosity
+! log_level_inner_iteration = 1  ! for higher
+! log_level_outer_iteration = 1  ! verbosity
 
   problem_file = 'vortex_tg'
   flow_problem = 'Vortex_TG'
