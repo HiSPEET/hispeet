@@ -38,6 +38,9 @@ module INS__Problem__3D
     real(RNP) :: v_ref   = 1            !< velocity
     real(RNP) :: nu_ref  = 1            !< kinematic viscosity
 
+    ! reference frame
+    real(RNP) :: omega(3) = 0           !< angular velocity of reference frame
+
     ! bounding box
     real(RNP) :: x0(3) = 0              !< position nearest to +(∞,∞,∞)
     real(RNP) :: x1(3) = 1              !< position nearest to -(∞,∞,∞)

@@ -611,9 +611,10 @@ contains
 
     logical, optional, intent(in) :: frozen !< T/F in/exclude frozen elements [F]
 
-    character, allocatable, save :: bc_elem_face(:,:)
+    character, allocatable, save :: bc_elem(:,:)
+
     character :: bc
-    integer :: b, k, ne
+    integer   :: b, e, i, j, k, ne
 
     ! range ....................................................................
 
@@ -628,14 +629,14 @@ contains
     ! element face boundary conditions .........................................
 
     !$omp master
-    allocate(bc_elem_face(6,this%mesh%n_elem), source = ' ')
+    allocate(bc_elem(6,this%mesh%n_elem), source = ' ')
     do b = 1, this % mesh % n_bound
       bc = this % problem % bc_v(b)
       select case(bc)
       case('D')
         associate(bface => this % mesh % boundary(b) % face)
           do k = 1, this % mesh % boundary(b) % n_face
-            bc_elem_face(bface(k)%element_face, bface(k)%element_id) = bc
+            bc_elem(bface(k)%element_face, bface(k)%element_id) = bc
           end do
         end associate
       end select
@@ -648,7 +649,7 @@ contains
     call TPO_INS_Convection( nv   = this % eop_u % po + 1       &
                            , nq   = this % sop_q % po + 1       &
                            , ne   = ne                          &
-                           , bc   = bc_elem_face                &
+                           , bc   = bc_elem                     &
                            , D_v  = this % eop_u  % D           &
                            , I_vq = this % iop_uq % A           &
                            , w_q  = this % sop_q  % w           &
@@ -661,10 +662,48 @@ contains
                            , f_c  = f_c                         &
                            , form = this % convection_term      )
 
+    ! Coriolis force in rotating frame .........................................
+
+    if (any(this % problem % omega /= 0)) then
+
+      associate( omega => this % problem % omega      &
+               , po    => this % eop_u % po           &
+               , w     => this % eop_u % w            &
+               , Jd    => this % sem_u % metrics % Jd )
+
+        block
+          real(RNP) :: Ms(0:po,0:po,0:po)
+          real(RNP) :: ce(0:po,0:po,0:po)
+
+          do k = 0, po
+          do j = 0, po
+          do i = 0, po
+            Ms(i,j,k) = w(i) * w(j) * w(k)
+          end do
+          end do
+          end do
+
+          !$omp do
+          do e = 1, ne
+
+            ce = -2 * Ms * Jd(:,:,:,e)
+
+            f_c(:,:,:,e,1) = f_c(:,:,:,e,1) + ce * ( omega(2) * v(:,:,:,e,3) &
+                                                   - omega(3) * v(:,:,:,e,2) )
+            f_c(:,:,:,e,2) = f_c(:,:,:,e,2) + ce * ( omega(3) * v(:,:,:,e,1) &
+                                                   - omega(1) * v(:,:,:,e,3) )
+            f_c(:,:,:,e,3) = f_c(:,:,:,e,3) + ce * ( omega(1) * v(:,:,:,e,2) &
+                                                   - omega(2) * v(:,:,:,e,1) )
+          end do
+
+        end block
+      end associate
+    end if
+
     ! finalization .............................................................
 
     !$omp master
-    deallocate(bc_elem_face)
+    deallocate(bc_elem)
     !$omp end master
 
   end subroutine GetConvectionTerm
