@@ -84,7 +84,7 @@ contains
 
       !$omp master
 
-      allocate( tr (np, np,  6, ne, 6), source = ZERO )
+      allocate( tr (np, np,  6, ne, 7), source = ZERO )
       allocate( w  (np, np, np, ne, 5), source = ZERO )
 
       ! provide handles for velocity and pressure boundary values
@@ -101,6 +101,15 @@ contains
       !$omp end master
       !$omp barrier
 
+      associate( f_d    => w (:,:,:,:,1:3) &
+               , q_d    => w (:,:,:,:,1:3) &
+               , grad_p => w (:,:,:,:,1:3) &
+               , div_v  => w (:,:,:,:, 4 ) &
+               , mm     => w (:,:,:,:, 5 ) &
+               , vp     => tr(:,:,:,:,1:3) &
+               , sp     => tr(:,:,:,:,4:6) &
+               , pp     => tr(:,:,:,:, 7 ) )
+
       ! extrapolation step .....................................................
 
       if (predictor) then
@@ -112,34 +121,24 @@ contains
         end do
         end do
 
-      else
-        ! corrector
-        associate( f_d => w (:,:,:,:,1:3) &
-                 , mm  => w (:,:,:,:, 4 ) &
-                 , vp  => tr(:,:,:,:,1:3) &
-                 , sp  => tr(:,:,:,:,4:6) )
+      else ! corrector
 
-          call this % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_w &
-                                      , xout = .true. , form = 2     )
+        call this % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_w &
+                                    , xout = .true. , form = 2     )
 
-          call this % sem_u % Get_DG_DiagonalMassMatrix( mm )
+        call this % sem_u % Get_DG_DiagonalMassMatrix( mm )
 
-          !$omp do
-          do e = 1, na
-            mm_inv = 1 / mm(:,:,:,e)
-            do c = 1, 3
-              v(:,:,:,e,c) = tau * ( f(:,:,:,e,c) + mm_inv * f_d(:,:,:,e,c) )
-            end do
+        !$omp do
+        do e = 1, na
+          mm_inv = 1 / mm(:,:,:,e)
+          do c = 1, 3
+            v(:,:,:,e,c) = tau * ( f(:,:,:,e,c) + mm_inv * f_d(:,:,:,e,c) )
           end do
+        end do
 
-        end associate
       end if
 
-      ! projection step ........................................................
-
-      ! sources
-      associate( div_v => w (:,:,:,:, 4 ) &
-               , vp    => tr(:,:,:,:,1:3) )
+        ! projection step ......................................................
 
         ! outer traces of extrapolated velocity
         call GetOuterVectorTraces_3D(mesh, v, vp)
@@ -157,65 +156,54 @@ contains
           call MergeArrays(ONE, div_v, -ONE, f(:,:,:,:,4))
         end if
 
-      end associate
-
-      ! pressure and velocity correction
-      associate( grad_p => w (:,:,:,:,1:3) &
-               , div_v  => w (:,:,:,:, 4)  &
-               , pp     => tr(:,:,:,:, 4 ) )
         ! compute pressure
         call this % PressureSolver(tau, bv_w, v, div_v, p, precon)
+
         ! compute pressure gradient
         call GetOuterTraces_3D(mesh, p, pp)
         call TPO_Grad(this % eop_u, this % sem_u, p, pp, grad_p)
+
         ! correct velocity: v = v - τ∇p
         do c = 1, 3
           call MergeArrays(ONE, v(:,:,:,:na,c), -tau, grad_p(:,:,:,:na,c))
         end do
-      end associate
 
-      ! diffusion step .........................................................
+        ! diffusion step .......................................................
 
-      ! update outflow boundary conditions
-      do b = 1, mesh % n_bound
-        select case(problem % bc_v(b))
-        case('O')
-          ! pᵇ = p - ∆pᵇ
-          call bv_p(b) % Extract(p)
-          call MergeArrays( ONE, bv_p (b) % val(:,:,:,1), &
-                           -ONE, bv_dp(b) % val(:,:,:,1)  )
-        end select
-      end do
+        ! update outflow boundary conditions
+        do b = 1, mesh % n_bound
+          select case(problem % bc_v(b))
+          case('O')
+            ! pᵇ = p - ∆pᵇ
+            call bv_p(b) % Extract(p)
+            call MergeArrays( ONE, bv_p (b) % val(:,:,:,1), &
+                             -ONE, bv_dp(b) % val(:,:,:,1)  )
+          end select
+        end do
 
-      associate( q  => w (:,:,:,:,1:3) &
-               , pp => tr(:,:,:,:, 4 ) )
-
+        ! diffusion sources
         if (predictor) then
 
           !$omp do collapse(2)
           do c = 1, 3
           do e = 1, na
-            q(:,:,:,e,c) = 1/tau * v(:,:,:,e,c) - f_d0(:,:,:,e,c)
+            q_d(:,:,:,e,c) = 1/tau * v(:,:,:,e,c) - f_d0(:,:,:,e,c)
           end do
           end do
 
         else
 
-          ! q = ∇p
-          call GetOuterTraces_3D(mesh, p, pp)
-          call TPO_Grad(this % eop_u, this % sem_u, p, pp, q)
-
           !$omp do collapse(2)
           do c = 1, 3
           do e = 1, na
             ! q = f_m - ∇p
-            q(:,:,:,e,c) = f(:,:,:,e,c) - q(:,:,:,e,c)
+            q_d(:,:,:,e,c) = f(:,:,:,e,c) - grad_p(:,:,:,e,c)
           end do
           end do
 
         end if
 
-        call this % DiffusionSolver(tau, mu, nu, q, bv_w, v, precon)
+        call this % DiffusionSolver(tau, mu, nu, q_d, bv_w, v, precon)
 
       end associate
 
