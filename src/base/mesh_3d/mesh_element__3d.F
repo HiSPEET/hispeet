@@ -10,6 +10,7 @@
 
 module Mesh_Element__3D
   use Kind_Parameters, only: IXS, RNP
+  use Constants,       only: THIRD
   use XMPI
   use Mesh_Element_Indexing__3D
   implicit none
@@ -633,17 +634,27 @@ contains
     class(MeshElement_3D), intent(in) :: element !< mesh element
     real(RNP), intent(out) :: dx(3) !< cuboid length in directions ξ₁,ξ₂,ξ₃
 
-    dx(1) = 2 * sqrt( element % geometry % x_c(1,1) ** 2 &
-                    + element % geometry % x_c(1,2) ** 2 &
-                    + element % geometry % x_c(1,3) ** 2 )
+    real(RNP) :: vol
 
-    dx(2) = 2 * sqrt( element % geometry % x_c(2,1) ** 2 &
-                    + element % geometry % x_c(2,2) ** 2 &
-                    + element % geometry % x_c(2,3) ** 2 )
+    associate(x_c => element % geometry % x_c)
 
-    dx(3) = 2 * sqrt( element % geometry % x_c(3,1) ** 2 &
-                    + element % geometry % x_c(3,2) ** 2 &
-                    + element % geometry % x_c(3,3) ** 2 )
+      ! side lengths of the parallelepiped .....................................
+
+      dx(1) = 2 * sqrt( x_c(1,1) ** 2 + x_c(1,2) ** 2 + x_c(1,3) ** 2 )
+      dx(2) = 2 * sqrt( x_c(2,1) ** 2 + x_c(2,2) ** 2 + x_c(2,3) ** 2 )
+      dx(3) = 2 * sqrt( x_c(3,1) ** 2 + x_c(3,2) ** 2 + x_c(3,3) ** 2 )
+
+      ! volume of the parallelepiped ............................................
+
+      vol = 8 * ( x_c(1,1) * (x_c(2,2) * x_c(3,3) - x_c(2,3)*x_c(3,2)) &
+                + x_c(1,2) * (x_c(2,3) * x_c(3,1) - x_c(2,1)*x_c(3,3)) &
+                + x_c(1,3) * (x_c(2,1) * x_c(3,2) - x_c(2,2)*x_c(3,1)) )
+
+      ! side lengths of approximate cuboid with identical volume ...............
+
+      dx = dx * (vol / product(dx)) ** THIRD
+
+    end associate
 
   end subroutine GetCuboidDimensions
 
