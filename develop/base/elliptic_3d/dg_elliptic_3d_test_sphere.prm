@@ -13,7 +13,7 @@
   alpha  = 10
 /
 
-&dicretization_prm
+&discretization_prm
   po = 7
 /
 

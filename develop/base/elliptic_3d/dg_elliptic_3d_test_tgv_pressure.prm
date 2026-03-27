@@ -9,7 +9,7 @@
   bc = 6*'P'
 /
 
-&dicretization_prm
+&discretization_prm
   po = 7
 /
 
