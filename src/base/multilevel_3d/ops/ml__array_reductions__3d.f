@@ -135,7 +135,9 @@ contains
       l_top_ = size(a % level)
     end if
 
+    !$omp master
     r_loc = 0
+    !$omp end master
 
     do l = 1, l_top_
       associate( mesh => a % level(l) % mesh                  &
@@ -172,16 +174,13 @@ contains
           !$omp end master
         end if
 
-        if (l == l_top_) then
-          !$omp master
-          call XMPI_Allreduce(r_loc, r_glob, MPI_SUM, mesh%comm_world)
-          r_loc = 0
-          !$omp end master
-          !$omp barrier
-        end if
-
       end associate
     end do
+
+    !$omp master
+    call XMPI_Allreduce(r_loc, r_glob, MPI_SUM, a%level(1)%mesh%comm_world)
+    !$omp end master
+    !$omp barrier
 
     r = r_glob
 
