@@ -142,6 +142,7 @@ program ML_Elliptic_Test_Adaptive
   type(ML_MeshVariable_3D), save :: s      ! exact solution
   type(ML_MeshVariable_3D), save :: e      ! H0/H1 errors per element
   type(ML_MeshVariable_3D), save :: r      ! residual or just workspace
+  type(ML_MeshVariable_3D), save :: qi     ! quantity of interest
   type(ML_MeshVariable_3D), save :: grad_u ! gradient of numerical solution
   type(ML_MeshVariable_3D), save :: grad_s ! gradient of exact solution
 
@@ -154,7 +155,6 @@ program ML_Elliptic_Test_Adaptive
 
   character(80), save :: message
   real(RNP)    , save :: t_start
-  real(RNP)    , save :: max_e(4)
   logical      , save :: exists, passed, all_passed
   integer      , save :: l_top, l_max, l_adapt
   integer      , save :: io, stat
@@ -361,13 +361,15 @@ program ML_Elliptic_Test_Adaptive
   call f  % Init(ml_op, 1)
   call u  % Init(ml_op, 1)
   call s  % Init(ml_op, 1)
+  call e  % Init(ml_op, 1)
   call r  % Init(ml_op, 1)
   call bv % Init(ml_op, 1)
+
+  call qi % Init(ml_mesh, po = 0, nc = 1)
 
   call grad_u % Init(ml_op, 3)
   call grad_s % Init(ml_op, 3)
 
-  call e % Init(ml_mesh, po = 0, nc = 4)
 
   ! RHS, BC and start values ...................................................
 
@@ -499,13 +501,14 @@ program ML_Elliptic_Test_Adaptive
     call mm % Init(ml_op, 1)
     call f  % Init(ml_op, 1)
     call s  % Init(ml_op, 1)
+    call e  % Init(ml_op, 1)
     call r  % Init(ml_op, 1)
     call bv % Init(ml_op, 1)
 
+    call qi % Init(ml_mesh, po = 0, nc = 1)
+
     call grad_u % Init(ml_op, 3)
     call grad_s % Init(ml_op, 3)
-
-    call e % Init(ml_mesh, po = 0, nc = 4)
 
     ! RHS and BC
     do l = 1, l_top
@@ -611,87 +614,101 @@ contains
 
   subroutine Evaluation
 
-    real(RNP), save :: int_e_loc(2), int_e(2)
-    real(RNP), save :: max_e_loc(4)
-    real(RNP), save :: e_h(2), r_h0
+    real(RNP), save :: e_0, e_1, r_2
 
-    real(RNP)    :: c_norm
+    ! mesh metrics .............................................................
 
-    associate(mesh => ml_mesh%mesh)
+    call ml_op % Print_MeshCharacteristics()
 
-      ! mesh metrics .............................................................
+    ! E2 composite leaf residual ...............................................
 
-      call ml_op % Print_MeshCharacteristics()
+    call ml_elliptic % FAS_MG_Residual(bc, lambda, problem%nu_0, bv, f, u, r)
+    r_2 = sqrt(ML_ScalarProduct_3D(r, r, leaf = .true.))
 
-      ! residual ...............................................................
+    ! H0 composite error ε₀ ....................................................
 
-      call ml_elliptic % FAS_MG_Residual(bc, lambda, problem%nu_0, bv, f, u, r)
-      r_h0 = sqrt(ML_WeightedScalarProduct_3D(mm, r, r, leaf = .true.))
+    do l = 1, l_top
+      associate( e_l => e % level(l) % val(:,:,:,:,1) &
+               , s_l => s % level(l) % val(:,:,:,:,1) &
+               , u_l => u % level(l) % val(:,:,:,:,1) )
 
-      ! H0 and H1 semi-norm errors .............................................
+        e_l = u_l - s_l
 
-      int_e_loc = 0
-      max_e_loc = 0
+      end associate
+    end do
 
+    ! composite H0 norm
+    e_0 = sqrt(ML_WeightedScalarProduct_3D(mm, e, e, leaf = .true.))
+
+    ! quantity of interest based on elemental H0 norm
+    if (1 <= adapt_criterion .and. adapt_criterion <= 2) then
       do l = 1, l_top
+        associate( mesh_l => ml_mesh % mesh(l)              &
+                 , mm_l   => mm % level(l) % val(:,:,:,:,1) &
+                 , qi_l   => qi % level(l) % val(0,0,0,:,1) &
+                 , e_l    => e  % level(l) % val(:,:,:,:,1) )
 
-        associate( mm_l => mm % level(l) % val(:,:,:,:,1) &
-                 , e_l  => e  % level(l) % val(0,0,0,:,:) &
-                 , s_l  => s  % level(l) % val(:,:,:,:,1) &
-                 , u_l  => u  % level(l) % val(:,:,:,:,1) &
-                 , Vs_l => grad_s % level(l) % val        &
-                 , Vu_l => grad_u % level(l) % val        )
-
-          ! gradient of approximate solution
-          call TPO_Grad( eop = ml_op % sem(l) % std_op &
-                       , sem = ml_op % sem(l)          &
-                       , u   = u_l                     &
-                       , v   = Vu_l                    )
-
-          do i = 1, mesh(l) % n_elem
-
-            ! H0 norm in element i
-            e_l(i,1) = sqrt(sum( mm_l(:,:,:,i)                        &
-                               * ( u_l(:,:,:,i) - s_l(:,:,:,i)) **2 ) )
-
-            ! H1 semi-norm in element i
-            e_l(i,2) = sqrt(sum( mm_l(:,:,:,i) &
-                               * ( (Vu_l(:,:,:,i,1) - Vs_l(:,:,:,i,1))**2    &
-                                 + (Vu_l(:,:,:,i,2) - Vs_l(:,:,:,i,2))**2    &
-                                 + (Vu_l(:,:,:,i,3) - Vs_l(:,:,:,i,3))**2 ) ))
-
-            ! normalized errors
-            c_norm = 1 / sqrt(sum(mm_l(:,:,:,i)))
-            e_l(i,3) = e_l(i,1) * c_norm
-            e_l(i,4) = e_l(i,2) * c_norm
-
-            if (mesh(l)%element(i)%IsLeaf()) then
-              int_e_loc = int_e_loc + e_l(i,1:2)**2
-              max_e_loc = max(max_e_loc, e_l(i,1:4))
-            end if
+          do i = 1, mesh_l % n_elem_active
+            select case(adapt_criterion)
+            case(1)
+              qi_l(i) = sqrt( sum(mm_l(:,:,:,i) * e_l(:,:,:,i)**2) )
+            case(2)
+              qi_l(i) = sqrt( sum(mm_l(:,:,:,i) * e_l(:,:,:,i)**2) &
+                            / sum(mm_l(:,:,:,i)) )
+            end select
           end do
-
         end associate
       end do
+    end if
 
-      ! global measures
-      call XMPI_Allreduce(int_e_loc, int_e, MPI_SUM, comm)
-      call XMPI_Allreduce(max_e_loc, max_e, MPI_MAX, comm)
-      e_h = sqrt(int_e)
+    ! H1 error ε₁ ..............................................................
 
-      if (rank == 0) then
-        write(*,*)
-        write(*,'(2X,A)') 'error metrics'
-        write(*,'(T5,A,T16,ES12.5)') 'r_h0(Ω) =', r_h0
-        write(*,'(T5,A,T16,ES12.5)') 'e_h0(Ω) =', e_h(1)
-        write(*,'(T5,A,T16,ES12.5)') 'e_h1(Ω) =', e_h(2)
-        write(*,'(T5,A,T15,ES12.5)') 'e_h0(K) =', max_e(1)
-        write(*,'(T5,A,T15,ES12.5)') 'e_h1(K) =', max_e(2)
-        write(*,'(T5,A,T15,ES12.5)') 'e_r0(K) =', max_e(3)
-        write(*,'(T5,A,T15,ES12.5)') 'e_r1(K) =', max_e(4)
-      end if
+    do l = 1, l_top
+      associate( ell_l => ml_elliptic % elliptic_op(l)  &
+               , e_l   => e % level(l) % val(:,:,:,:,1) &
+               , r_l   => r % level(l) % val(:,:,:,:,1) )
 
-    end associate
+        ! r = Aε
+        call ml_elliptic % elliptic_op(l) &
+                 % Apply(bc, lambda, problem%nu_0, u = e_l, r = r_l)
+
+      end associate
+    end do
+
+    ! ε₁ = √ εAε
+    e_1 = sqrt(ML_ScalarProduct_3D(e, r, leaf = .true.))
+
+    ! quantity of interest based on elemental H1 seminorm
+    if (3 <= adapt_criterion .and. adapt_criterion <= 4) then
+      do l = 1, l_top
+        associate( mesh_l => ml_mesh % mesh(l)              &
+                 , mm_l   => mm % level(l) % val(:,:,:,:,1) &
+                 , qi_l   => qi % level(l) % val(0,0,0,:,1) &
+                 , e_l    => e  % level(l) % val(:,:,:,:,1) &
+                 , r_l    => r  % level(l) % val(:,:,:,:,1) )
+
+          do i = 1, mesh_l % n_elem_active
+            select case(adapt_criterion)
+            case(3)
+              qi_l(i) = sqrt( max(sum(e_l(:,:,:,i) * r_l(:,:,:,i)), ZERO) )
+            case(4)
+              qi_l(i) = sqrt( max(sum(e_l(:,:,:,i) * r_l(:,:,:,i)), ZERO) &
+                            / sum(mm_l(:,:,:,i)) )
+            end select
+          end do
+        end associate
+      end do
+    end if
+
+    ! print error metrics ......................................................
+
+    if (rank == 0) then
+      write(*,*)
+      write(*,'(2X,A)') 'error metrics'
+      write(*,'(T5,A,T10,ES12.5)') 'e_0 =', e_0
+      write(*,'(T5,A,T10,ES12.5)') 'e_1 =', e_1
+      write(*,'(T5,A,T10,ES12.5)') 'r_2 =', r_2
+    end if
 
   end subroutine Evaluation
 
@@ -700,23 +717,16 @@ contains
 
   subroutine SetAdaptationMarks
 
-    type(ML_MeshVariable_3D), allocatable, save :: qi
     integer, allocatable, save :: n_refine_loc(:), n_refine(:)
     integer, allocatable, save :: n_remove_loc(:), n_remove(:)
 
+    real(RNP) :: max_e = 0, max_e_loc = 0
     real(RNP) :: qi_refine, qi_remove
 
     associate(mesh => ml_mesh%mesh)
 
-      allocate(qi)
       allocate(n_refine_loc(l_top), n_refine(l_top), source = 0)
       allocate(n_remove_loc(l_top), n_remove(l_top), source = 0)
-
-      ! select quantity of interest and criteria for refinement/removal ........
-
-      call e % GetSlice(qi, adapt_criterion, adapt_criterion)
-      qi_refine = adapt_refine * max_e(adapt_criterion)
-      qi_remove = adapt_remove * max_e(adapt_criterion)
 
       ! mark elements in globally refined levels ...............................
 
@@ -725,6 +735,26 @@ contains
           call mesh(l) % element % MarkForRefinement()
         end if
       end do
+
+      ! criteria for refinement/removal ........................................
+
+      max_e_loc = 0
+
+      ! maximum error over leaf elements
+      do l = l_adapt-1, min(l_top,l_max-1)
+        associate(qi_l => qi % level(l) % val(0,0,0,:,1))
+          do i = 1, mesh(l) % n_elem_active
+            if (mesh(l) % element(i) % IsLeaf()) then
+              max_e_loc = max(max_e_loc, qi_l(i))
+            end if
+          end do
+        end associate
+      end do
+
+      call XMPI_Allreduce(max_e_loc, max_e, MPI_MAX, comm)
+
+      qi_refine = adapt_refine * max_e
+      qi_remove = adapt_remove * max_e
 
       ! mark for adaptation ....................................................
 
@@ -760,8 +790,6 @@ contains
           end do
         end associate
       end if
-
-      deallocate(qi)
 
       ! number of leaf elements marked for refinement
       call XMPI_Reduce(n_refine_loc, n_refine, MPI_SUM, 0, comm)

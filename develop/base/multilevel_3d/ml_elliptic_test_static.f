@@ -29,6 +29,7 @@ program ML_Elliptic_Test_Static
   use Generic_Mesh__3D
   use Mesh__3D
   use Verify_Mesh__3D
+  use Volume_Integrals__3D
   use Export_VTK_Mesh_SFC__3D
 
   use ML__Mesh__3D
@@ -156,9 +157,9 @@ program ML_Elliptic_Test_Static
   ! auxiliaries ................................................................
 
   character(:), allocatable, save :: domain_name
-  real(RNP), dimension(:), allocatable, save :: e0_mx, r0_e2, r0_mx
-  real(RNP), dimension(:), allocatable, save :: en_mx, rn_e2, rn_mx
-  real(RNP), save :: e0_l2, en_l2, r0_l2, rn_l2
+  real(RNP), dimension(:), allocatable, save :: ea0_0, ra0_2
+  real(RNP), dimension(:), allocatable, save :: ean_0, ran_2
+  real(RNP), save :: e0_0, en_0, e0_1, en_1, r0_2, rn_2
   real(RNP), save :: t_start, t_solve
   integer,   save :: n_i
 
@@ -372,37 +373,8 @@ program ML_Elliptic_Test_Static
   call ml_elliptic_opt % Bcast(0, comm)
   ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt)
 
-  associate(mesh => ml_mesh%mesh)
-    block
-      integer :: l
-
-      if (rank == 0) then
-        write(*,'(4X,A,4(2X,A7),2(3X,A2),8X,A2)')  &
-            'l','n_parts','min(ne)','max(ne)','sum(ne)','po','no','ns'
-      end if
-
-      do l = 1, l_top
-        if (mesh(l)%part >= 0) then
-          call XMPI_Reduce(mesh(l)%n_elem, ne_min, MPI_MIN, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(mesh(l)%n_elem, ne_max, MPI_MAX, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(mesh(l)%n_elem, ne_tot, MPI_SUM, 0, mesh(l)%comm_parts)
-        end if
-        if (mesh(l)%part == 0) then
-          write(*,'(I5,4I9,2I5,I6)',advance='NO') &
-              l, mesh(l)%n_parts, ne_min, ne_max, ne_tot, &
-              po(l), ml_elliptic % elliptic_op(l) % schwarz % no
-          if (l == 1) then
-            write(*,'(I10)') ml_elliptic % i_crs
-          else
-            write(*,'(2X,2(I3,X,A))') &
-                ml_elliptic % NumSmoothingSteps(l, stage = 1), '+', &
-                ml_elliptic % NumSmoothingSteps(l, stage = 2)
-          end if
-        end if
-      end do
-
-    end block
-  end associate
+  ! print info
+  call ml_op % Print_MeshCharacteristics()
 
   ! variables ..................................................................
 
@@ -428,8 +400,8 @@ program ML_Elliptic_Test_Static
   ! structure for keeping boundary values
   call bv % Init(ml_op, nc = 1)
 
-  allocate(e0_mx(l_top), source = ZERO)
-  allocate(en_mx, r0_e2, r0_mx, rn_e2, rn_mx, source = e0_mx)
+  allocate(ea0_0(l_top), source = ZERO)
+  allocate(ean_0, ra0_2, ran_2, source = ea0_0)
 
   block
     real(RNP), allocatable, save :: q(:,:,:,:,:)
@@ -492,7 +464,7 @@ program ML_Elliptic_Test_Static
   !-----------------------------------------------------------------------------
   ! Initial error and residual norms
 
-  call Evaluation(r0_e2, r0_mx, r0_l2, e0_mx, e0_l2)
+  call Evaluation(e0_0, e0_1, r0_2, ea0_0, ra0_2)
 
   !-----------------------------------------------------------------------------
   ! Solution
@@ -529,28 +501,46 @@ program ML_Elliptic_Test_Static
   !-----------------------------------------------------------------------------
   ! Evaluation
 
-  if (rank == 0) then
-    write(*,'(/,A)') 'evaluation'
-  end if
+  block
+    real(RNP) :: rate, t10
+    integer   :: n10, w10
+    integer   :: l, l_min
 
-  ! final error and residual norms
-  call Evaluation(rn_e2, rn_mx, rn_l2, en_mx, en_l2)
+    if (rank == 0) then
+      write(*,'(/,A)') 'evaluation'
+    end if
 
-  if (rank == 0) then
-    write(*,*)
-    write(*,'(A,I0)')     'num iterations:  n_i = ', n_i
-    write(*,'(A,ES10.3)') 'solution time:   t_s =' , t_solve
+    ! final error and residual norms
+    call Evaluation(en_0, en_1, rn_2, ean_0, ran_2)
 
-    write(*,'(/,A,/)') 'L2 residual and error over leaf elements'
+    if (rank == 0) then
+      write(*,*)
+      write(*,'(A,I0)')     'num iterations:  n_i = ', n_i
+      write(*,'(A,ES10.3)') 'solution time:   t_s =' , t_solve
 
-    write(*,'(2X,A,ES10.3)') 'r0_l2  = ', r0_l2
-    write(*,'(2X,A,ES10.3)') 'rn_l2  = ', rn_l2
-    write(*,'(2X,A,ES10.3)') 'e0_l2  = ', e0_l2
-    write(*,'(2X,A,ES10.3)') 'en_l2  = ', en_l2
+      write(*,'(/,A,/)') 'composite error and residual'
 
-    write(*,'(/,A,/)') 'residuals and errors over active elements per level'
-    block
-      integer :: l, l_min
+      write(*,'(2X,A,ES10.3)') ' e0_0   = ', e0_0
+      write(*,'(2X,A,ES10.3)') ' e0_1   = ', e0_1
+      write(*,'(2X,A,ES10.3)') ' r0_2   = ', r0_2
+      write(*,*)
+      write(*,'(2X,A,ES10.3)') ' en_0   = ', en_0
+      write(*,'(2X,A,ES10.3)') ' en_1   = ', en_1
+      write(*,'(2X,A,ES10.3)') ' rn_2   = ', rn_2
+      write(*,*)
+
+      rate = log10(r0_2 / rn_2) / n_i
+      n10  = ceiling(10 / rate)
+      t10  = t_solve / n_i *  n10
+      w10  = n10 * (ml_elliptic%ns_1 + ml_elliptic%ns_2)
+      if (ml_elliptic%smooth_method > 2) then
+        w10 = 2 * w10
+      end if
+
+      write(*,'(X,A7,X,2(7X,A3),6X,A5)') '-lg ρ','n10', 'w10', 'τ10'
+      write(*,'(G11.3,I7,I10,3X,ES10.3)') rate, n10, w10, t10
+
+      write(*,'(/,A,/)') 'errors and residuals over active elements per level'
 
       select case(solution_method)
       case(11,12)
@@ -559,21 +549,16 @@ program ML_Elliptic_Test_Static
         l_min = 1
       end select
 
-      write(*,'(4X,A,3X,7(A7,5X))') 'l', &
-                                    '  r0_e2', '  rn_e2', &
-                                    '  r0_mx', '  rn_mx', &
-                                    '  e0_mx', '  en_mx', &
-                                    '-lg rho'
+      write(*,'(4X,A,3X,7(A7,5X))') &
+        'l', '  e0_0 ', '  en_0 ', '  r0_2 ', '  rn_2 ', '-lg ρ'
       do l = l_min, l_top
-        write(*,'(I5,7(2X,ES10.3))') l, &
-                                     r0_e2(l), rn_e2(l), &
-                                     r0_mx(l), rn_mx(l), &
-                                     e0_mx(l), en_mx(l), &
-                                     log10(r0_e2(l) / rn_e2(l)) / n_i
+        write(*,'(I5,7(2X,ES10.3))') &
+           l, ea0_0(l), ean_0(l), ra0_2(l), ran_2(l), &
+           log10(ra0_2(l) / ran_2(l)) / n_i
       end do
-    end block
 
-  end if
+    end if
+  end block
 
   !-----------------------------------------------------------------------------
   ! VTK export
@@ -610,22 +595,78 @@ contains
   !-----------------------------------------------------------------------------
   !> Evaluation
 
-  subroutine Evaluation(r_e2, r_mx, r_l2, e_mx, e_l2)
-    real(RNP), contiguous, intent(out) :: r_e2(:)
-    real(RNP), contiguous, intent(out) :: r_mx(:)
-    real(RNP),             intent(out) :: r_l2
-    real(RNP), contiguous, intent(out) :: e_mx(:)
-    real(RNP),             intent(out) :: e_l2
+  subroutine Evaluation(e_0, e_1, r_2, ea_0, ra_2)
+    real(RNP),             intent(out) :: e_0    !< H0 composite leaf error
+    real(RNP),             intent(out) :: e_1    !< H1 composite leaf error
+    real(RNP),             intent(out) :: r_2    !< E2 composite leaf residual
+    real(RNP), contiguous, intent(out) :: ea_0(:) !< H0 active error    @ level
+    real(RNP), contiguous, intent(out) :: ra_2(:) !< E2 active residual @ level
 
-    real(RNP), allocatable, save :: e_mx_loc(:), r_mx_loc(:), r_e2_loc(:)
-    real(RNP), save :: int_1, int_1_loc
-    real(RNP), save :: int_e, int_e_loc
+    real(RNP) :: avg, vol
+    integer   :: l
 
-    real(RNP) :: e_avg
-    integer   :: i, l
+    ! error ε ..................................................................
 
-    allocate(e_mx_loc(l_top), source = ZERO)
-    allocate(r_mx_loc, r_e2_loc, source = e_mx_loc)
+    do l = 1, l_top
+      associate( e_l => e % level(l) % val(:,:,:,:,1) &
+               , r_l => r % level(l) % val(:,:,:,:,1) &
+               , s_l => s % level(l) % val(:,:,:,:,1) &
+               , u_l => u % level(l) % val(:,:,:,:,1) )
+
+        e_l = u_l - s_l
+        r_l = 1
+
+      end associate
+    end do
+
+    ! calibration
+    if (singular) then
+      vol = ML_WeightedScalarProduct_3D(mm, r, r, leaf = .true.)
+      avg = ML_WeightedScalarProduct_3D(mm, e, r, leaf = .true.) / vol
+      do l = 1, l_top
+        associate(e_l => e % level(l) % val(:,:,:,:,1))
+          e_l = e_l - avg
+        end associate
+      end do
+    end if
+
+    ! H0 error ε₀ ..............................................................
+
+    ! composite H0 norm
+    e_0 = sqrt(ML_WeightedScalarProduct_3D(mm, e, e, leaf = .true.))
+
+    ! H0 norm over active elements of present level
+    do l = 1, l_top
+      associate( e_l => e % level(l) % val(:,:,:,:,1) &
+               , r_l => r % level(l) % val(:,:,:,:,1) )
+
+        r_l = e_l ** 2
+        call GetVolumeIntegral(ml_op%sem(l), r_l, ea_0(l))
+        ea_0(l) = sqrt(ea_0(l))
+
+      end associate
+    end do
+
+    ! H1 error ε₁ ..............................................................
+
+    do l = 1, l_top
+      associate( ell_l => ml_elliptic % elliptic_op(l)   &
+               , nu_l  => nu % level(l) % val(:,:,:,:,1) &
+               , e_l   => e  % level(l) % val(:,:,:,:,1) &
+               , r_l   => r  % level(l) % val(:,:,:,:,1) )
+
+        ! r = Aε
+        if (problem % nu_1 > 0) then
+          call ell_l % Apply(bc, lambda, nu_l, u = e_l, r = r_l)
+        else
+          call ell_l % Apply(bc, lambda, nu_0, u = e_l, r = r_l)
+        end if
+
+      end associate
+    end do
+
+    ! ε₁ = √ εAε
+    e_1 = sqrt(ML_ScalarProduct_3D(e, r, leaf = .true.))
 
     ! residual .................................................................
 
@@ -635,75 +676,20 @@ contains
       call ml_elliptic % FAS_MG_Residual(bc, lambda, nu_0, bv, f, u, r)
     end if
 
-    ! maximum norm
+    ! E2 composite leaf residual
+    r_2 = sqrt(ML_ScalarProduct_3D(r, r, leaf = .true.))
+
+    ! E2 active residual @ level
     do l = 1, l_top
       associate( mesh_l => ml_op % sem(l) % mesh         &
                , r_l    => r % level(l) % val(:,:,:,:,1) )
 
-        do i = 1, mesh_l % n_elem_active
-          r_mx_loc(l) = max(r_mx_loc(l), maxval(abs(r_l(:,:,:,i))))
-          r_e2_loc(l) = r_e2_loc(l) + sum(r_l(:,:,:,i)**2)
-        end do
+        if (mesh_l % part >= 0) then
+          ra_2(l) = sqrt(ScalarProduct(r_l, r_l, mesh_l%comm_parts))
+        end if
 
       end associate
     end do
-    call XMPI_Reduce(r_mx_loc, r_mx, MPI_MAX, 0, comm)
-    call XMPI_Reduce(r_e2_loc, r_e2, MPI_SUM, 0, comm)
-    r_e2 = sqrt(r_e2)
-
-    ! L2 norms
-    r_l2 = sqrt(ML_WeightedScalarProduct_3D(mm, r, r, leaf = .true.))
-
-    ! error ....................................................................
-
-    int_1_loc = 0
-    int_e_loc = 0
-
-    do l = 1, l_top
-      associate( mesh_l => ml_op % sem(l) % mesh          &
-               , mm_l   => mm % level(l) % val(:,:,:,:,1) &
-               , s_l    => s  % level(l) % val(:,:,:,:,1) &
-               , u_l    => u  % level(l) % val(:,:,:,:,1) &
-               , e_l    => e  % level(l) % val(:,:,:,:,1) )
-
-        do i = 1, size(e_l,4)
-          e_l(:,:,:,i) = u_l(:,:,:,i) - s_l(:,:,:,i)
-          if (mesh_l%element(i)%IsLeaf()) then
-            int_1_loc = int_1_loc + sum(mm_l(:,:,:,i))
-            int_e_loc = int_e_loc + sum(mm_l(:,:,:,i) * e_l(:,:,:,i))
-          end if
-        end do
-
-      end associate
-    end do
-
-    ! mean error for calibration in singular case
-    if (singular) then
-      call XMPI_Allreduce(int_1_loc, int_1, MPI_SUM, comm)
-      call XMPI_Allreduce(int_e_loc, int_e, MPI_SUM, comm)
-      e_avg = int_e / int_1
-    else
-      e_avg = 0
-    end if
-
-    ! calibration and maximum norm
-    do l = 1, l_top
-      associate( mesh_l => ml_op % sem(l) % mesh         &
-               , e_l    => e % level(l) % val(:,:,:,:,1) )
-
-        do i = 1, mesh_l % n_elem_active
-          e_l(:,:,:,i) = e_l(:,:,:,i) - e_avg
-          e_mx_loc(l)  = max(e_mx_loc(l), maxval(abs(e_l(:,:,:,i))))
-        end do
-
-      end associate
-    end do
-    call XMPI_Reduce(e_mx_loc, e_mx, MPI_MAX, 0, comm)
-
-    ! L2 norm
-    e_l2 = sqrt(ML_WeightedScalarProduct_3D(mm, e, e, leaf = .true.))
-
-    deallocate(r_mx_loc, r_e2_loc, e_mx_loc)
 
   end subroutine Evaluation
 
