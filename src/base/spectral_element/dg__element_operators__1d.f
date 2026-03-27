@@ -42,7 +42,7 @@ module DG__Element_Operators__1D
   !> diagonal mass matrix restricted to the interior points.
 
   type, extends(StandardElementOperators_1D) :: DG_ElementOperators_1D
-    real(RNP) :: penalty = 5       !< penalty parameter > 1
+    real(RNP) :: penalty =  2      !< penalty parameter > 1
     logical   :: hybrid  = .false. !< switch to hybridized method
   contains
 
@@ -87,7 +87,7 @@ module DG__Element_Operators__1D
   !> Options for DG_ElementOperators_1D
 
   type, extends(StandardElementOptions_1D) :: DG_ElementOptions_1D
-    real(RNP) :: penalty =  5       !< penalty parameter > 1
+    real(RNP) :: penalty =  2       !< penalty parameter > 1
     logical   :: hybrid  = .false.  !< switch to hybridized method
   contains
     procedure :: Bcast => Bcast_IP_ElementOptions1D
@@ -200,7 +200,7 @@ contains
     class(DG_ElementOperators_1D), intent(in) :: this
     real(RNP), intent(in) :: dx(2)  !< element extensions
 
-    mu = this%penalty/4 * this%po * (this%po + 1) * (1/dx(1) + 1/dx(2))
+    mu = this%penalty * (this%po + 1)**2 * (1/dx(1) + 1/dx(2)) / 2
 
   end function PenaltyFactor_NE
 
@@ -211,7 +211,7 @@ contains
     class(DG_ElementOperators_1D), intent(in) :: this
     real(RNP), intent(in) :: dx  !< element extension
 
-    mu = this%penalty/4 * this%po * (this%po + 1) * 2/dx
+    mu = this%penalty * (this%po + 1)**2 / dx
 
   end function PenaltyFactor_EQ
 
