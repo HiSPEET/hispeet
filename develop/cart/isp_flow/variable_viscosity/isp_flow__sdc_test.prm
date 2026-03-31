@@ -95,8 +95,9 @@
   rk_opt%method    = 2
 !
 ! section for SDC(*,Eu) -- methods 5:7
-  sdc_opt_eu%Flow_SDC_Options%SDC_Options%n_col    = 2
-  sdc_opt_eu%Flow_SDC_Options%SDC_Options%n_sweep  = 1
+  sdc_opt_rk%Flow_SDC_Options%SDC_Options%nodes   = 'L'
+  sdc_opt_eu%Flow_SDC_Options%SDC_Options%n_col   = 2
+  sdc_opt_eu%Flow_SDC_Options%SDC_Options%n_sweep = 1
   sdc_opt_eu%Flow_SDC_Options%project   = 0
   sdc_opt_eu%Flow_SDC_Options%pressure  = 0
 /
