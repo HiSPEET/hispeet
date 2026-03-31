@@ -182,6 +182,11 @@ contains
 
       ! boundary conditions at old time
       call GetBoundaryValues(problem, mesh, flow_op%bv_x, t_0, flow_op%bv_u)
+      ! NOTE
+      ! The original version changed to BCs at the new time `t` already here.
+      ! However, this is not consistent with the following extrapolation of
+      ! convection and viscous terms and was therefore fixed in the current
+      ! version.
 
       ! w = -∇⋅v₀v₀ + ∇⋅ν₀(∇v₀)ᵀ - 2∇(ν₀∇⋅v₀)    for v
       ! w = -∇⋅v₀u₀                              for u \ (v,p)
