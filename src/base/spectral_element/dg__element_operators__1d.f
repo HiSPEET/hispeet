@@ -200,7 +200,11 @@ contains
     class(DG_ElementOperators_1D), intent(in) :: this
     real(RNP), intent(in) :: dx(2)  !< element extensions
 
-    mu = this%penalty * (this%po + 1)**2 * (1/dx(1) + 1/dx(2)) / 2
+    ! Stiller (2016)
+    mu = this%penalty/2 * this%po * (this%po + 1) * (1/dx(1) + 1/dx(2)) / 2
+
+    ! Hillerwaert (2013)
+    ! mu = this%penalty * (this%po + 1)**2 * (1/dx(1) + 1/dx(2)) / 2
 
   end function PenaltyFactor_NE
 
@@ -211,7 +215,11 @@ contains
     class(DG_ElementOperators_1D), intent(in) :: this
     real(RNP), intent(in) :: dx  !< element extension
 
-    mu = this%penalty * (this%po + 1)**2 / dx
+    ! Stiller (2016)
+    mu = this%penalty/2 * this%po * (this%po + 1) / dx
+
+    ! Hillerwaert (2013)
+    ! mu = this%penalty * (this%po + 1)**2 / dx
 
   end function PenaltyFactor_EQ
 
