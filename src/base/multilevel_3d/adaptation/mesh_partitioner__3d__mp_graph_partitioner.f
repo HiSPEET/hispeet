@@ -199,7 +199,7 @@ contains
     i = 0
     do e = 1, mesh % n_elem
       if (vtx_elem(e) >= 0) then
-        tp_elem(e) = part(i)
+        tp_elem(e) = part(i) + o_parts
         i = i + 1
       else
         tp_elem(e) = -1
