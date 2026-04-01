@@ -352,13 +352,15 @@ program ML_Elliptic_Test_Static
 
   ! solver ......................................................................
 
-  allocate(po(l_top), source = -1)
-
   if (rank == 0) then
+    allocate(po(1000), source = -1)
     open(newunit = io, file = case_file)
-    read(io, nml = solver_prm, iostat = stat)
+    read(io, nml = solver_prm)
     close(io)
     write(*,'(/,A)') 'initializing multilevel operators'
+    po = po(1:l_top)
+  else
+    allocate(po(l_top), source = -1)
   end if
 
   call XMPI_Bcast(po       , 0, comm)
