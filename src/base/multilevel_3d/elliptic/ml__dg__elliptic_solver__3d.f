@@ -70,6 +70,7 @@ module ML__DG__Elliptic_Solver__3D
     integer   :: vs_mode !< variable smoothing mode, 0/1/2: none/p/hp
     integer   :: vs_lmin !< variable smoothing minimum level
     integer   :: vs_lmax !< variable smoothing maximum level
+    real(RNP) :: r_crs   !< min coarse residual reduction,  if > 0
     real(RNP) :: r_red   !< min residual reduction,  if > 0
     real(RNP) :: r_max   !< max admissible residual, if > 0
 
@@ -139,6 +140,7 @@ module ML__DG__Elliptic_Solver__3D
     integer   :: vs_mode =  0 !< variable smoothing mode, 0/1/2: none/p/hp
     integer   :: vs_lmin =  1 !< variable smoothing minimum level
     integer   :: vs_lmax = -1 !< variable smoothing maximum level        [l_top]
+    real(RNP) :: r_crs   = -1 !< min coarse residual reduction, overrides `r_red`
     real(RNP) :: r_red   = -1 !< min residual reduction,  if > 0
     real(RNP) :: r_max   = -1 !< max admissible residual, if > 0
 
@@ -585,8 +587,13 @@ contains
       this % vs_lmax = l_top
     end if
 
-    this % r_red   = opt % r_red
-    this % r_max   = opt % r_max
+    this % r_crs = opt % r_crs
+    this % r_red = opt % r_red
+    this % r_max = opt % r_max
+
+    if (this % r_crs < 0) then
+      this % r_crs = this % r_red
+    end if
 
   end subroutine Init_ML_DG_EllipticSolver_3D
 
@@ -654,6 +661,7 @@ contains
     call XMPI_Bcast(this % vs_mode        , root, comm)
     call XMPI_Bcast(this % vs_lmin        , root, comm)
     call XMPI_Bcast(this % vs_lmax        , root, comm)
+    call XMPI_Bcast(this % r_crs          , root, comm)
     call XMPI_Bcast(this % r_red          , root, comm)
     call XMPI_Bcast(this % r_max          , root, comm)
 

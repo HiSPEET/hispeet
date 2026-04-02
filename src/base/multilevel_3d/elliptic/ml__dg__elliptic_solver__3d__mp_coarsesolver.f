@@ -54,17 +54,17 @@ contains
       ! Flexible CG
       call this % elliptic_op(1) %                                    &
                       CG_Method_X( bc, lambda, nu_c, nu_v , u, f, bv  &
-                                 , this%i_crs, this%r_red, this%r_max )
+                                 , this%i_crs, this%r_crs, this%r_max )
     case(SOLVER_WS)
       ! Weighted Additive Schwarz
       call this % elliptic_op(1) %                                         &
                       Schwarz_Method_X( bc, lambda, nu_c, nu_v, u, f, bv   &
-                                      , this%i_crs, this%r_red, this%r_max )
+                                      , this%i_crs, this%r_crs, this%r_max )
     case(SOLVER_SPCG)
       ! Schwarz-preconditioned flexible CG
       call this % elliptic_op(1) %                                            &
                       SchwarzPCG_Method_X( bc, lambda, nu_c, nu_v, u, f, bv   &
-                                         , this%i_crs, this%r_red, this%r_max )
+                                         , this%i_crs, this%r_crs, this%r_max )
     end select
 
   end subroutine CoarseSolver_X
