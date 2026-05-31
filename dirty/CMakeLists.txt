@@ -15,3 +15,6 @@ add_executable(radau radau.f)
 target_link_libraries(radau HiBase)
 
 add_executable(prep prep.F)
+
+add_executable(schwarz_overlap schwarz_overlap.f)
+target_link_libraries(schwarz_overlap HiBase)
