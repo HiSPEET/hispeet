@@ -49,13 +49,13 @@ subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
   real(RWP), parameter :: HALF      = 0.5_RWP
   real(RWP), parameter :: TWO_THIRD = 2.0_RWP / 3.0_RWP
 
-  real(RWP), dimension(size(Ms), size(Ms), size(Ms))       :: M, gdp
+  real(RWP), dimension(size(Ms), size(Ms), size(Ms))       :: M, div
   real(RWP), dimension(size(Ms), size(Ms), size(Ms), 3)    :: w, z
   real(RWP), dimension(size(Ms), size(Ms), size(Ms), 3, 3) :: tau
 
   real(RWP) :: chi, dv(3), tmp
   integer   :: c, e, f, i, j, k, p, np, ne
-  logical   :: get_traces
+  logical   :: get_traces, penalty
 
   !-----------------------------------------------------------------------------
   ! initialization
@@ -63,7 +63,14 @@ subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
   np = size(Ms)
   ne = size(v,4)
 
-  chi = zeta - TWO_THIRD * eta
+  penalty = zeta > 0
+
+  if (penalty) then
+    chi = zeta
+  else
+    ! laplacian or rotational form
+    chi = zeta - TWO_THIRD * eta
+  end if
 
   get_traces = present(vb) .and. present(sb)
 
@@ -85,7 +92,7 @@ subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
 
     ! viscous stress tensor ....................................................
 
-    gdp = 0
+    div = 0
     tau = 0
 
     do c = 1, 3
@@ -129,7 +136,7 @@ subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
       end do
       end do
 
-      ! tau = η(∇v + ∇vᵀ), gdp = χ∇⋅v
+      ! tau = η(∇v + ∇vᵀ), div = χ∇⋅v
       do k = 1, np
       do j = 1, np
       do i = 1, np
@@ -154,7 +161,7 @@ subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
         tau(i,j,k,c,2) = tau(i,j,k,c,2) + eta * dv(2)
         tau(i,j,k,c,3) = tau(i,j,k,c,3) + eta * dv(3)
 
-        gdp(i,j,k) = gdp(i,j,k) + chi * dv(c)
+        div(i,j,k) = div(i,j,k) + chi * dv(c)
 
       end do
       end do
@@ -169,17 +176,17 @@ subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
     do j = 1, np
     do i = 1, np
 
-      w(i,j,k,1) = M(i,j,k) * ( Ji(i,j,k,e,1,1) * (tau(i,j,k,1,1) + gdp(i,j,k)) &
+      w(i,j,k,1) = M(i,j,k) * ( Ji(i,j,k,e,1,1) * (tau(i,j,k,1,1) + div(i,j,k)) &
                               + Ji(i,j,k,e,1,2) *  tau(i,j,k,2,1)               &
                               + Ji(i,j,k,e,1,3) *  tau(i,j,k,3,1)               )
 
       w(i,j,k,2) = M(i,j,k) * ( Ji(i,j,k,e,1,1) *  tau(i,j,k,2,1)               &
-                              + Ji(i,j,k,e,1,2) * (tau(i,j,k,2,2) + gdp(i,j,k)) &
+                              + Ji(i,j,k,e,1,2) * (tau(i,j,k,2,2) + div(i,j,k)) &
                               + Ji(i,j,k,e,1,3) *  tau(i,j,k,3,2)               )
 
       w(i,j,k,3) = M(i,j,k) * ( Ji(i,j,k,e,1,1) *  tau(i,j,k,3,1)               &
                               + Ji(i,j,k,e,1,2) *  tau(i,j,k,3,2)               &
-                              + Ji(i,j,k,e,1,3) * (tau(i,j,k,3,3) + gdp(i,j,k)) )
+                              + Ji(i,j,k,e,1,3) * (tau(i,j,k,3,3) + div(i,j,k)) )
     end do
     end do
     end do
@@ -205,17 +212,17 @@ subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
     do j = 1, np
     do i = 1, np
 
-      w(i,j,k,1) = M(i,j,k) * ( Ji(i,j,k,e,2,1) * (tau(i,j,k,1,1) + gdp(i,j,k)) &
+      w(i,j,k,1) = M(i,j,k) * ( Ji(i,j,k,e,2,1) * (tau(i,j,k,1,1) + div(i,j,k)) &
                               + Ji(i,j,k,e,2,2) *  tau(i,j,k,2,1)               &
                               + Ji(i,j,k,e,2,3) *  tau(i,j,k,3,1)               )
 
       w(i,j,k,2) = M(i,j,k) * ( Ji(i,j,k,e,2,1) *  tau(i,j,k,2,1)               &
-                              + Ji(i,j,k,e,2,2) * (tau(i,j,k,2,2) + gdp(i,j,k)) &
+                              + Ji(i,j,k,e,2,2) * (tau(i,j,k,2,2) + div(i,j,k)) &
                               + Ji(i,j,k,e,2,3) *  tau(i,j,k,3,2)               )
 
       w(i,j,k,3) = M(i,j,k) * ( Ji(i,j,k,e,2,1) *  tau(i,j,k,3,1)               &
                               + Ji(i,j,k,e,2,2) *  tau(i,j,k,3,2)               &
-                              + Ji(i,j,k,e,2,3) * (tau(i,j,k,3,3) + gdp(i,j,k)) )
+                              + Ji(i,j,k,e,2,3) * (tau(i,j,k,3,3) + div(i,j,k)) )
     end do
     end do
     end do
@@ -238,17 +245,17 @@ subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
     do j = 1, np
     do i = 1, np
 
-      w(i,j,k,1) = M(i,j,k) * ( Ji(i,j,k,e,3,1) * (tau(i,j,k,1,1) + gdp(i,j,k)) &
+      w(i,j,k,1) = M(i,j,k) * ( Ji(i,j,k,e,3,1) * (tau(i,j,k,1,1) + div(i,j,k)) &
                               + Ji(i,j,k,e,3,2) *  tau(i,j,k,2,1)               &
                               + Ji(i,j,k,e,3,3) *  tau(i,j,k,3,1)               )
 
       w(i,j,k,2) = M(i,j,k) * ( Ji(i,j,k,e,3,1) *  tau(i,j,k,2,1)               &
-                              + Ji(i,j,k,e,3,2) * (tau(i,j,k,2,2) + gdp(i,j,k)) &
+                              + Ji(i,j,k,e,3,2) * (tau(i,j,k,2,2) + div(i,j,k)) &
                               + Ji(i,j,k,e,3,3) *  tau(i,j,k,3,2)               )
 
       w(i,j,k,3) = M(i,j,k) * ( Ji(i,j,k,e,3,1) *  tau(i,j,k,3,1)               &
                               + Ji(i,j,k,e,3,2) *  tau(i,j,k,3,2)               &
-                              + Ji(i,j,k,e,3,3) * (tau(i,j,k,3,3) + gdp(i,j,k)) )
+                              + Ji(i,j,k,e,3,3) * (tau(i,j,k,3,3) + div(i,j,k)) )
     end do
     end do
     end do
@@ -278,9 +285,15 @@ subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
     end do
 
     ! boundary values ..........................................................
-    ! no penalty contribution here
 
     if (get_traces) then
+
+      if (.not. penalty) then
+        ! add divergence contribution
+        do c = 1, 3
+          tau(:,:,:,c,c) = tau(:,:,:,c,c) + div
+        end do
+      end if
 
       ! vb = v,  sb = n⋅τ  @ Γ₁ ∪ Γ₂, exploiting symmetry of τ
 

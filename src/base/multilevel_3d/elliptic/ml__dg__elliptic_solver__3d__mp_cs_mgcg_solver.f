@@ -179,12 +179,9 @@ contains
       if (present(nu_0)) then
         call ell_top % Residual(bc, lambda, nu_0, f_top, bv_top, u_top, r_top)
       else
-        call ell_top % Residual( bc, lambda                                 &
-                               , nu = nu_v % level(l_top_) % val(:,:,:,:,1) &
-                               , f  = f_top                                 &
-                               , bv = bv_top                                &
-                               , u  = u_top                                 &
-                               , r  = r_top                                 )
+        associate(nu_top => nu_v % level(l_top_) % val(:,:,:,:,1))
+          call ell_top % Residual(bc, lambda, nu_top, f_top, bv_top, u_top, r_top)
+        end associate
       end if
       if (singular) then
         call CalibrateArray(r_top, comm_top)
@@ -246,17 +243,35 @@ contains
         if (present(nu_0)) then
           call ell_top % Apply(bc, lambda, nu_0, u=p, r=q)
         else
-          call ell_top % Apply( bc, lambda                                 &
-                              , nu = nu_v % level(l_top_) % val(:,:,:,:,1) &
-                              , u  = p                                     &
-                              , r  = q                                     )
+          associate(nu_top => nu_v % level(l_top_) % val(:,:,:,:,1))
+            call ell_top % Apply(bc, lambda, nu_top, u=p, r=q)
+          end associate
         end if
 
         ! correction
         delta = ScalarProduct(r_top, z_top, comm_top)       ! δ = (r,z)
         alpha = delta / ScalarProduct(p, q, comm_top)       ! α = δ / (p,Ap)
         call MergeArrays(ONE, u_top,  alpha, p)             ! u = u + α p
-        call MergeArrays(ONE, r_top, -alpha, q)             ! r = r - α Ap
+
+        ! residual
+        if (mod(i,50) == 0) then
+          ! compute true residual to get rid of round-off errors
+          if (present(nu_0)) then
+            call ell_top % &
+                     Residual(bc, lambda, nu_0, f_top, bv_top, u_top, r_top)
+          else
+            associate(nu_top => nu_v % level(l_top_) % val(:,:,:,:,1))
+              call ell_top % &
+                       Residual(bc, lambda, nu_top, f_top, bv_top, u_top, r_top)
+            end associate
+          end if
+          if (singular) then
+            call CalibrateArray(r_top, comm_top)
+          end if
+        else
+          ! r = r - α Ap
+          call MergeArrays(ONE, r_top, -alpha, q)
+        end if
 
         if (check_convergence) then
 

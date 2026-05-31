@@ -122,8 +122,9 @@ contains
     select case(this % start_method)
     case(START_CASC)
       call this % FAS_MG_Start_X(bc, lambda, nu_0, nu_v, bv, f, u, n_cyc = 0)
-    case(START_FMG)
-      call this % FAS_MG_Start_X(bc, lambda, nu_0, nu_v, bv, f, u, n_cyc = 1)
+    case(START_FMG:)
+      call this % FAS_MG_Start_X(bc, lambda, nu_0, nu_v, bv, f, u,         &
+                                 n_cyc = this%start_method + 1 - START_FMG )
     end select
 
     ! V cycles .................................................................

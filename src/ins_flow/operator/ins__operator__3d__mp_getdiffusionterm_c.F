@@ -214,8 +214,9 @@ contains
     real(RNP), target, dimension(0:eop%po, 0:eop%po, 3)    :: C0
     real(RNP), target, dimension(0:eop%po, 0:eop%po, 2, 3) :: Ct, Ds_Ct
     real(RNP), target, dimension(0:eop%po, 0:eop%po, 6, 3) :: Cn
-    real(RNP) :: chi, cip, dv1, dv2, dv3, n1, n2, n3, tau(3,3)
+    real(RNP) :: chi, cip, dv1, dv2, dv3, n1, n2, n3, nc, tau(3,3), tau_pen
     real(RNP) :: tmp
+    logical   :: penalty
     integer   :: c, e, f, i, j, k
 
 #ifdef __LIBXSMM__
@@ -235,11 +236,21 @@ contains
 
 #endif
 
+#ifdef __INS_PENALTY__
+    penalty = mu > 0
+#else
+    penalty = .false.
+#endif
+
     associate(po => eop % po, Ms => eop % w, Ds => eop % D)
 
       ! auxiliaries ............................................................
 
-      chi = mu - 2 * THIRD * nu
+      if (penalty) then
+        chi = mu
+      else
+        chi = mu - 2 * THIRD * nu
+      end if
 
       ! face standard mass matrix
       do j = 0, po
@@ -275,9 +286,17 @@ contains
 
               tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3 )
 
-              tau(1,1) = nu * 2 * n1 * dv1 + tmp
-              tau(2,2) = nu * 2 * n2 * dv2 + tmp
-              tau(3,3) = nu * 2 * n3 * dv3 + tmp
+              if (penalty) then
+                tau(1,1) = nu * 2 * n1 * dv1
+                tau(2,2) = nu * 2 * n2 * dv2
+                tau(3,3) = nu * 2 * n3 * dv3
+                tau_pen  = tmp
+              else
+                tau(1,1) = nu * 2 * n1 * dv1 + tmp
+                tau(2,2) = nu * 2 * n2 * dv2 + tmp
+                tau(3,3) = nu * 2 * n3 * dv3 + tmp
+                tau_pen  = 0
+              end if
 
               tau(1,2) = nu * (n1 * dv2 + n2 * dv1)
               tau(2,3) = nu * (n2 * dv3 + n3 * dv2)
@@ -304,11 +323,14 @@ contains
                                     + Ji(i,j,k,e,3,2) * tau(2,c) & ! directions
                                     + Ji(i,j,k,e,3,3) * tau(3,c) ) ! transposed
 
-                C0(j,k,c)   = tmp * ( sm(j,k,f,e,c)               &
-                                    - sp(j,k,f,e,c)               &
-                                    - 2 * cip * ( n1 * tau(1,c)   &
-                                                + n2 * tau(2,c)   &
-                                                + n3 * tau(3,c) ) )
+                nc = n(j,k,f,e,c)
+
+                C0(j,k,c) = tmp * ( sm(j,k,f,e,c)              &
+                                  - sp(j,k,f,e,c)              &
+                                  - 2 * cip * ( n1 * tau(1,c)  &
+                                              + n2 * tau(2,c)  &
+                                              + n3 * tau(3,c)  &
+                                              + nc * tau_pen ) )
 
               end do
 
@@ -364,9 +386,17 @@ contains
 
               tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3 )
 
-              tau(1,1) = nu * 2 * n1 * dv1 + tmp
-              tau(2,2) = nu * 2 * n2 * dv2 + tmp
-              tau(3,3) = nu * 2 * n3 * dv3 + tmp
+              if (penalty) then
+                tau(1,1) = nu * 2 * n1 * dv1
+                tau(2,2) = nu * 2 * n2 * dv2
+                tau(3,3) = nu * 2 * n3 * dv3
+                tau_pen  = tmp
+              else
+                tau(1,1) = nu * 2 * n1 * dv1 + tmp
+                tau(2,2) = nu * 2 * n2 * dv2 + tmp
+                tau(3,3) = nu * 2 * n3 * dv3 + tmp
+                tau_pen  = 0
+              end if
 
               tau(1,2) = nu * (n1 * dv2 + n2 * dv1)
               tau(2,3) = nu * (n2 * dv3 + n3 * dv2)
@@ -393,11 +423,14 @@ contains
                                     + Ji(i,j,k,e,3,2) * tau(2,c) & ! directions
                                     + Ji(i,j,k,e,3,3) * tau(3,c) ) ! transposed
 
-                C0(i,k,c)   = tmp * ( sm(i,k,f,e,c)               &
-                                    - sp(i,k,f,e,c)               &
-                                    - 2 * cip * ( n1 * tau(1,c)   &
-                                                + n2 * tau(2,c)   &
-                                                + n3 * tau(3,c) ) )
+                nc = n(i,k,f,e,c)
+
+                C0(i,k,c) = tmp * ( sm(i,k,f,e,c)              &
+                                  - sp(i,k,f,e,c)              &
+                                  - 2 * cip * ( n1 * tau(1,c)  &
+                                              + n2 * tau(2,c)  &
+                                              + n3 * tau(3,c)  &
+                                              + nc * tau_pen ) )
 
               end do
 
@@ -452,9 +485,17 @@ contains
 
               tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3 )
 
-              tau(1,1) = nu * 2 * n1 * dv1 + tmp
-              tau(2,2) = nu * 2 * n2 * dv2 + tmp
-              tau(3,3) = nu * 2 * n3 * dv3 + tmp
+              if (penalty) then
+                tau(1,1) = nu * 2 * n1 * dv1
+                tau(2,2) = nu * 2 * n2 * dv2
+                tau(3,3) = nu * 2 * n3 * dv3
+                tau_pen  = tmp
+              else
+                tau(1,1) = nu * 2 * n1 * dv1 + tmp
+                tau(2,2) = nu * 2 * n2 * dv2 + tmp
+                tau(3,3) = nu * 2 * n3 * dv3 + tmp
+                tau_pen  = 0
+              end if
 
               tau(1,2) = nu * (n1 * dv2 + n2 * dv1)
               tau(2,3) = nu * (n2 * dv3 + n3 * dv2)
@@ -481,11 +522,14 @@ contains
                                     + Ji(i,j,k,e,2,2) * tau(2,c) & ! directions
                                     + Ji(i,j,k,e,2,3) * tau(3,c) ) ! transposed
 
-                C0(i,j,c)   = tmp * ( sm(i,j,f,e,c)               &
-                                    - sp(i,j,f,e,c)               &
-                                    - 2 * cip * ( n1 * tau(1,c)   &
-                                                + n2 * tau(2,c)   &
-                                                + n3 * tau(3,c) ) )
+                nc = n(i,j,f,e,c)
+
+                C0(i,j,c) = tmp * ( sm(i,j,f,e,c)              &
+                                  - sp(i,j,f,e,c)              &
+                                  - 2 * cip * ( n1 * tau(1,c)  &
+                                              + n2 * tau(2,c)  &
+                                              + n3 * tau(3,c)  &
+                                              + nc * tau_pen ) )
 
               end do
 
@@ -526,12 +570,12 @@ contains
             do j = 0, po
             do i = 0, po
               f_d(i,j,k,e,c) = f_d(i,j,k,e,c)           &
-                             - ( Ds( 0,i) * Cn(j,k,1,c)  &
-                               + Ds(po,i) * Cn(j,k,2,c)  &
-                               + Ds( 0,j) * Cn(i,k,3,c)  &
-                               + Ds(po,j) * Cn(i,k,4,c)  &
-                               + Ds( 0,k) * Cn(i,j,5,c)  &
-                               + Ds(po,k) * Cn(i,j,6,c)  &
+                             - ( Ds( 0,i) * Cn(j,k,1,c) &
+                               + Ds(po,i) * Cn(j,k,2,c) &
+                               + Ds( 0,j) * Cn(i,k,3,c) &
+                               + Ds(po,j) * Cn(i,k,4,c) &
+                               + Ds( 0,k) * Cn(i,j,5,c) &
+                               + Ds(po,k) * Cn(i,j,6,c) &
                                )
             end do
             end do

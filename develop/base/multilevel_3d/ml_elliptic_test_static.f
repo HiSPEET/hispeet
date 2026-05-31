@@ -22,8 +22,10 @@ program ML_Elliptic_Test_Static
 
   use Create_Cuboid_Cartesian
   use Create_Cuboid_Diamonds
+  use Create_Cuboid_OneRotated
   use Create_Cylinder
   use Create_Annulus
+  use Create_Spherical_Shell_Segment
 
   use Import_GMSH__3D
   use Generic_Mesh__3D
@@ -79,10 +81,13 @@ program ML_Elliptic_Test_Static
   ! domain .....................................................................
 
   integer :: test_domain = 1 ! computational domain
-                             !   0  import from GMSH
-                             !   1  cuboidal with Cartesian mesh
-                             !   2  cuboidal with unstructured "diamond" mesh
-                             !   3  cylindrical domain
+  ! configuration (u/s = un/structured, r = regular, d = deformed)
+  !   1  cuboidal domain with Cartesian mesh                               (s+r)
+  !   2  cuboidal domain with unstructured "diamond" mesh                  (u+d)
+  !   3  cuboidal domain with  3x3x3 elements and rotated center           (u+r)
+  !   4  cylindrical domain                                                (u+d)
+  !   5  annular domain                                                    (u+d)
+  !   6  spherical shell segment                                           (u+d)
 
   character(len=80) :: gmsh_file = '../../gmsh/cylinder_2d'
 
@@ -245,11 +250,17 @@ program ML_Elliptic_Test_Static
     call CreateCuboidDiamonds(comm, case_file, base_mesh)
     domain_name = 'Cuboidal domain with unstructured "diamond" mesh'
   case(3)
+    call CreateCuboidOneRotated(comm, case_file, base_mesh)
+    domain_name = 'Cuboidal domain with 3x3x3 elements and rotated center'
+  case(4)
     call CreateCylinder(comm, case_file, base_mesh)
     domain_name = 'Cylindrical domain with unstructured mesh'
-  case(4)
+  case(5)
     call CreateAnnulus(comm, case_file, base_mesh)
     domain_name = 'Annular domain with unstructured mesh'
+  case(6)
+    call CreateSphericalShellSegment(comm, case_file, base_mesh)
+    domain_name = 'Spherical shell segment with (un)structured mesh'
   end select
 
   if (rank == 0) then
@@ -504,13 +515,17 @@ program ML_Elliptic_Test_Static
   ! Evaluation
 
   block
-    real(RNP) :: rate, t10
-    integer   :: n10, w10
-    integer   :: l, l_min
+    real(RNP) :: a, ck, cs, q, rate, t10, tau10, v10
+    integer   :: l, l_min, n10, np_leaf
+    integer, allocatable :: n_leaf(:,:)
 
     if (rank == 0) then
       write(*,'(/,A)') 'evaluation'
     end if
+
+    ! get number of leaf elements
+    call ml_op % Get_MeshCharacteristics(n_leaf)
+    np_leaf = sum(n_leaf(:,4) * (po+1)**3)
 
     ! final error and residual norms
     call Evaluation(en_0, en_1, rn_2, ean_0, ran_2)
@@ -531,16 +546,53 @@ program ML_Elliptic_Test_Static
       write(*,'(2X,A,ES10.3)') ' rn_2   = ', rn_2
       write(*,*)
 
-      rate = log10(r0_2 / rn_2) / n_i
-      n10  = ceiling(10 / rate)
-      t10  = t_solve / n_i *  n10
-      w10  = n10 * (ml_elliptic%ns_1 + ml_elliptic%ns_2)
-      if (ml_elliptic%smooth_method > 2) then
-        w10 = 2 * w10
-      end if
+      rate  = log10(r0_2 / rn_2) / n_i
+      n10   = ceiling(10 / rate)
+      t10   = t_solve / n_i * n10
+      tau10 = t10 * 1E6 * n_proc / np_leaf
 
-      write(*,'(X,A7,X,2(7X,A3),6X,A5)') '-lg ρ','n10', 'w10', 'τ10'
-      write(*,'(G11.3,I7,I10,3X,ES10.3)') rate, n10, w10, t10
+      ! equivalent number of V-cycles
+      associate( ns_1 => ml_elliptic % ns_1 &
+               , ns_2 => ml_elliptic % ns_2 &
+               , ns_c => ml_elliptic % ns_c )
+
+        ! Krylov acceleration cost
+        if (solution_method == 12) then
+          ck = 1
+        else
+          ck = 0
+        end if
+
+        ! smoother cost
+        if (ml_elliptic%smooth_method >= 3) then
+          cs = 2
+        else
+          cs = 1
+        end if
+
+        ! refinement rate
+        q = 8
+
+        ! cost ratio
+        if (po(l_top) > po(1)) then
+          ! assume p-refinement
+          a = 1 / (2*q)
+        else
+          ! assume h-refinement
+          a = 1 / q
+        end if
+        a = (1 - a) / (1 - a**l_top)
+
+        v10 = ( ((ns_1 + ns_2) * cs + 1) * n10          &
+              - (ns_1 + ns_2 - ns_c) * cs * a * (n10-1) &
+              + ck * a * n10                            &
+              ) / 3
+
+      end associate
+
+      write(*,'(X,A7,X,2(7X,A3),6X,A5,7X,A8)') &
+          '-lg ρ', 'n10', 'v10', 't10/s', 'τ10/μs'
+      write(*,'(G11.3,I7,F10.1,3X,ES10.3,3X,ES9.2)') rate, n10, v10, t10, tau10
 
       write(*,'(/,A,/)') 'errors and residuals over active elements per level'
 
