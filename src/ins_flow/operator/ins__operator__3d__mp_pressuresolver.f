@@ -35,9 +35,9 @@ contains
 
     ! internal variables .......................................................
 
-    real(RNP), allocatable, save :: mm(:,:,:,:) ! pressure mass matrix
-    real(RNP), allocatable, save :: g (:,:,:,:) ! source at p-points
-    real(RNP), allocatable, save :: q (:,:,:,:) ! pressure at p-points
+    real(RNP), allocatable, save :: w(:,:,:,:) ! workspace at v-points
+    real(RNP), allocatable, save :: g(:,:,:,:) ! source at p-points
+    real(RNP), allocatable, save :: q(:,:,:,:) ! pressure at p-points
 
     type(BoundaryVariable_3D), allocatable, save :: bv_p(:), bv_q(:)
     ! pressure boundary conditions at v- and p-points
@@ -69,14 +69,14 @@ contains
       end if
 
       !$omp master
-      allocate(mm(0:pq, 0:pq, 0:pq, 1:ne))
-      allocate(g, mold = mm)
+      allocate(w, mold = f)
+      allocate(g(0:pq, 0:pq, 0:pq, 1:ne))
       allocate(bv_p(mesh % n_bound))
       do b = 1, mesh % n_bound
         call bv_p(b) % Init(mesh%boundary(b), po, nc = 1)
       end do
       if (pq /= po) then
-        allocate(q, mold = mm)
+        allocate(q, mold = g)
         allocate(bv_q(mesh % n_bound))
         do b = 1, mesh % n_bound
           call bv_q(b) % Init(mesh%boundary(b), pq, nc = 1)
@@ -85,23 +85,28 @@ contains
       !$omp end master
       !$omp barrier
 
-      call sem_p % Get_DG_DiagonalMassMatrix(mm)
-
       ! build boundary values ..................................................
 
       call BuildPressureBV(this, ct, v, bv_u, bv_p, bv_q)
+
+      ! scale and project sources in velocity space ............................
+
+      call this % sem_u % Get_DG_DiagonalMassMatrix(w)
+
+      !$omp do
+      do e = 1, ne
+        w(:,:,:,e) = -ct * w(:,:,:,e) * f(:,:,:,e)
+      end do
 
       ! solve ..................................................................
 
       if (mixed_order) then
 
-        ! transfer current approximation and source to order pq
-        call TPO_AAA(this % iop_up % A, p, q) ! interpolation of pressure
-        call TPO_AAA(this % pop_up % A, f, g) ! L² projection of RHS
-        !$omp do
-        do e = 1, ne
-          g(:,:,:,e) = -ct * mm(:,:,:,e) * g(:,:,:,e)
-        end do
+        ! interpolation of initial pressure
+        call TPO_AAA(this % iop_up % A, p, q)
+
+        ! transfer sources to pressure space: w ≈ -1/τ ∫ 𝜑ᵖ f dx
+        call TPO_AAA(transpose(this % iop_pu % A), w, g)
 
         select case(this % pressure_solver)
         case('AS')
@@ -122,23 +127,19 @@ contains
 
       else
 
-        !$omp do
-        do e = 1, ne
-          g(:,:,:,e) = -ct * mm(:,:,:,e) * f(:,:,:,e)
-        end do
-
+        ! g = w
         select case(this % pressure_solver)
         case('AS')
           call this % elliptic_p % Schwarz_Method &
-                          (bc_p, ZERO, ONE, p, g, bv_p, i_max, r_red, r_max, ni)
+                          (bc_p, ZERO, ONE, p, w, bv_p, i_max, r_red, r_max, ni)
         case('CG')
           call this % elliptic_p % CG_Method &
-                          (bc_p, ZERO, ONE, p, g, bv_p, i_max, r_red, r_max, ni)
+                          (bc_p, ZERO, ONE, p, w, bv_p, i_max, r_red, r_max, ni)
         case('SPCG')
           call this % elliptic_p % SchwarzPCG_Method &
-                          (bc_p, ZERO, ONE, p, g, bv_p, i_max, r_red, r_max, ni)
+                          (bc_p, ZERO, ONE, p, w, bv_p, i_max, r_red, r_max, ni)
         case('MG','MGCG')
-          call ML_PressureSolver(this, p, g, bv_p, i_max, ni)
+          call ML_PressureSolver(this, p, w, bv_p, i_max, ni)
         end select
 
       end if
@@ -146,7 +147,7 @@ contains
       ! finalization ...........................................................
 
       !$omp master
-      deallocate(mm, g, bv_p)
+      deallocate(w, g, bv_p)
       if (mixed_order) then
         deallocate(q, bv_q)
       end if
