@@ -53,13 +53,13 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
   type(C_FunPtr), save :: xmm_grad(3), xmm_div(3)
 
   real(RWP), dimension(size(Ms), size(Ms))                 :: Ds_t
-  real(RWP), dimension(size(Ms), size(Ms), size(Ms))       :: M, gdp
+  real(RWP), dimension(size(Ms), size(Ms), size(Ms))       :: M, div
   real(RWP), dimension(size(Ms), size(Ms), size(Ms), 3)    :: w, z
   real(RWP), dimension(size(Ms), size(Ms), size(Ms), 3, 3) :: tau
 
   real(RWP) :: chi, dv(3)
   integer   :: c, e, f, i, j, k, np, ne
-  logical   :: get_traces
+  logical   :: get_traces, penalty
 
   !-----------------------------------------------------------------------------
   ! initialization
@@ -67,7 +67,14 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
   np = size(Ms)
   ne = size(v,4)
 
-  chi = zeta - TWO_THIRD * eta
+  penalty = zeta > 0
+
+  if (penalty) then
+    chi = zeta
+  else
+    ! laplacian or rotational form
+    chi = zeta - TWO_THIRD * eta
+  end if
 
   get_traces = present(vb) .and. present(sb)
 
@@ -104,7 +111,7 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
 
     ! viscous stress tensor ....................................................
 
-    gdp = 0
+    div = 0
     tau = 0
 
     do c = 1, 3
@@ -116,7 +123,7 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
       end do
       call LIBXSMM_XMMCall(xmm_grad(3), v(:,:,:,e,c), Ds_t, w(:,:,:,3))
 
-      ! tau = η(∇v + ∇vᵀ), gdp = χ∇⋅v
+      ! tau = η(∇v + ∇vᵀ), div = χ∇⋅v
       do k = 1, np
       do j = 1, np
       do i = 1, np
@@ -141,7 +148,7 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
         tau(i,j,k,c,2) = tau(i,j,k,c,2) + eta * dv(2)
         tau(i,j,k,c,3) = tau(i,j,k,c,3) + eta * dv(3)
 
-        gdp(i,j,k) = gdp(i,j,k) + chi * dv(c)
+        div(i,j,k) = div(i,j,k) + chi * dv(c)
 
       end do
       end do
@@ -156,17 +163,17 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
     do j = 1, np
     do i = 1, np
 
-      w(i,j,k,1) = M(i,j,k) * ( Ji(i,j,k,e,1,1) * (tau(i,j,k,1,1) + gdp(i,j,k)) &
+      w(i,j,k,1) = M(i,j,k) * ( Ji(i,j,k,e,1,1) * (tau(i,j,k,1,1) + div(i,j,k)) &
                               + Ji(i,j,k,e,1,2) *  tau(i,j,k,2,1)               &
                               + Ji(i,j,k,e,1,3) *  tau(i,j,k,3,1)               )
 
       w(i,j,k,2) = M(i,j,k) * ( Ji(i,j,k,e,1,1) *  tau(i,j,k,2,1)               &
-                              + Ji(i,j,k,e,1,2) * (tau(i,j,k,2,2) + gdp(i,j,k)) &
+                              + Ji(i,j,k,e,1,2) * (tau(i,j,k,2,2) + div(i,j,k)) &
                               + Ji(i,j,k,e,1,3) *  tau(i,j,k,3,2)               )
 
       w(i,j,k,3) = M(i,j,k) * ( Ji(i,j,k,e,1,1) *  tau(i,j,k,3,1)               &
                               + Ji(i,j,k,e,1,2) *  tau(i,j,k,3,2)               &
-                              + Ji(i,j,k,e,1,3) * (tau(i,j,k,3,3) + gdp(i,j,k)) )
+                              + Ji(i,j,k,e,1,3) * (tau(i,j,k,3,3) + div(i,j,k)) )
     end do
     end do
     end do
@@ -179,17 +186,17 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
     do j = 1, np
     do i = 1, np
 
-      w(i,j,k,1) = M(i,j,k) * ( Ji(i,j,k,e,2,1) * (tau(i,j,k,1,1) + gdp(i,j,k)) &
+      w(i,j,k,1) = M(i,j,k) * ( Ji(i,j,k,e,2,1) * (tau(i,j,k,1,1) + div(i,j,k)) &
                               + Ji(i,j,k,e,2,2) *  tau(i,j,k,2,1)               &
                               + Ji(i,j,k,e,2,3) *  tau(i,j,k,3,1)               )
 
       w(i,j,k,2) = M(i,j,k) * ( Ji(i,j,k,e,2,1) *  tau(i,j,k,2,1)               &
-                              + Ji(i,j,k,e,2,2) * (tau(i,j,k,2,2) + gdp(i,j,k)) &
+                              + Ji(i,j,k,e,2,2) * (tau(i,j,k,2,2) + div(i,j,k)) &
                               + Ji(i,j,k,e,2,3) *  tau(i,j,k,3,2)               )
 
       w(i,j,k,3) = M(i,j,k) * ( Ji(i,j,k,e,2,1) *  tau(i,j,k,3,1)               &
                               + Ji(i,j,k,e,2,2) *  tau(i,j,k,3,2)               &
-                              + Ji(i,j,k,e,2,3) * (tau(i,j,k,3,3) + gdp(i,j,k)) )
+                              + Ji(i,j,k,e,2,3) * (tau(i,j,k,3,3) + div(i,j,k)) )
     end do
     end do
     end do
@@ -206,17 +213,17 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
     do j = 1, np
     do i = 1, np
 
-      w(i,j,k,1) = M(i,j,k) * ( Ji(i,j,k,e,3,1) * (tau(i,j,k,1,1) + gdp(i,j,k)) &
+      w(i,j,k,1) = M(i,j,k) * ( Ji(i,j,k,e,3,1) * (tau(i,j,k,1,1) + div(i,j,k)) &
                               + Ji(i,j,k,e,3,2) *  tau(i,j,k,2,1)               &
                               + Ji(i,j,k,e,3,3) *  tau(i,j,k,3,1)               )
 
       w(i,j,k,2) = M(i,j,k) * ( Ji(i,j,k,e,3,1) *  tau(i,j,k,2,1)               &
-                              + Ji(i,j,k,e,3,2) * (tau(i,j,k,2,2) + gdp(i,j,k)) &
+                              + Ji(i,j,k,e,3,2) * (tau(i,j,k,2,2) + div(i,j,k)) &
                               + Ji(i,j,k,e,3,3) *  tau(i,j,k,3,2)               )
 
       w(i,j,k,3) = M(i,j,k) * ( Ji(i,j,k,e,3,1) *  tau(i,j,k,3,1)               &
                               + Ji(i,j,k,e,3,2) *  tau(i,j,k,3,2)               &
-                              + Ji(i,j,k,e,3,3) * (tau(i,j,k,3,3) + gdp(i,j,k)) )
+                              + Ji(i,j,k,e,3,3) * (tau(i,j,k,3,3) + div(i,j,k)) )
     end do
     end do
     end do
@@ -238,9 +245,15 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
     end do
 
     ! boundary values ..........................................................
-    ! no penalty contribution here
 
     if (get_traces) then
+
+      if (.not. penalty) then
+        ! add divergence contribution
+        do c = 1, 3
+          tau(:,:,:,c,c) = tau(:,:,:,c,c) + div
+        end do
+      end if
 
       ! vb = v,  sb = n⋅τ  @ Γ₁ ∪ Γ₂, exploiting symmetry of τ
 
