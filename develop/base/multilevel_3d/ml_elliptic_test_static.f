@@ -68,10 +68,11 @@ program ML_Elliptic_Test_Static
   ! 12:  CS-MGCG
   ! 21:  FAS-MG
 
-  logical :: check_hdf5 = .false.  ! write and re-read ML mesh before solving
-  logical :: export_vtk = .false.  ! switch for VTK export
+  logical :: check_hdf5 = .false. ! write and re-read ML mesh before solving
+  logical :: export_vtk = .false. ! switch for VTK export
+  integer :: vtk_mode   =  3      ! 1/2/3: all/active/leaf elements
 
-  namelist/control_prm/ solution_method, check_hdf5, export_vtk
+  namelist/control_prm/ solution_method, check_hdf5, export_vtk, vtk_mode
 
   namelist/control_prm/ log_level
   namelist/control_prm/ log_level_inner_iteration
@@ -230,6 +231,7 @@ program ML_Elliptic_Test_Static
   call XMPI_Bcast(case_name       , 0, comm)
   call XMPI_Bcast(check_hdf5      , 0, comm)
   call XMPI_Bcast(export_vtk      , 0, comm)
+  call XMPI_Bcast(vtk_mode        , 0, comm)
   call XMPI_Bcast(solution_method , 0, comm)
   call XMPI_Bcast(test_domain     , 0, comm)
   call XMPI_Bcast(gmsh_file       , 0, comm)
@@ -618,25 +620,22 @@ program ML_Elliptic_Test_Static
   ! VTK export
 
   if (export_vtk) then
-
-    ! mesh and variables
-    call var % ExportVTK(ml_op, trim(case_name)//'_full', mode=1)
-    call var % ExportVTK(ml_op, trim(case_name)//'_leaf', mode=3)
-
-    ! space filling curve
-    associate(mesh => ml_mesh%mesh)
-      block
-        character(len=9) :: tag
-        integer :: l
-        do l = 1, size(mesh)
-          if (mesh(l) % has_sfc) then
-            write(tag,'(A,I0,A)') '_sfc_l', l
-            call ExportVTK_MeshSFC(mesh(l), file = trim(case_name)//trim(tag))
-          end if
-        end do
-      end block
-    end associate
-
+    vtk_mode = max(1, min(3, vtk_mode))
+    call var % ExportVTK(ml_op, trim(case_name), vtk_mode)
+    if (vtk_mode < 3) then
+      associate(mesh => ml_mesh%mesh)
+        block
+          character(len=9) :: tag
+          integer :: l
+          do l = 1, size(mesh)
+            if (mesh(l) % has_sfc) then
+              write(tag,'(A,I0,A)') '_sfc_l', l
+              call ExportVTK_MeshSFC(mesh(l), file = trim(case_name)//trim(tag))
+            end if
+          end do
+        end block
+      end associate
+    end if
   end if
 
   !-----------------------------------------------------------------------------
