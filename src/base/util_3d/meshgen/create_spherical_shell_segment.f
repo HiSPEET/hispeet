@@ -13,7 +13,7 @@
 !>
 !>       r₀ - Δr/2  ≤  r  ≤  r₀ + δr/2
 !>       φ₀ - Δφ/2  ≤  φ  ≤  φ₀ + δφ/2
-!>       φ₀ - Δθ/2  ≤  θ  ≤  θ₀ + δθ/2
+!>       θ₀ - Δθ/2  ≤  θ  ≤  θ₀ + δθ/2
 !>
 !> The following conditions must be satisfied:
 !>
