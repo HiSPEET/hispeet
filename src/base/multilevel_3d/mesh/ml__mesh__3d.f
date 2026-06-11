@@ -402,6 +402,8 @@ contains
     integer :: n_parts_root   = -1      ! number of partitions at root level
     integer :: n_parts_growth = -1      ! partition number growth rate
     integer :: partitioner    =  1      ! partitioning method, 1/2: SFC/graph
+    integer :: c_active       = -1      ! cost of active child elements [preset]
+    integer :: c_frozen       = -1      ! cost of frozen child elements [preset]
     logical :: split          = .false. ! use parent subdivision for child mesh
     integer :: n_con_root     =  1      ! num constraints for root     ≤ 3
     integer :: n_con_child    =  1      ! num constraints for children ≤ 2
@@ -410,7 +412,7 @@ contains
     namelist/ml_mesh_options_3d__static/ l_top, l_max, l_adapt
     namelist/ml_mesh_options_3d__static/ n_bnd, n_box
     namelist/ml_mesh_options_3d__static/ n_parts_root, n_parts_growth
-    namelist/ml_mesh_options_3d__static/ partitioner, split
+    namelist/ml_mesh_options_3d__static/ partitioner, c_active, c_frozen, split
     namelist/ml_mesh_options_3d__static/ n_con_root, n_con_child, n_con_sub
 
     ! dynamic input variables ..................................................
@@ -461,6 +463,13 @@ contains
     associate(partition => this % partition)
 
       partition % method = partitioner
+
+      if (c_active >= 0) then
+        partition % c_active = c_active
+      end if
+      if (c_frozen >= 0) then
+        partition % c_frozen = c_frozen
+      end if
 
       partition(1 ) % child = .false.
       partition(2:) % child = .true.
