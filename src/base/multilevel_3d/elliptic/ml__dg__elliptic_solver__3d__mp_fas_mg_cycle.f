@@ -133,6 +133,7 @@ contains
         !$omp master
         if (present(ni)) ni = 0
         if (present(r_2)) r_2 = r_old
+        deallocate(g, r, v)
         !$omp end master
         return
       end if
@@ -317,11 +318,6 @@ contains
             else
               n = this % ns_f
             end if
-!### CHECK
-if (logging) then
-  print '(2A)', prefix, 'before post-smoothing'
-end if
-!### CHECK END
 
             if (present(nu_0)) then
               call this % Monitoring(l, 'c', bc, lambda, nu_0, g_l, bv_l, u_l)
@@ -334,11 +330,6 @@ end if
                 call this % Monitoring(l, '2', bc, lambda, nu_l, g_l, bv_l, u_l)
               end associate
             end if
-!### CHECK
-if (logging) then
-  print '(2A)', prefix, 'after post-smoothing'
-end if
-!### CHECK END
 
           end associate
         end do V_UP
