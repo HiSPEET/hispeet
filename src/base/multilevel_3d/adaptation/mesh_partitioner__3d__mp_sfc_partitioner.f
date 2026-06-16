@@ -28,11 +28,12 @@ contains
     integer, save :: nn, nn_loc
 
     character(len=:), allocatable :: prefix
-    logical :: logging
-    integer :: c_active, c_frozen
-    integer :: rk_min, rk_max, sfc_rank_0
-    integer :: wgt_0, wgt_avg, wgt_sum
-    integer :: e, k, m, p
+    logical   :: logging
+    integer   :: c_active, c_frozen
+    integer   :: rk_min, rk_max, sfc_rank_0
+    integer   :: wgt_0, wgt_sum
+    real(RNP) :: wgt_avg
+    integer   :: e, k, m, p
 
     logging = mesh%proc == 0 .and. log_level > 0 .or. &
               mesh%proc  > 0 .and. log_level > 1
@@ -165,9 +166,9 @@ contains
 
       ! distribution of accumulated weights
       allocate(wgt_dist(0:n_parts-1))
-      wgt_avg = nint( wgt_sum / real(n_parts,RNP))
+      wgt_avg = wgt_sum / real(n_parts,RNP)
       do p = 0, n_parts-2
-        wgt_dist(p) = wgt_avg * (p+1)
+        wgt_dist(p) = floor(wgt_avg * (p+1))
       end do
       wgt_dist(n_parts-1) = wgt_sum
 
