@@ -787,7 +787,7 @@ contains
 
           ! unmark elements close to front center
           else if (AtCenter(element, x_c)) then
-            call mesh(l) % element(i) % Unmark()
+            call element % Unmark()
 
           ! refine elements cut by the front or above refinement threshold
           else if (OnFront(element, x_c, r_f) .or. qi_e > qi_refine) then
@@ -880,7 +880,7 @@ contains
     ! element dimensions
     call element % GetCuboidDimensions(dx_e)
 
-    OnFront = any(abs(r_f - r_e) < tol * maxval(dx_e))
+    OnFront = any(r_f > 0 .and. abs(r_f - r_e) < tol * maxval(dx_e))
 
   end function OnFront
 
