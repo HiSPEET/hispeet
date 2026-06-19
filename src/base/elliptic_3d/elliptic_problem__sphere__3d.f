@@ -25,9 +25,9 @@ module Elliptic_Problem__Sphere__3D
 
   type, extends(EllipticProblem_3D) :: EllipticProblem_Sphere_3D
 
-    real(RNP) :: x_c(3) = -0.05 !< sphere center
-    real(RNP) :: r_0    =  0.7  !< sphere radius
-    real(RNP) :: alpha  =  200  !< radial scaling factor
+    real(RNP) :: alpha  !< scaling factor
+    real(RNP) :: x_c(3) !< front center
+    real(RNP), allocatable :: r_f(:) !< front radii
 
   contains
 
@@ -54,17 +54,17 @@ contains
   !=============================================================================
   ! Create new object of type EllipticProblem_Sphere_3D
 
-  function New_Problem(lambda, x_c, r_0, alpha) result(this)
+  function New_Problem(lambda, alpha, x_c, r_f) result(this)
     type(EllipticProblem_Sphere_3D) :: this
     real(RNP), optional :: lambda !< Helmholtz parameter
-    real(RNP), optional :: x_c(3) !< sphere center
-    real(RNP), optional :: r_0    !< sphere radius
-    real(RNP), optional :: alpha  !< radial scaling factor
+    real(RNP), optional :: alpha  !< scaling factor
+    real(RNP), optional :: x_c(3) !< front center
+    real(RNP), optional :: r_f(:) !< front radii
 
     if (present(lambda))  this % lambda = lambda
-    if (present(x_c   ))  this % x_c    = x_c
-    if (present(r_0   ))  this % r_0    = r_0
     if (present(alpha ))  this % alpha  = alpha
+    if (present(x_c   ))  this % x_c    = x_c
+    if (present(r_f   ))  this % r_f    = r_f
 
   end function New_Problem
 
@@ -82,7 +82,7 @@ contains
     integer :: n
 
     n = size(x(:,:,:,:,1))
-    call GetExactSolution_X(this%x_c, this%r_0, this%alpha, n, x, u)
+    call GetExactSolution_X(this%alpha, this%x_c, this%r_f, n, x, u)
 
   end subroutine GetExactSolution
 
@@ -90,16 +90,19 @@ contains
   !-----------------------------------------------------------------------------
   !> Exact solution -- explicit
 
-  subroutine GetExactSolution_X(x_c, r_0, alpha, n, x, u)
-    real(RNP), intent(in)  :: x_c(3) !< sphere center
-    real(RNP), intent(in)  :: r_0    !< sphere radius
-    real(RNP), intent(in)  :: alpha  !< radial scaling factor
+  subroutine GetExactSolution_X(alpha, x_c, r_f, n, x, u)
+    real(RNP), intent(in)  :: alpha  !< scaling factor
+    real(RNP), intent(in)  :: x_c(3) !< front center
+    real(RNP), intent(in)  :: r_f(:) !< front radii
     integer,   intent(in)  :: n      !< number of points
     real(RNP), intent(in)  :: x(n,3) !< mesh points
     real(RNP), intent(out) :: u(n)   !< solution, u(x)
 
     real(RNP) :: r
-    integer   :: i
+    integer   :: i, j, m
+
+    m = size(r_f)
+    u = 0
 
     do i = 1, n
 
@@ -107,7 +110,9 @@ contains
               + (x(i,2) - x_c(2))**2 &
               + (x(i,3) - x_c(3))**2 )
 
-      u(i) = atan( alpha * (r - r_0) )
+      do j = 1, m
+        u(i) = u(i) + atan( alpha * (r - r_f(j)) )
+      end do
 
     end do
 
@@ -127,23 +132,26 @@ contains
     integer :: n
 
     n = size(x(:,:,:,:,1))
-    call GetExactGradient_X(this%x_c, this%r_0, this%alpha, n, x, grad_u)
+    call GetExactGradient_X(this%alpha, this%x_c, this%r_f, n, x, grad_u)
 
   end subroutine GetExactGradient
 
   !-----------------------------------------------------------------------------
   !> Exact gradient -- explicit
 
-  subroutine GetExactGradient_X(x_c, r_0, alpha, n, x, grad_u)
-    real(RNP), intent(in)  :: x_c(3)      !< sphere center
-    real(RNP), intent(in)  :: r_0         !< sphere radius
-    real(RNP), intent(in)  :: alpha       !< radial scaling factor
+  subroutine GetExactGradient_X(alpha, x_c, r_f, n, x, grad_u)
+    real(RNP), intent(in)  :: alpha       !< scaling factor
+    real(RNP), intent(in)  :: x_c(3)      !< front center
+    real(RNP), intent(in)  :: r_f(:)      !< front radii
     integer,   intent(in)  :: n           !< number of points
     real(RNP), intent(in)  :: x(n,3)      !< mesh points
     real(RNP), intent(out) :: grad_u(n,3) !< gradient, grad u(x)
 
     real(RNP) :: d, r, u, u_r
-    integer   :: i
+    integer   :: i, j, m
+
+    m = size(r_f)
+    grad_u = 0
 
     do i = 1, n
 
@@ -151,13 +159,15 @@ contains
               + (x(i,2) - x_c(2))**2 &
               + (x(i,3) - x_c(3))**2 )
 
-      d   = r - r_0
-      u   = atan( alpha * d )              ! solution
-      u_r = alpha / ((alpha * d)**2 + 1)   ! 1st radial derivative
+      do j = 1, m
+        d   = r - r_f(j)
+        u   = atan( alpha * d )              ! solution
+        u_r = alpha / ((alpha * d)**2 + 1)   ! 1st radial derivative
 
-      grad_u(i,1) = u_r * (x(i,1) - x_c(1)) / max(r, eps)
-      grad_u(i,2) = u_r * (x(i,2) - x_c(2)) / max(r, eps)
-      grad_u(i,3) = u_r * (x(i,3) - x_c(3)) / max(r, eps)
+        grad_u(i,1) = grad_u(i,1) + u_r * (x(i,1) - x_c(1)) / max(r, eps)
+        grad_u(i,2) = grad_u(i,2) + u_r * (x(i,2) - x_c(2)) / max(r, eps)
+        grad_u(i,3) = grad_u(i,3) + u_r * (x(i,3) - x_c(3)) / max(r, eps)
+      end do
 
     end do
 
@@ -177,23 +187,26 @@ contains
     integer :: n
 
     n = size(x(:,:,:,:,1))
-    call GetExactLaplacian_X(this%x_c, this%r_0, this%alpha, n, x, laplace_u)
+    call GetExactLaplacian_X(this%alpha, this%x_c, this%r_f, n, x, laplace_u)
 
   end subroutine GetExactLaplacian
 
   !-----------------------------------------------------------------------------
   !> Exact laplacian -- explicit
 
-  subroutine GetExactLaplacian_X(x_c, r_0, alpha, n, x, laplace_u)
-    real(RNP), intent(in)  :: x_c(3)       !< sphere center
-    real(RNP), intent(in)  :: r_0          !< sphere radius
-    real(RNP), intent(in)  :: alpha        !< radial scaling factor
+  subroutine GetExactLaplacian_X(alpha, x_c, r_f, n, x, laplace_u)
+    real(RNP), intent(in)  :: alpha        !< scaling factor
+    real(RNP), intent(in)  :: x_c(3)       !< front center
+    real(RNP), intent(in)  :: r_f(:)       !< front radii
     integer,   intent(in)  :: n            !< number of points
     real(RNP), intent(in)  :: x(n,3)       !< mesh points
     real(RNP), intent(out) :: laplace_u(n) !< laplacian, laplace u(x)
 
     real(RNP) :: d, r, u_r, u_rr
-    integer   :: i
+    integer   :: i, j, m
+
+    m = size(r_f)
+    laplace_u = 0
 
     do i = 1, n
 
@@ -201,11 +214,13 @@ contains
               + (x(i,2) - x_c(2))**2 &
               + (x(i,3) - x_c(3))**2 )
 
-      d    = r - r_0
-      u_r  = alpha / ((alpha * d)**2 + 1) ! 1st radial derivative
-      u_rr = -2 * alpha * d * u_r**2      ! 2nd radial derivative
+      do j = 1, m
+        d    = r - r_f(j)
+        u_r  = alpha / ((alpha * d)**2 + 1) ! 1st radial derivative
+        u_rr = -2 * alpha * d * u_r**2      ! 2nd radial derivative
 
-      laplace_u(i) = u_rr + 2 * u_r / max(r, eps)
+        laplace_u(i) = u_rr + 2 * u_r / max(r, eps)
+      end do
 
     end do
 

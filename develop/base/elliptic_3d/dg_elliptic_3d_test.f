@@ -93,11 +93,11 @@ program DG_Elliptic_3D_Test
   namelist/problem_prm/ lambda, nu_0, nu_1, d_nu, k_nu, k_u
 
   ! sphere
-  real(RNP) :: x_c(3) = -0.05 ! sphere center
-  real(RNP) :: r_0    =  0.7  ! sphere radius
   real(RNP) :: alpha  =  200  ! radial scaling factor
+  real(RNP) :: x_c(3) = -0.05 ! front center
+  real(RNP) :: r_f(1) =  0.7  ! front radius
 
-  namelist/problem_prm/ x_c, r_0, alpha
+  namelist/problem_prm/ alpha, x_c, r_f
 
   ! boundary conditions {'D','N','P'} ['D']
   character, allocatable :: bc(:) ! boundary conditions {'D','N','P'} ['D']
@@ -290,9 +290,9 @@ program DG_Elliptic_3D_Test
   call XMPI_Bcast( d_nu        , 0, comm )
   call XMPI_Bcast( k_nu        , 0, comm )
   call XMPI_Bcast( k_u         , 0, comm )
-  call XMPI_Bcast( x_c         , 0, comm )
-  call XMPI_Bcast( r_0         , 0, comm )
   call XMPI_Bcast( alpha       , 0, comm )
+  call XMPI_Bcast( x_c         , 0, comm )
+  call XMPI_Bcast( r_f         , 0, comm )
   call XMPI_Bcast( bc          , 0, comm )
 
   has_variable_nu = nu_1 > 0
@@ -310,7 +310,7 @@ program DG_Elliptic_3D_Test
     problem = EllipticProblem_TGV_Pressure_3D(lambda, nu_0, nu_1, d_nu, k_nu)
   case(6)
     problem_name = 'Sphere'
-    problem = EllipticProblem_Sphere_3D(lambda, x_c, r_0, alpha)
+    problem = EllipticProblem_Sphere_3D(lambda, alpha, x_c, r_f)
   end select
 
   ! enforce periodicity at coupled boundaries

@@ -29,6 +29,7 @@ program ML_Elliptic_Test_Adaptive
   use Import_GMSH__3D
   use Generic_Mesh__3D
   use Mesh__3D
+  use Mesh_Element__3D
   use Verify_Mesh__3D
   use Data_Exchange__3D
   use Export_VTK_Mesh_SFC__3D
@@ -62,9 +63,11 @@ program ML_Elliptic_Test_Adaptive
   character(len=80) :: case_name ! case name
   character(len=80) :: case_file ! case input file: trim(case_name).prm
 
-  logical :: export_vtk = .false.  ! switch for VTK export
+  logical :: use_solver = .true.  ! apply MG solver, else inject exact solution
+  logical :: export_vtk = .false. ! switch for VTK export
+  integer :: vtk_mode   =  3      ! 1/2/3: all/active/leaf elements
 
-  namelist/control_prm/ export_vtk
+  namelist/control_prm/ use_solver, export_vtk, vtk_mode
 
   namelist/control_prm/ log_level
   namelist/control_prm/ log_level_inner_iteration
@@ -97,12 +100,13 @@ program ML_Elliptic_Test_Adaptive
 
   namelist/problem_prm/ test_problem, start_values
 
-  real(RNP) :: lambda =  0    ! Helmholtz parameter
-  real(RNP) :: x_c(3) = -0.05 ! sphere center
-  real(RNP) :: r_0    =  0.7  ! sphere radius
-  real(RNP) :: alpha  =  200  ! radial scaling factor
+  real(RNP) :: lambda =  0         ! Helmholtz parameter
+  real(RNP) :: alpha  =  200       ! radial scaling factor
+  real(RNP) :: x_c(3) = -0.05      ! front center
+  real(RNP) :: r_f(2) = [0.7, 0.0] ! front radii
+  integer   :: n_f
 
-  namelist/problem_prm/ lambda, x_c, r_0, alpha
+  namelist/problem_prm/ lambda, alpha, x_c, r_f
 
   ! boundary conditions: Dirichlet, if not periodic
   character, allocatable :: bc(:)
@@ -216,7 +220,9 @@ program ML_Elliptic_Test_Adaptive
 
   ! globalize remaining parameters
   call XMPI_Bcast(case_name   , 0, comm)
+  call XMPI_Bcast(use_solver  , 0, comm)
   call XMPI_Bcast(export_vtk  , 0, comm)
+  call XMPI_Bcast(vtk_mode    , 0, comm)
   call XMPI_Bcast(test_domain , 0, comm)
   call XMPI_Bcast(gmsh_file   , 0, comm)
 
@@ -301,18 +307,19 @@ program ML_Elliptic_Test_Adaptive
   end if
 
   ! globalize problem parameters
-  call XMPI_Bcast( test_problem   , 0, comm )
-  call XMPI_Bcast( start_values   , 0, comm )
-  call XMPI_Bcast( lambda         , 0, comm )
-  call XMPI_Bcast( x_c            , 0, comm )
-  call XMPI_Bcast( r_0            , 0, comm )
-  call XMPI_Bcast( alpha          , 0, comm )
-  call XMPI_Bcast( bc             , 0, comm )
+  call XMPI_Bcast( test_problem, 0, comm )
+  call XMPI_Bcast( start_values, 0, comm )
+  call XMPI_Bcast( lambda      , 0, comm )
+  call XMPI_Bcast( alpha       , 0, comm )
+  call XMPI_Bcast( x_c         , 0, comm )
+  call XMPI_Bcast( r_f         , 0, comm )
+  call XMPI_Bcast( bc          , 0, comm )
+  n_f = count(r_f > 0)
 
   select case(test_problem)
   case default
     problem_name = 'Sphere'
-    problem = EllipticProblem_Sphere_3D(lambda, x_c, r_0, alpha)
+    problem = EllipticProblem_Sphere_3D(lambda, alpha, x_c, r_f(1:n_f))
   end select
 
   ! enforce periodicity at coupled boundaries
@@ -540,7 +547,15 @@ program ML_Elliptic_Test_Adaptive
       t_start = MPI_Wtime()
     end if
 
-    call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, bv, f, u)
+    if (use_solver) then
+      call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, bv, f, u)
+    else
+      ! inject exact solution
+      do l = 1, l_top
+        call problem % GetExactSolution( x = ml_op % sem(l) % metrics % x  &
+                                       , u = u % level(l) % val(:,:,:,:,1) )
+      end do
+    end if
 
     if (rank == 0) then
       t_solve(m) = MPI_Wtime() - t_start
@@ -581,25 +596,25 @@ program ML_Elliptic_Test_Adaptive
     call SetArray(var%level(l)%val(:,:,:,:,4), r%level(l)%val(:,:,:,:,1))
   end do
 
+  !-----------------------------------------------------------------------------
+  ! VTK export
+
   if (export_vtk) then
-
-    ! mesh and variables
-    call var % ExportVTK(ml_op, trim(case_name)//'_full', mode=1)
-    call var % ExportVTK(ml_op, trim(case_name)//'_leaf', mode=3)
-
-    ! space filling curve
-    associate(mesh => ml_mesh%mesh)
-      block
-        character(len=9) :: tag
-        do l = 1, size(mesh)
-          if (mesh(l) % has_sfc) then
-            write(tag,'(A,I0,A)') '_sfc_l', l
-            call ExportVTK_MeshSFC(mesh(l), file = trim(case_name)//trim(tag))
-          end if
-        end do
-      end block
-    end associate
-
+    vtk_mode = max(1, min(3, vtk_mode))
+    call var % ExportVTK(ml_op, trim(case_name), vtk_mode)
+    if (vtk_mode < 3) then
+      associate(mesh => ml_mesh%mesh)
+        block
+          character(len=9) :: tag
+          do l = 1, size(mesh)
+            if (mesh(l) % has_sfc) then
+              write(tag,'(A,I0,A)') '_sfc_l', l
+              call ExportVTK_MeshSFC(mesh(l), file = trim(case_name)//trim(tag))
+            end if
+          end do
+        end block
+      end associate
+    end if
   end if
 
   !-----------------------------------------------------------------------------
@@ -722,6 +737,8 @@ contains
 
     real(RNP) :: max_e = 0, max_e_loc = 0
     real(RNP) :: qi_refine, qi_remove
+    logical   :: refine_element
+    logical   :: remove_element
 
     associate(mesh => ml_mesh%mesh)
 
@@ -760,35 +777,51 @@ contains
 
       ! l < l_max: mark elements for removal or refinement
       do l = l_adapt-1, min(l_top,l_max-1)
-        associate(qi_l => qi % level(l) % val(0,0,0,:,1))
-          do i = 1, mesh(l) % n_elem
-            if (.not. mesh(l) % element(i) % IsLeaf()) then
-              call mesh(l) % element(i) % MarkForRemoval()
-            else if (qi_l(i) > qi_refine) then
-              call mesh(l) % element(i) % MarkForRefinement()
-              n_refine_loc(l) = n_refine_loc(l) + 1
-            else if (qi_l(i) < adapt_remove) then
-              call mesh(l) % element(i) % MarkForRemoval()
-              n_remove_loc(l) =  n_remove_loc(l) + 1
-            else
-              call mesh(l) % element(i) % Unmark()
-            end if
-          end do
+      do i = 1, mesh(l) % n_elem
+        associate( element => mesh(l) % element(i)        &
+                 , qi_e => qi % level(l) % val(0,0,0,i,1) )
+
+          ! elements that are not leaves are marked for removal
+          if (.not. element % IsLeaf()) then
+            call element % MarkForRemoval()
+
+          ! unmark elements close to front center
+          else if (AtCenter(element, x_c)) then
+            call mesh(l) % element(i) % Unmark()
+
+          ! refine elements cut by the front or above refinement threshold
+          else if (OnFront(element, x_c, r_f) .or. qi_e > qi_refine) then
+            call element % MarkForRefinement()
+            n_refine_loc(l) = n_refine_loc(l) + 1
+
+          ! remove elements below removal threshold
+          else if (qi_e < adapt_remove) then
+            call element % MarkForRemoval()
+            n_remove_loc(l) = n_remove_loc(l) + 1
+
+          else
+            call element % Unmark()
+          end if
+
         end associate
+      end do
       end do
 
       ! l = l_max: mark elements for removal
       if (l_top == l_max) then
-        associate(qi_l => qi % level(l_top) % val(0,0,0,:,1))
-          do i = 1, mesh(l_top) % n_elem
-            if (qi_l(i) < adapt_remove) then
-              call mesh(l_top) % element(i) % MarkForRemoval()
-              n_remove_loc(l_top) =  n_remove_loc(l_top) + 1
+        do i = 1, mesh(l_top) % n_elem
+          associate( element => mesh(l_top) % element(i)        &
+                   , qi_e => qi % level(l_top) % val(0,0,0,i,1) )
+
+            if (qi_e < adapt_remove) then
+              call element % MarkForRemoval()
+              n_remove_loc(l_top) = n_remove_loc(l_top) + 1
             else
-              call mesh(l_top) % element(i) % Unmark()
+              call element % Unmark()
             end if
-          end do
-        end associate
+
+          end associate
+        end do
       end if
 
       ! number of leaf elements marked for refinement
@@ -808,6 +841,48 @@ contains
     end associate
 
   end subroutine SetAdaptationMarks
+
+  !-----------------------------------------------------------------------------
+  !> Check if element is located close to front center
+
+  pure logical function AtCenter(element, x_c)
+    class(MeshElement_3D), intent(in) :: element
+    real(RNP), intent(in) :: x_c(3) !< front center
+
+    real(RNP), parameter :: tol = 0.6
+    real(RNP) :: dx_c(3), dx_e(3)
+
+    ! displacement between front center and element center
+    dx_c = abs(element % geometry % x_c(0,1:3) - x_c)
+
+    ! element dimensions
+    call element % GetCuboidDimensions(dx_e)
+
+    AtCenter = any(dx_c < tol * dx_e)
+
+  end function AtCenter
+
+  !-----------------------------------------------------------------------------
+  !> Check if element is cut by front
+
+  pure logical function OnFront(element, x_c, r_f)
+    class(MeshElement_3D), intent(in) :: element
+    real(RNP), intent(in) :: x_c(3) !< front center
+    real(RNP), intent(in) :: r_f(:) !< front radii
+
+    real(RNP), parameter :: tol = 0.6
+    real(RNP) :: dx_c(3), dx_e(3), r_e
+
+    ! radius at element center
+    dx_c = element % geometry % x_c(0,1:3) - x_c
+    r_e  = sqrt(sum( dx_c**2 ))
+
+    ! element dimensions
+    call element % GetCuboidDimensions(dx_e)
+
+    OnFront = any(abs(r_f - r_e) < tol * maxval(dx_e))
+
+  end function OnFront
 
   !=============================================================================
 
