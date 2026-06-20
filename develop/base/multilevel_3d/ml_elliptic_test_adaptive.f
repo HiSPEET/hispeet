@@ -850,15 +850,15 @@ contains
     real(RNP), intent(in) :: x_c(3) !< front center
 
     real(RNP), parameter :: tol = 0.6
-    real(RNP) :: dx_c(3), dx_e(3)
+    real(RNP) :: delta, dx_e(3)
 
     ! displacement between front center and element center
-    dx_c = abs(element % geometry % x_c(0,1:3) - x_c)
+    delta = sqrt(sum( (element % geometry % x_c(0,1:3) - x_c)**2 ))
 
     ! element dimensions
     call element % GetCuboidDimensions(dx_e)
 
-    AtCenter = any(dx_c < tol * dx_e)
+    AtCenter = delta < tol * maxval(dx_e)
 
   end function AtCenter
 
@@ -870,7 +870,7 @@ contains
     real(RNP), intent(in) :: x_c(3) !< front center
     real(RNP), intent(in) :: r_f(:) !< front radii
 
-    real(RNP), parameter :: tol = 0.6
+    real(RNP), parameter :: tol = 0.7
     real(RNP) :: dx_c(3), dx_e(3), r_e
 
     ! radius at element center
