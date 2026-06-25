@@ -32,7 +32,20 @@ contains
     integer,  optional, intent(in) :: n_cyc
       !< number of V-cycles before advancing to next level  [0]
 
+    character(len=:), allocatable :: log_prefix
     integer :: l, l_top
+
+    !$omp master
+    associate(mesh => this % ins_op(1) % mesh)
+      if (log_level == 1 .and. mesh%part == 0 .or. log_level > 1) then
+        log_prefix = LoggingPrefix('MG_Stokes_Start', mesh%part, mesh%n_parts)
+      end if
+    end associate
+    !$omp end master
+
+    if (allocated(log_prefix)) then
+      print '(2A)', log_prefix, 'start'
+    end if
 
     l_top = size(u%level)
 
@@ -62,6 +75,10 @@ contains
                , v_c    = u % level(l+1) % val             )
 
     end do
+
+    if (allocated(log_prefix)) then
+      print '(2A)', log_prefix, 'exit'
+    end if
 
   end subroutine MG_Stokes_Start
 

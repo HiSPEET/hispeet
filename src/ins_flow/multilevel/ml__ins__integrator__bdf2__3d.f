@@ -6,6 +6,7 @@
 
 module ML__INS__Integrator__BDF2__3D
   use Kind_Parameters, only: RNP
+  use Logging_Levels
   use XMPI
   use INS__Problem__3D
   use INS__Integrator__BDF2__PrepStep__3D
@@ -106,6 +107,7 @@ contains
 
     class(ML_BoundaryVariable_3D), allocatable, save :: bv ! boundary values
 
+    character(len=:), allocatable :: log_prefix
     real(RNP) :: tau
     integer   :: l
 
@@ -114,6 +116,17 @@ contains
       ! initialization .........................................................
 
       !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+      associate(mesh => ml_ins % ins_op(1)%mesh)
+        if (log_level == 1 .and. mesh%part == 0 .or. log_level > 1 ) then
+          log_prefix = LoggingPrefix( 'TimeStep', mesh%part, mesh%n_parts)
+        end if
+      end associate
+
+      if (allocated(log_prefix)) then
+        print '(2A)', log_prefix, 'start'
+      end if
+
       if (first) then
         if (allocated( f    )) deallocate( f    )
         if (allocated( f_d  )) deallocate( f_d  )
@@ -175,6 +188,10 @@ contains
       !$omp end master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     end associate
+
+    if (allocated(log_prefix)) then
+      print '(2A)', log_prefix, 'exit'
+    end if
 
   end subroutine TimeStep
 

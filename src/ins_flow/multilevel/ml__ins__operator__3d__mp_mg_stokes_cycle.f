@@ -41,6 +41,7 @@ contains
 
     type(ML_MeshVariable_3D), allocatable, save :: mm_inv, r, w, z
 
+    character(len=:), allocatable :: log_prefix
     integer :: l_top_, n_cyc_
     integer :: c, e, l, m
 
@@ -65,6 +66,16 @@ contains
       end if
 
       !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+      associate(mesh => sem(1)%mesh)
+        if (log_level == 1 .and. mesh%part == 0 .or. log_level > 1) then
+          log_prefix = LoggingPrefix('MG_Stokes_Cycle', mesh%part, mesh%n_parts)
+        end if
+      end associate
+
+      if (allocated(log_prefix)) then
+        print '(2A)', log_prefix, 'start'
+      end if
 
       allocate(mm_inv, r, w, z)
       call mm_inv % Init(this%ml_op_u, nc = 1         , l_top = l_top_)
@@ -271,11 +282,15 @@ contains
 
       end do V_OUTER
 
-      !$omp master
+      !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       deallocate(mm_inv, r, w, z)
-      !$omp end master
+      !$omp end master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     end associate
+
+    if (allocated(log_prefix)) then
+      print '(2A)', log_prefix, 'exit'
+    end if
 
   end subroutine MG_Stokes_Cycle
 
