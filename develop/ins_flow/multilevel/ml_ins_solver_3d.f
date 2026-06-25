@@ -181,7 +181,7 @@ program ML_INS_Solver_3D
   logical   :: perform_average
   logical   :: print_flow_char
   integer   :: io, stat
-  integer   :: l_top, n_bound
+  integer   :: l_top, l_max, n_bound
   integer   :: n_comp  ! number of solution components
   integer   :: n_avg   ! number of averaged quantities
   integer   :: n_var   ! number of solution and averaged variables
@@ -341,6 +341,7 @@ program ML_INS_Solver_3D
   end if
 
   l_top   = size(ml_mesh % mesh)
+  l_max   = max(l_top, ml_mesh_opt % l_max)
   n_bound = ml_mesh % mesh(1) % n_bound
 
   ! compatibility check ........................................................
@@ -371,7 +372,7 @@ program ML_INS_Solver_3D
 
   ! spatial ....................................................................
 
-  allocate(po(l_top), source = -1)
+  allocate(po(l_max), source = -1)
 
   ! read
   if (rank == 0) then
