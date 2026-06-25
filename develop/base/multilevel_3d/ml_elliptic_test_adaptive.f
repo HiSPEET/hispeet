@@ -737,8 +737,6 @@ contains
 
     real(RNP) :: max_e = 0, max_e_loc = 0
     real(RNP) :: qi_refine, qi_remove
-    logical   :: refine_element
-    logical   :: remove_element
 
     associate(mesh => ml_mesh%mesh)
 
