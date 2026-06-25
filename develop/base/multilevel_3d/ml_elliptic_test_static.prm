@@ -6,7 +6,7 @@
 
 ! solution_method = 21 ! 11/12/21: CS-MG/CS-MGCG/FAS-MG
 
-! export_vtk = .false.
+! vtk_export = F
 /
 
 &domain_prm

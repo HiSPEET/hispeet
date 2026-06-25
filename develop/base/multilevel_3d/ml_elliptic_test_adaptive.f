@@ -64,10 +64,10 @@ program ML_Elliptic_Test_Adaptive
   character(len=80) :: case_file ! case input file: trim(case_name).prm
 
   logical :: use_solver = .true.  ! apply MG solver, else inject exact solution
-  logical :: export_vtk = .false. ! switch for VTK export
+  logical :: vtk_export = .false. ! switch for VTK export
   integer :: vtk_mode   =  3      ! 1/2/3: all/active/leaf elements
 
-  namelist/control_prm/ use_solver, export_vtk, vtk_mode
+  namelist/control_prm/ use_solver, vtk_export, vtk_mode
 
   namelist/control_prm/ log_level
   namelist/control_prm/ log_level_inner_iteration
@@ -221,7 +221,7 @@ program ML_Elliptic_Test_Adaptive
   ! globalize remaining parameters
   call XMPI_Bcast(case_name   , 0, comm)
   call XMPI_Bcast(use_solver  , 0, comm)
-  call XMPI_Bcast(export_vtk  , 0, comm)
+  call XMPI_Bcast(vtk_export  , 0, comm)
   call XMPI_Bcast(vtk_mode    , 0, comm)
   call XMPI_Bcast(test_domain , 0, comm)
   call XMPI_Bcast(gmsh_file   , 0, comm)
@@ -599,7 +599,7 @@ program ML_Elliptic_Test_Adaptive
   !-----------------------------------------------------------------------------
   ! VTK export
 
-  if (export_vtk) then
+  if (vtk_export) then
     vtk_mode = max(1, min(3, vtk_mode))
     call var % ExportVTK(ml_op, trim(case_name), vtk_mode)
     if (vtk_mode < 3) then

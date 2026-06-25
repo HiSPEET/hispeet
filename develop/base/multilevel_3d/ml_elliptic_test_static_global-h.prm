@@ -9,8 +9,8 @@
 ! log_level_multigrid_cycle = 1
 
   solution_method = 12 ! 11/12/20: CS-MG/CS-MGCG/FAS-MG   [12]
-! check_hdf5 = T
-! export_vtk = T
+! hdf5_check = T
+! vtk_export = T
 /
 
 &domain_prm

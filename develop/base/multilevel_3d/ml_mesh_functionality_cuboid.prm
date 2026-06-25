@@ -1,0 +1,32 @@
+&control
+  log_level  = 0
+  domain     = 1
+  vtk_export = F
+  restart    = F
+/
+
+&ml_mesh_options_3d__static
+  l_top          =  4  ! initial top level
+  l_adapt        =  4  ! first level to be adapted > 1
+  n_bnd          =  2  ! number of boundaries to be adapted
+/
+
+&ml_mesh_options_3d__dynamic
+  n_parts    = 4*8
+  refinement = 2*'c',1*'s'
+  adapt_bnd  = 5, 6
+/
+
+&operators
+  po = 2, 4, 2*8
+/
+
+&cuboid_cartesian_prm
+  lx(1) = 12.56637061435917295376   ! streamwise:   4π  
+  lx(2) = 4.18879020478639098458    ! spanwise:     4π/3
+  lx(3) = 2                         ! wall-normal:  2δ,   δ = 1
+  np = 3*1
+! ep = 3*4  ! orig
+  ep = 3*20
+  periodic = T,T,F
+/

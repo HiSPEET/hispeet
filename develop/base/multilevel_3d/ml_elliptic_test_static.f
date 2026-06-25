@@ -68,11 +68,11 @@ program ML_Elliptic_Test_Static
   ! 12:  CS-MGCG
   ! 21:  FAS-MG
 
-  logical :: check_hdf5 = .false. ! write and re-read ML mesh before solving
-  logical :: export_vtk = .false. ! switch for VTK export
+  logical :: hdf5_check = .false. ! write and re-read ML mesh before solving
+  logical :: vtk_export = .false. ! switch for VTK export
   integer :: vtk_mode   =  3      ! 1/2/3: all/active/leaf elements
 
-  namelist/control_prm/ solution_method, check_hdf5, export_vtk, vtk_mode
+  namelist/control_prm/ solution_method, hdf5_check, vtk_export, vtk_mode
 
   namelist/control_prm/ log_level
   namelist/control_prm/ log_level_inner_iteration
@@ -229,8 +229,8 @@ program ML_Elliptic_Test_Static
 
   ! globalize remaining parameters
   call XMPI_Bcast(case_name       , 0, comm)
-  call XMPI_Bcast(check_hdf5      , 0, comm)
-  call XMPI_Bcast(export_vtk      , 0, comm)
+  call XMPI_Bcast(hdf5_check      , 0, comm)
+  call XMPI_Bcast(vtk_export      , 0, comm)
   call XMPI_Bcast(vtk_mode        , 0, comm)
   call XMPI_Bcast(solution_method , 0, comm)
   call XMPI_Bcast(test_domain     , 0, comm)
@@ -283,7 +283,7 @@ program ML_Elliptic_Test_Static
   ml_mesh = ML_Mesh_3D(base_mesh, ml_mesh_opt)
   l_top   = size(ml_mesh%mesh)
 
-  if (check_hdf5) then
+  if (hdf5_check) then
     call ml_mesh % WriteHDF5(case_name)
     deallocate(ml_mesh % mesh)
     call ml_mesh % ReadHDF5(case_name, comm)
@@ -619,7 +619,7 @@ program ML_Elliptic_Test_Static
   !-----------------------------------------------------------------------------
   ! VTK export
 
-  if (export_vtk) then
+  if (vtk_export) then
     vtk_mode = max(1, min(3, vtk_mode))
     call var % ExportVTK(ml_op, trim(case_name), vtk_mode)
     if (vtk_mode < 3) then

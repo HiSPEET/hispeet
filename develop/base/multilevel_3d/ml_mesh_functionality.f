@@ -9,6 +9,7 @@ program ML_Mesh_Functionality
   use Constants
   use Logging_Levels
   use XMPI
+  use Create_Cuboid_Cartesian
   use Import_GMSH__3D
   use Generic_Mesh__3D
   use Mesh__3D
@@ -24,13 +25,20 @@ program ML_Mesh_Functionality
 
   ! variables ..................................................................
 
-  character(len=100) :: gmsh_file = '../../gmsh/cylinder_2d'
-  character(len=100) :: plot_file = ''
-  character(len=100) :: restart_file = ''
+  integer :: domain = 0 ! 0: import GMSH, 1: create cuboidal
+
+  character(len=*), parameter :: default_case = 'ml_mesh_functionality'
+  character(len=80) :: case_name ! case name
+  character(len=80) :: case_file ! case input file: trim(case_name).prm
+  character(len=80) :: gmsh_file = '../../gmsh/cylinder_2d'
+
+  logical :: restart    = .false. ! check restart functionality
+  logical :: vtk_export = .false. ! switch for VTK export
+  integer :: vtk_mode   =  3      ! 1/2/3: all/active/leaf elements
 
   integer, allocatable :: po(:) ! sequence of polynomial orders
 
-  namelist /control/   log_level, gmsh_file, plot_file, restart_file
+  namelist /control/ log_level, domain, gmsh_file, restart, vtk_export, vtk_mode
   namelist /operators/ po
 
   type(GenericMesh_3D)     , allocatable, save :: generic_mesh
@@ -50,6 +58,7 @@ program ML_Mesh_Functionality
 
   character(:), allocatable :: mesh_file
   character(:), allocatable :: data_file
+  character(:), allocatable :: plot_file
 
   real(RNP) :: v
   logical :: passed, all_passed
@@ -73,13 +82,21 @@ program ML_Mesh_Functionality
 
   ! read parameters
   if (rank == 0) then
+
+    call get_command_argument(1, case_name, status=stat)
+    if (stat /= 0 .or. len_trim(case_name) == 0) then
+      case_name = default_case
+    end if
+    case_file = trim(case_name) // '.prm'
+
     write(*,'(/,A,/)') 'Testing basic multilevel mesh functionality'
-    write(*,'(2X,A)') 'reading input parameters'
-    open(newunit = prm, file = 'ml_mesh_functionality.prm')
+    write(*,'(2X,2A)') 'reading input parameters from ', trim(case_file)
+
+    open(newunit = prm, file = case_file)
     read(prm, nml = control)
     ml_mesh_opt = ML_Mesh_Options_3D(prm, n_proc)
-    allocate(po(ml_mesh_opt%l_top), source = -1)
-    read(prm, nml = operators, iostat = stat)
+    allocate(po(ml_mesh_opt%l_top))
+    read(prm, nml = operators)
     close(prm)
   end if
 
@@ -91,23 +108,30 @@ program ML_Mesh_Functionality
   end if
 
   ! globalize remaining parameters
-  call XMPI_Bcast(gmsh_file    , 0, comm)
-  call XMPI_Bcast(plot_file    , 0, comm)
-  call XMPI_Bcast(restart_file , 0, comm)
-  call XMPI_Bcast(po           , 0, comm)
+  call XMPI_Bcast(domain     , 0, comm)
+  call XMPI_Bcast(gmsh_file  , 0, comm)
+  call XMPI_Bcast(restart    , 0, comm)
+  call XMPI_Bcast(vtk_export , 0, comm)
+  call XMPI_Bcast(vtk_mode   , 0, comm)
+  call XMPI_Bcast(po         , 0, comm)
 
   call XMPI_Bcast_LoggingLevels(0, comm)
 
+
   ! mesh import ................................................................
 
-  if (rank == 0) then
-    call ImportGMSH_3D(gmsh_file, generic_mesh)
-  end if
+  select case(domain)
+  case(0)
+    if (rank == 0) then
+      call ImportGMSH_3D(gmsh_file, generic_mesh)
+    end if
+    call base_mesh % ImportGenericMesh(generic_mesh, comm)
+  case(1)
+    call CreateCuboidCartesian(comm, case_file, base_mesh)
+  end select
 
-  call base_mesh % ImportGenericMesh(generic_mesh, comm)
-
   if (rank == 0) then
-    write(*,'(/,A)') 'verifying imported mesh'
+    write(*,'(/,A)') 'initial mesh'
   end if
 
   call VerifyMesh_3D(base_mesh, passed)
@@ -356,11 +380,10 @@ program ML_Mesh_Functionality
 
   ! VTK export .................................................................
 
-  if (len_trim(plot_file) > 0) then
+  if (vtk_export) then
 
     ! mesh and variables
-    call ml_var % ExportVTK(ml_op, trim(plot_file)//'_full', mode=1)
-    call ml_var % ExportVTK(ml_op, trim(plot_file)//'_leaf', mode=3)
+    call ml_var % ExportVTK(ml_op, trim(plot_file), mode=vtk_mode)
 
     ! space filling curve
     do l = 1, n_level
@@ -375,14 +398,14 @@ program ML_Mesh_Functionality
 
   ! HDF5 write/read ............................................................
 
-  if (len_trim(restart_file) > 0) then
+  if (restart) then
 
     if (rank == 0) then
       write(*,'(/,A)') 'writing and re-reading multilevel mesh and variables'
     end if
 
-    mesh_file = trim(restart_file) // '_mesh'
-    data_file = trim(restart_file) // '_data'
+    mesh_file = trim(case_name) // '_mesh'
+    data_file = trim(case_name) // '_data'
 
     ! write
     call ml_mesh % WriteHDF5(mesh_file)

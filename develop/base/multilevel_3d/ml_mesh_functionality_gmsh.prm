@@ -1,9 +1,9 @@
 &control
-  log_level = 0
-
-! gmsh_file    = '../../gmsh/cylinder_2d'
-! plot_file    = 'ml_mesh_functionality'
-  restart_file = 'ml_mesh_functionality'
+  log_level  = 0
+  domain     = 0
+  gmsh_file  = '../../gmsh/cylinder_2d'
+  vtk_export = F
+  restart    = T
 /
 
 &ml_mesh_options_3d__static

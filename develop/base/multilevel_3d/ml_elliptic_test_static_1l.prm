@@ -7,8 +7,8 @@
 ! log_level_outer_iteration = 0
   log_level_multigrid_cycle = 0
 
-! check_hdf5 = T
-! export_vtk = T
+! hdf5_check = T
+! vtk_export = T
 /
 
 &domain_prm

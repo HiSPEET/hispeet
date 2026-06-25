@@ -7,7 +7,8 @@ add_executable( ml_mesh_functionality
 target_link_libraries(ml_mesh_functionality HiBase)
 
 file( COPY 
-           ml_mesh_functionality.prm
+           ml_mesh_functionality_gmsh.prm
+           ml_mesh_functionality_cuboid.prm
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR}
     )
