@@ -114,8 +114,8 @@ module INS__Operator__3D
     procedure :: GetDiffusionTerm_C
     procedure :: GetDiffusionTerm_V
 
+    procedure :: GetPressureBoundaryValues
     procedure :: GetStokesResidual
-
     procedure :: GetVariableViscosity
 
     procedure :: GetViscousBoundaryStress
@@ -313,6 +313,18 @@ module INS__Operator__3D
       logical,                    optional, intent(in)  :: xout
       integer,                    optional, intent(in)  :: form
     end subroutine GetDiffusionTerm_V
+
+    !---------------------------------------------------------------------------
+    !> Provision of pressure boundary values
+
+    module subroutine GetPressureBoundaryValues(this, tau, v, bv_u, bv_p, bv_q)
+      class(INS_Operator_3D),               intent(in)    :: this
+      real(RNP),                            intent(in)    :: tau
+      real(RNP), contiguous,                intent(in)    :: v(:,:,:,:,:)
+      class(BoundaryVariable_3D),           intent(in)    :: bv_u(:)
+      class(BoundaryVariable_3D),           intent(inout) :: bv_p(:)
+      class(BoundaryVariable_3D), optional, intent(inout) :: bv_q(:)
+    end subroutine GetPressureBoundaryValues
 
     !---------------------------------------------------------------------------
     !> Stokes residual for incompressible flow

@@ -44,7 +44,7 @@ contains
 
     logical   :: mixed_order
     integer   :: i_max
-    real(RNP) :: ct, r_max, r_red
+    real(RNP) :: r_max, r_red
     integer   :: b, e, na, ne
 
     associate( po    => this % eop_u % po     &
@@ -56,7 +56,6 @@ contains
       ! initialization .........................................................
 
       mixed_order = pq /= po
-      ct = 1 / tau
 
       na = mesh % n_elem_active
       ne = mesh % n_elem
@@ -87,7 +86,7 @@ contains
 
       ! build boundary values ..................................................
 
-      call BuildPressureBV(this, ct, v, bv_u, bv_p, bv_q)
+      call this % Get_PressureBoundaryValues(tau, v, bv_u, bv_p, bv_q)
 
       ! scale and project sources in velocity space ............................
 
@@ -95,7 +94,7 @@ contains
 
       !$omp do
       do e = 1, ne
-        w(:,:,:,e) = -ct * w(:,:,:,e) * f(:,:,:,e)
+        w(:,:,:,e) = -1/tau * w(:,:,:,e) * f(:,:,:,e)
       end do
 
       ! solve ..................................................................
@@ -156,156 +155,6 @@ contains
     end associate
 
   end subroutine PressureSolver
-
-  !-----------------------------------------------------------------------------
-  !> Build pressure boundary values
-
-  subroutine BuildPressureBV(ins_op, ct, v, bv_u, bv_p, bv_q)
-    class(INS_Operator_3D), intent(in) :: ins_op
-    !< time integration method
-    real(RNP), intent(in) :: ct
-    !< temporal scaling factor, usually ~ 1/dt
-    real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
-    !< preliminary velocity
-    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
-    !< boundary values of flow variables
-    class(BoundaryVariable_3D), intent(inout) :: bv_p(:)
-    !< pressure boundary conditions on v-points
-    class(BoundaryVariable_3D), optional, intent(inout) :: bv_q(:)
-    !< pressure boundary conditions on v-points
-
-    integer :: b
-
-    do b = 1, ins_op % mesh % n_bound
-
-      select case(ins_op % problem % bc_p(b))
-      case('N')
-        call BuildNeumannBV( boundary = ins_op % mesh % boundary(b)  &
-                           , n        = ins_op % sem_u % metrics % n &
-                           , ct       = ct                           &
-                           , v        = v                            &
-                           , vb       = bv_u(b) % val(:,:,:,1:3)     &
-                           , dn_p     = bv_p(b) % val(:,:,:,1)       )
-      case('D')
-        call SetArray(bv_p(b) % val(:,:,:,1), bv_u(b) % val(:,:,:,4))
-      end select
-
-      if (present(bv_q)) then
-        call InterpolateFaceData( A = ins_op % iop_up % A    &
-                                , p = bv_p(b) % val(:,:,:,1) &
-                                , q = bv_q(b) % val(:,:,:,1) )
-      end if
-
-    end do
-
-  end subroutine BuildPressureBV
-
-  !-----------------------------------------------------------------------------
-  !> Build pressure boundary values from normal velocity conditions
-
-  subroutine BuildNeumannBV(boundary, ct, n, v, vb, dn_p)
-    class(MeshBoundary_3D), intent(in)  :: boundary
-    real(RNP),              intent(in)  :: ct
-    real(RNP), contiguous,  intent(in)  :: n (0:,0:,:,:,:)
-    real(RNP), contiguous,  intent(in)  :: v (0:,0:,0:,:,:)
-    real(RNP), contiguous,  intent(in)  :: vb(0:,0:,:,:)
-    real(RNP), contiguous,  intent(out) :: dn_p(0:,0:,:)
-
-    integer :: e, f, i, j, k, m, po
-
-    po = ubound(v,1)
-
-    !$omp do
-    do f = 1, boundary % n_face
-
-      e = boundary % face(f) % element_id
-      m = boundary % face(f) % element_face
-
-      select case(m)
-
-      case(1,2)
-        i = (m - 1) * po
-        do k = 0, po
-        do j = 0, po
-          dn_p(j,k,f) = ct * ( n(j,k,m,e,1) * (v(i,j,k,e,1) - vb(j,k,f,1)) &
-                             + n(j,k,m,e,2) * (v(i,j,k,e,2) - vb(j,k,f,2)) &
-                             + n(j,k,m,e,3) * (v(i,j,k,e,3) - vb(j,k,f,3)) )
-        end do
-        end do
-
-      case(3,4)
-        j = (m - 3) * po
-        do k = 0, po
-        do i = 0, po
-          dn_p(i,k,f) = ct * ( n(i,k,m,e,1) * (v(i,j,k,e,1) - vb(i,k,f,1)) &
-                             + n(i,k,m,e,2) * (v(i,j,k,e,2) - vb(i,k,f,2)) &
-                             + n(i,k,m,e,3) * (v(i,j,k,e,3) - vb(i,k,f,3)) )
-        end do
-        end do
-
-      case(5,6)
-        k = (m - 5) * po
-        do j = 0, po
-        do i = 0, po
-          dn_p(i,j,f) = ct * ( n(i,j,m,e,1) * (v(i,j,k,e,1) - vb(i,j,f,1)) &
-                             + n(i,j,m,e,2) * (v(i,j,k,e,2) - vb(i,j,f,2)) &
-                             + n(i,j,m,e,3) * (v(i,j,k,e,3) - vb(i,j,f,3)) )
-        end do
-        end do
-
-      end select
-
-    end do
-
-  end subroutine BuildNeumannBV
-
-  !-----------------------------------------------------------------------------
-  !> Interpolation of face data
-
-  subroutine InterpolateFaceData(A, p, q)
-    real(RNP), intent(in)  :: A(0:,0:)   !< 1D interpolation operator
-    real(RNP), intent(in)  :: p(0:,0:,:) !< variable in velocity space
-    real(RNP), intent(out) :: q(0:,0:,:) !< variable in pressure space
-
-    real(RNP), allocatable :: w(:,:)
-    real(RNP) :: tmp
-    integer   :: po, pq, nf
-    integer   :: f, i, j, k
-
-    po = ubound(p,1)
-    pq = ubound(q,1)
-    nf = ubound(q,3)
-
-    allocate(w(0:pq,0:po))
-
-    !$omp do
-    do f = 1, nf
-
-      ! direction 1
-      do j = 0, po
-      do i = 0, pq
-        tmp = 0
-        do k = 0, po
-          tmp = tmp + A(i,k) * p(k,j,f)
-        end do
-        w(i,j) = tmp
-      end do
-      end do
-
-      ! direction 2
-      do j = 0, pq
-      do i = 0, pq
-        tmp = 0
-        do k = 0, po
-          tmp = tmp + A(j,k) * w(i,k)
-        end do
-        q(i,j,f) = tmp
-      end do
-      end do
-
-    end do
-
-  end subroutine InterpolateFaceData
 
   !-----------------------------------------------------------------------------
   !> Multilevel pressure solver
