@@ -48,6 +48,7 @@ add_library(HiINSFlow
             
             multilevel/ml__ins__flow_characteristics.f
             multilevel/ml__ins__operator__3d.f
+            multilevel/ml__ins__operator__3d__mp_projectionstep.f
             multilevel/ml__ins__operator__3d__mp_mg_stokes_start.f
             multilevel/ml__ins__operator__3d__mp_mg_stokes_cycle.f
             multilevel/ml__ins__integrator__3d.f

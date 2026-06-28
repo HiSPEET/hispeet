@@ -77,6 +77,16 @@ module ML__INS__Operator__3D
   interface
 
     !---------------------------------------------------------------------------
+    !> Computes the pressure and minimizes the divergence of the given velocity
+
+    module subroutine ProjectionStep(this, tau, bv_u, u)
+      class(ML_INS_Operator_3D),     intent(in)    :: this
+      real(RNP),                     intent(in)    :: tau
+      class(ML_BoundaryVariable_3D), intent(in)    :: bv_u
+      class(ML_MeshVariable_3D),     intent(inout) :: u
+    end subroutine ProjectionStep
+
+    !---------------------------------------------------------------------------
     !> Cascade start procedure for the Stokes part
 
     module subroutine Stokes_Cascade(this, tau, mu, nu, bv, f, u)

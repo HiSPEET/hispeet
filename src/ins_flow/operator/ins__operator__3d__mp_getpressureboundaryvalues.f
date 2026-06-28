@@ -54,7 +54,7 @@ contains
 
     end do
 
-  end subroutine Get_PressureBoundaryValues
+  end subroutine GetPressureBoundaryValues
 
   !-----------------------------------------------------------------------------
   !> Build pressure boundary values from normal velocity conditions

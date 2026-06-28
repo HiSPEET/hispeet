@@ -86,7 +86,7 @@ contains
 
       ! build boundary values ..................................................
 
-      call this % Get_PressureBoundaryValues(tau, v, bv_u, bv_p, bv_q)
+      call this % GetPressureBoundaryValues(tau, v, bv_u, bv_p, bv_q)
 
       ! scale and project sources in velocity space ............................
 
