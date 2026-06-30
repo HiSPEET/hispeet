@@ -181,6 +181,7 @@ program Validate__TPO_INS_Convection_D
   !-----------------------------------------------------------------------------
   ! Test optimized procedure
 
+#ifdef __LIBXSMM__
   !$omp parallel
 
   call TPO_INS_Convection_D_XSMM(nv, nq, ne, bc, alpha, &
@@ -203,6 +204,7 @@ program Validate__TPO_INS_Convection_D
     mflops_opt = 1E-6 / time * ne * nflop
     mlups_opt  = 1E-6 / time * ne * nope
   end if
+#endif
 
   !-----------------------------------------------------------------------------
   ! Print results
