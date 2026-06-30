@@ -1,5 +1,14 @@
 #===============================================================================
-# ins_timeintegrator_3d_test
+# ml_ins_solver_3d
+
+add_executable( ml_ins_projection_3d
+                ml_ins_projection_3d.f
+              )
+
+target_link_libraries(ml_ins_projection_3d HiINSFlow)
+
+#===============================================================================
+# ml_ins_solver_3d
 
 add_executable( ml_ins_solver_3d
                 ml_ins_solver_3d.f

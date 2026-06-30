@@ -44,9 +44,10 @@ module ML__INS__Operator__3D
 
   contains
     procedure :: Init_ML_INS_Operator_3D
-    procedure :: MG_Stokes_Start
-    procedure :: MG_Stokes_Cycle
     procedure :: CalibratePressure
+    procedure :: ProjectionStep
+    procedure :: MG_Stokes_Cycle
+    procedure :: MG_Stokes_Start
   end type ML_INS_Operator_3D
 
   ! constructor interface
@@ -184,18 +185,12 @@ contains
     this % dc_bulk = opt % dc_bulk
 
     ! multilevel pressure solver
-    if (opt % ins % pressure_solver == 'MG') then
-      if (opt%mixed) then
-        this % ml_solver_p = &
-            ML_DG_EllipticSolver_3D(this%ml_op_p, opt%ml_solver_p)
-      else
-        this % ml_solver_p = &
-            ML_DG_EllipticSolver_3D(this%ml_op_u, opt%ml_solver_p)
-      end if
+    if (opt%mixed) then
+      this % ml_solver_p = &
+          ML_DG_EllipticSolver_3D(this%ml_op_p, opt%ml_solver_p)
     else
-      if (allocated(this % ml_solver_p)) then
-        deallocate(this % ml_solver_p)
-      end if
+      this % ml_solver_p = &
+          ML_DG_EllipticSolver_3D(this%ml_op_u, opt%ml_solver_p)
     end if
 
     ! incompressible Navier-Stokes operator on each level

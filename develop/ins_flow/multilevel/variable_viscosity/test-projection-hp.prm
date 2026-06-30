@@ -1,0 +1,83 @@
+!-------------------------------------------------------------------------------
+! Control
+
+&control_prm
+
+! log levels,  set to ≥ 1 for higher verbosity
+! log_level                 = 0
+! log_level_inner_iteration = 2
+! log_level_outer_iteration = 1
+  log_level_multigrid_cycle = 1
+
+  problem_file = 'variable_viscosity'
+  flow_problem = 'VariableViscosity'
+
+  vtk_mode   = 1 ! VTK export mode, 0/1/2/3: none/all/active/leafs
+/
+
+!-------------------------------------------------------------------------------
+! Mesh
+
+&ml_mesh_options_3d__static
+  l_top          =  5  ! initial top level
+  l_adapt        =  3  ! first level to be adapted ≥1
+  n_box          =  1  ! number of boxes to be adapted
+  n_parts_root   =  8  ! number of partitions at root level   [1]
+  n_parts_growth =  8  ! partition number growth rate         [1]
+/
+
+&ml_mesh_options_3d__dynamic
+  refinement = 'c','c',2*'s'
+  adapt_box(1:3,1,1) = 3*-0.1
+  adapt_box(1:3,2,1) = 3*+0.1
+/
+
+!-------------------------------------------------------------------------------
+! Spatial
+
+&spatial_prm
+
+  po = 4, 8, 3*16
+
+! ml_ins_opt%mixed = F
+
+  ml_ins_opt%ins%c_mu    = 1
+  ml_ins_opt%ins%i_max_p = 200
+  ml_ins_opt%ins%i_max_v = 5
+
+  ml_ins_opt%ml_solver_p%i_crs =  1000 ! max num coarse iterations          [ 1]
+  ml_ins_opt%ml_solver_p%i_max =    10 ! max num cycles                     [ 1]
+  ml_ins_opt%ml_solver_p%ns_1  =     3 ! num pre-smoothing steps            [ 1] 
+  ml_ins_opt%ml_solver_p%ns_2  =     1 ! num post-smoothing steps           [ 1] 
+  ml_ins_opt%ml_solver_p%ns_c  =     2 ! num continuation smoothing steps   [ 1] 
+  ml_ins_opt%ml_solver_p%r_red = 1e-10 ! min residual reduction,  if > 0    [-1] 
+  ml_ins_opt%ml_solver_p%r_max = 1e-12 ! max admissible residual, if > 0    [-1] 
+/
+
+!-------------------------------------------------------------------------------
+! Temporal
+
+&temporal_prm
+  dt = 1
+/
+
+!-------------------------------------------------------------------------------
+! Disturbance
+
+&disturbance_prm
+  x_w = 3*-0.5
+  l_w = 3*1.0
+/
+
+!-------------------------------------------------------------------------------
+! Domains
+
+&cuboid_cartesian_prm
+  regular    = F ! mimic irregular mesh (elements deformed or of different size)
+  structured = F ! mimic unstructured mesh
+  xo = 3*-0.5
+  lx = 3*1
+  np = 1,1,1
+  ep = 3*4
+  periodic = 3*T
+/

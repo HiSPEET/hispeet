@@ -6,11 +6,13 @@
 
 submodule (ML__INS__Operator__3D) MP_ProjectionStep
   use Constants
+  use Array_Assignments
   use TPO__AAA__3D
   use TPO__Div__3D
   use TPO__Grad__3D
   use Trace_Operators__3D
   use Boundary_Variable__3D
+  use Parent_To_Child_Interpolation__3D
   implicit none
 
 contains
@@ -80,7 +82,7 @@ contains
                , div_v => w % level(l) % val(:,:,:,:,3)   )
         block
           real(RNP), allocatable, save :: vp(:,:,:,:,:) ! v⁺
-          integer :: na, ne, np
+          integer :: ne, np
 
           np = size(v_, 1)
           ne = sem_u % mesh % n_elem
@@ -237,6 +239,31 @@ contains
           !$omp master
           deallocate(pp)
           !$omp end master
+        end block
+      end associate
+    end do
+
+    ! update frozen elements :::::::::::::::::::::::::::::::::::::::::::::::::::
+
+    do l = 2, l_top
+      associate( iop_pl  => this % ml_op_u % iop_cf_x(l-1)    &
+               , mesh_p  => this % ins_op(l-1)% mesh          &
+               , mesh_l  => this % ins_op(l  )% mesh          &
+               , v_p     => u % level(l-1) % val(:,:,:,:,1:3) &
+               , v_l     => u % level(l  ) % val(:,:,:,:,1:3) &
+               , w_l     => w % level(l  ) % val(:,:,:,:,1:3) )
+        block
+          integer :: c, e
+
+          call ParentToChildInterpolation_3D(mesh_p, mesh_l, iop_pl, v_p, w_l)
+
+          !$omp do collapse(3)
+          do c = 1, 3
+          do e = mesh_l%n_elem_active+1, mesh_l%n_elem
+            v_l(:,:,:,e,c) = w_l(:,:,:,e,c)
+          end do
+          end do
+
         end block
       end associate
     end do
