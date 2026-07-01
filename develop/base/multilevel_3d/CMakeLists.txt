@@ -42,6 +42,7 @@ file( COPY
            ml_elliptic_test_static_global-p.prm
            ml_elliptic_test_static_global-h.prm
            ml_elliptic_test_static_local-h.prm
+           robustness/
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR}
     )
