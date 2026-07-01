@@ -1,0 +1,58 @@
+&control_prm
+  solution_method = 21 ! 11/12/21: CS-MG/CS-CG/FAS-MG
+/
+
+&domain_prm
+  test_domain = 1 ! Cartesian cuboid 
+/
+
+&cuboid_cartesian_prm
+  np = 2,2,2
+  ep = 18,18,18
+  periodic = 3*T
+/
+
+
+&ml_mesh_options_3d__static
+  l_top          = 4
+  l_max          = 6
+  n_parts_root   = 64
+  n_parts_growth = 8
+/
+
+&ml_mesh_options_3d__dynamic
+  refinement = 5*'c' ! (1:l_max-1)  refinement type {'c','s'}
+/
+
+&problem_prm
+  test_problem = 3
+  lambda       = 0  ! Helmholtz parameter
+! nu_0         = 1  ! diffusivity mean value ν₀
+! nu_1         = 0  ! diffusivity fluctuation amplitude ν₁ ! only problems 1:5
+  start_values = 2  ! start values, 0/1/2: zero, exact, random
+/
+
+&solver_prm
+
+! po = 1, 2, 3, 7
+  po = 1, 3, 5, 7
+! po = 1, 3, 7
+
+! ml_elliptic_opt%penalty        =   2             ! penalty parameter > 1
+  ml_elliptic_opt%schwarz%delta  =   0.08          ! relative overlap  ≤ 1
+  ml_elliptic_opt%schwarz%no_min =   1             ! min overlap in points
+  ml_elliptic_opt%fc_projection  =  'I'            ! {'I','P'}
+  ml_elliptic_opt%start_method   =   2             ! none/CASC/FMG = 0/1/2
+  ml_elliptic_opt%smooth_method  =   2             ! CG/WS/SPCG    = 1/2,3
+  ml_elliptic_opt%coarse_solver  =   3             ! CG/WS/SPCG    = 1/2,3
+
+  ml_elliptic_opt%i_crs =   1000 ! max num coarse solver iterations   [1]
+  ml_elliptic_opt%i_max =      1 ! max num multigrid iterations       [1]
+  ml_elliptic_opt%ns_0  =     -1 ! num smoothing steps in casc        [1]
+  ml_elliptic_opt%ns_1  =      2 ! num pre-smoothing steps            [1]
+  ml_elliptic_opt%ns_2  =      1 ! num post-smoothing steps           [1]
+  ml_elliptic_opt%ns_c  =      2 ! num continuation smoothing steps   [1]
+  ml_elliptic_opt%r_crs =  1e-04 ! min coarse residual reduction     [-1]
+! ml_elliptic_opt%r_red =  1e-08 ! min residual reduction            [-1]
+! ml_elliptic_opt%r_max =  1e-12 ! max admissible residual           [-1]
+/
