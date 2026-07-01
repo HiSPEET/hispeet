@@ -7,7 +7,7 @@ In order to install _HiSPEET_ you need a Unix-like operating system with
 
 - bash, git, cmake, make
 - Fortran, C and C++ compilers, Python
-- MPI and VTK libraries
+- MPI, HDF5 and VTK development libraries
 
 and, ideally,
 
