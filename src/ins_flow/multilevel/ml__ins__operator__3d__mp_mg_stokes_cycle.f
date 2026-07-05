@@ -138,19 +138,15 @@ contains
               call ins_l % StokesSolver(tau, f_l, bv_l, mu_l, nu_l, u_l)
             end if
 
-            ! residual
-            if (this % dc_bulk) then
-              ! with bulk diffusion
-              call ins_l % GetStokesResidual(tau, f_l, bv_l, mu_l, nu_l, u_l, r_l)
-            else
-              ! without bulk diffusion, μ → z ≡ 0
-              call ins_l % GetStokesResidual(tau, f_l, bv_l, z_l, nu_l, u_l, r_l)
-            end if
+            ! residual -- with bulk diffusion
+            call ins_l % GetStokesResidual(tau, f_l, bv_l, mu_l, nu_l, u_l, r_l)
+!!!         ! residual -- without bulk diffusion, μ → z ≡ 0
+!!!         call ins_l % GetStokesResidual(tau, f_l, bv_l, z_l, nu_l, u_l, r_l)
 
             ! restriction ......................................................
 
             ! project solution to regularly refined parent elements
-            select case(this % fc_project)
+            select case(this % ml_diffusion_opt % fc_projection)
             case('I')
               ! interpolation
               call ChildToParentProjection_3D &
@@ -177,14 +173,10 @@ contains
             end do
             !$omp end do nowait
 
-            ! homogeneous Stokes operator
-            if (this % dc_bulk) then
-              ! with bulk diffusion
-              call ins_p % ApplyStokesOperator(tau, bv_p, mu_p, nu_p, w_p, r_p)
-            else
-              ! without bulk diffusion, μ → z ≡ 0
-              call ins_p % ApplyStokesOperator(tau, bv_p, z_p, nu_p, w_p, r_p)
-            end if
+            ! Stokes operator -- with bulk diffusion
+            call ins_p % ApplyStokesOperator(tau, bv_p, mu_p, nu_p, w_p, r_p)
+!!!         ! Stokes operator -- without bulk diffusion, μ → z ≡ 0
+!!!         call ins_p % ApplyStokesOperator(tau, bv_p, z_p, nu_p, w_p, r_p)
 
             !$omp do
             do e = 1, mesh_p % n_elem
