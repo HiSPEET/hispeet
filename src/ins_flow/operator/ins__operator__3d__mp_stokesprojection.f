@@ -203,7 +203,7 @@ contains
 
         end if
 
-        call this % DiffusionSolver(tau, mu, nu, q_d, bv_w, v, precon)
+        call this % DiffusionSolver(tau, mu, nu, q_d, bv_w, v, precon=precon)
 
       end associate
 
