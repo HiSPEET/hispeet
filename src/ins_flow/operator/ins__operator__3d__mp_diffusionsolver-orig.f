@@ -20,7 +20,8 @@ contains
   !-----------------------------------------------------------------------------
   !>  IPCG Diffusion solver with Schwarz preconditioner
 
-  module subroutine DiffusionSolver(this, tau, mu, nu, f, bv, v, precon, ni)
+  module subroutine DiffusionSolver( this, tau, mu, nu, f, bv, v, i_max &
+                                   , precon, ni )
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -45,6 +46,7 @@ contains
     real(RNP), contiguous, intent(inout) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
 
+    integer, optional, intent(in)  :: i_max  !< overrides max iteration count
     logical, optional, intent(in)  :: precon !< switch preconditioner mode
     integer, optional, intent(out) :: ni     !< executed num iterations
 
@@ -58,26 +60,30 @@ contains
     real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
     real(RNP) :: alpha, beta, delta, pq, rr
     real(RNP) :: r_max, r_red
-    integer   :: d, i, i_max, na
+    integer   :: d, i, i_max_, na
     logical   :: check_convergence
 
     associate(mesh => this % mesh)
 
       ! initialization .........................................................
 
-      na = mesh % n_elem_active
-
-      i_max = this % i_max_v
-      r_red = this % r_red
-      r_max = this % r_max
-      if (present(precon)) then
-        if (precon) i_max = this % k_pre_v
+      if (present(i_max)) then
+        i_max_ = i_max
+      else if (present(precon)) then
+        i_max_ = this % k_pre_v
+      else
+        i_max_ = this % i_max_v
       end if
 
-      if (i_max < 1 .or. mesh % part < 0) then
+      if (i_max_ < 1 .or. mesh % part < 0) then
         if (present(ni)) ni = 0
         return
       end if
+
+      na = mesh % n_elem_active
+
+      r_red = this % r_red
+      r_max = this % r_max
 
       check_convergence = r_red > 0 .or. &
                           r_max > 0 .or. &
@@ -117,10 +123,8 @@ contains
       end if
 
       if (converged) then
-        i_max = 0
-        i     = 0
-      else
-        i_max = i_max
+        i_max_ = 0
+        i      = 0
       end if
 
       ! element-averaged viscosity .............................................
@@ -133,14 +137,14 @@ contains
 
       ! iteration ..............................................................
 
-      do i = 1, i_max
+      do i = 1, i_max_
 
         ! preconditioner, result set to zero in frozen elements
         select case(this % diffusion_solver)
         case('DPCG')
-          call Diagonal_Preconditioner(this, tau, r, z, standby = i < i_max)
+          call Diagonal_Preconditioner(this, tau, r, z, standby = i < i_max_)
         case('SPCG')
-          call Schwarz_Preconditioner(this, tau, nu_avg, r, z, standby = i < i_max)
+          call Schwarz_Preconditioner(this, tau, nu_avg, r, z, standby = i < i_max_)
         case default
           call Error( 'DiffusionSolver'              &
                     , 'Preconditioner "'             &
@@ -163,7 +167,7 @@ contains
         call SetArray(s, r, multi = .true.)
 
         ! apply homogeneous operator, requires zero values in frozen elements
-        call this % ApplyDiffusionOperator(tau, mu, nu, p, q)  ! q = Ap
+        call this % ApplyDiffusionOperator(tau, mu, nu, v=p, r=q)  ! q = Ap
 
         ! correction
         delta = ScalarProduct(r, z, mesh%comm_parts)
@@ -189,7 +193,7 @@ contains
           !$omp barrier
         end if
 
-        if (converged .or. i == i_max) exit
+        if (converged .or. i == i_max_) exit
 
         !$omp master
         if (log_level_inner_iteration > 1 .and. mesh%part == 0) then
