@@ -1,6 +1,6 @@
-!> summary:  3D multilevel solver for incompressible Navier-Stokes problems
+!> summary:  Test of multilevel INS projection step
 !> author:   Joerg Stiller
-!> date:     2025/03/28
+!> date:     2026/07/01
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> If present, the first argument of the invoking command will be interpreted
@@ -107,6 +107,7 @@ program ML_INS_Projection_3D
   ! variables ..................................................................
 
   type(ML_MeshVariable_3D),     save :: u   ! solution variables
+  type(ML_MeshVariable_3D),     save :: q   ! disturbed pressure
   type(ML_MeshVariable_3D),     save :: vtk ! variables exported to VTK
   type(ML_BoundaryVariable_3D), save :: bv  ! boundary values
 
@@ -256,6 +257,7 @@ program ML_INS_Projection_3D
   var_name = [ 'v_x', 'v_y', 'v_z', 'p  ']
 
   call u  % Init(ml_ins % ml_op_u, nc = n_var, name = var_name)
+  call q  % Init(ml_ins % ml_op_u, nc = 1)
   call bv % Init(ml_ins % ml_op_u, nc = ml_ins % problem % nc)
 
   !-----------------------------------------------------------------------------
@@ -264,6 +266,7 @@ program ML_INS_Projection_3D
   do l = 1, l_top
     associate( x_l    => ml_ins % ml_op_u % sem(l) % metrics % x  &
              , u_l    => u  % level(l) % val                      &
+             , q_l    => q  % level(l) % val                      &
              , bv_l   => bv % level(l) % var                      )
       block
         real(RNP) :: alpha(3), kappa(3), phi(3)
@@ -276,21 +279,32 @@ program ML_INS_Projection_3D
         ! add pressure disturbance .............................................
 
         kappa = 2 * k_w * PI / l_w
-        alpha = kappa * a_w / dt
+        alpha = kappa * a_w * dt
 
         do e = 1, ubound(u_l, 4)
           do k = 0, po(l)
           do j = 0, po(l)
           do i = 0, po(l)
+
             phi(1) = kappa(1) * (x_l(i,j,k,e,1) - x_w(1))
             phi(2) = kappa(2) * (x_l(i,j,k,e,2) - x_w(2))
             phi(3) = kappa(3) * (x_l(i,j,k,e,3) - x_w(3))
+
+            ! disturbed velocity
             u_l(i,j,k,e,1) = u_l(i,j,k,e,1)  &
                            + alpha(1) * cos(phi(1)) * sin(phi(2)) * sin(phi(3))
             u_l(i,j,k,e,2) = u_l(i,j,k,e,2)  &
                            + alpha(2) * sin(phi(1)) * cos(phi(2)) * sin(phi(3))
             u_l(i,j,k,e,3) = u_l(i,j,k,e,3)  &
                            + alpha(3) * sin(phi(1)) * sin(phi(2)) * cos(phi(3))
+
+            ! disturbed pressure
+            q_l(i,j,k,e,1) = u_l(i,j,k,e,4)  &
+                           - a_w * sin(phi(1)) * sin(phi(2)) * sin(phi(3))
+
+            ! reset pressure
+            u_l(i,j,k,e,4) = 0
+
           end do
           end do
           end do
@@ -329,6 +343,16 @@ program ML_INS_Projection_3D
 
   ! projection step
   call ml_ins % ProjectionStep(dt, bv, u)
+
+  ! add disturbed to computed pressure
+  do l = 1, l_top
+    associate( p_l => u % level(l) % val(:,:,:,:,4) &
+             , q_l => q % level(l) % val(:,:,:,:,1) )
+
+      p_l = p_l + q_l
+
+    end associate
+  end do
 
   ! remove mean pressure
   !call ml_ins % CalibratePressure(u)
