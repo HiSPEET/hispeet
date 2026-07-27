@@ -630,15 +630,16 @@ contains
     character, allocatable, save :: bc_elem(:,:)
 
     character :: bc
-    integer   :: b, e, i, j, k, ne
+    integer   :: b, e, i, j, k, ne, e_max
 
     ! range ....................................................................
 
-    ne = this % mesh % n_elem_active
+    ne = this % mesh % n_elem
 
+    e_max = ne
     if (present(frozen)) then
       if (frozen) then
-        ne = this % mesh % n_elem
+        e_max = this % mesh % n_elem_active
       end if
     end if
 
@@ -662,21 +663,22 @@ contains
 
     ! evaluation ...............................................................
 
-    call TPO_INS_Convection( nv   = this % eop_u % po + 1       &
-                           , nq   = this % sop_q % po + 1       &
-                           , ne   = ne                          &
-                           , bc   = bc_elem                     &
-                           , D_v  = this % eop_u  % D           &
-                           , I_vq = this % iop_uq % A           &
-                           , w_q  = this % sop_q  % w           &
-                           , Jd_q = this % sem_q % metrics % Jd &
-                           , Ji_q = this % sem_q % metrics % Ji &
-                           , a_q  = this % sem_q % metrics % a  &
-                           , n_q  = this % sem_q % metrics % n  &
-                           , v    = v                           &
-                           , vp   = vp                          &
-                           , f_c  = f_c                         &
-                           , form = this % convection_term      )
+    call TPO_INS_Convection( nv    = this % eop_u % po + 1       &
+                           , nq    = this % sop_q % po + 1       &
+                           , ne    = ne                          &
+                           , bc    = bc_elem                     &
+                           , D_v   = this % eop_u  % D           &
+                           , I_vq  = this % iop_uq % A           &
+                           , w_q   = this % sop_q  % w           &
+                           , Jd_q  = this % sem_q % metrics % Jd &
+                           , Ji_q  = this % sem_q % metrics % Ji &
+                           , a_q   = this % sem_q % metrics % a  &
+                           , n_q   = this % sem_q % metrics % n  &
+                           , v     = v                           &
+                           , vp    = vp                          &
+                           , f_c   = f_c                         &
+                           , form  = this % convection_term      &
+                           , e_max = e_max                       )
 
     ! Coriolis force in rotating frame .........................................
 
@@ -700,7 +702,7 @@ contains
           end do
 
           !$omp do
-          do e = 1, ne
+          do e = 1, e_max
 
             ce = -2 * Ms * Jd(:,:,:,e)
 
