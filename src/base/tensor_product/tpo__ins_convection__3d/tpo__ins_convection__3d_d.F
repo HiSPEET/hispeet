@@ -19,8 +19,9 @@ module TPO__INS_Convection__3D_D
 
 contains
 
-  subroutine TPO_INS_Convection_D_RDP( nv, nq, ne, bc, D_v, I_vq, w_q, Jd_q &
-                                     , Ji_q , a_q, n_q, v, vp, F_c, form    )
+  subroutine TPO_INS_Convection_D_RDP( nv, nq, ne, bc, D_v, I_vq, w_q   &
+                                     , Jd_q, Ji_q, a_q, n_q, v, vp, F_c &
+                                     , form, e_max )
 
     integer, intent(in) :: nv !< number of velocity points per element direction
     integer, intent(in) :: nq !< number of quadrature points per direction
@@ -40,7 +41,8 @@ contains
     real(RDP), intent(in)  :: vp(nv,nv,6,ne,3)      !< velocity v⁺ at faces
     real(RDP), intent(out) :: F_c(nv,nv,nv,ne,3)    !< convective flux integrals
 
-    character(4), optional, intent(in) :: form !< {flux,skew,conv} [flux]
+    character(4), optional, intent(in) :: form  !< {flux,skew,conv} [flux]
+    integer,      optional, intent(in) :: e_max !< last element to evaluate [ne]
 
     character(4) :: form_
     real(RDP)    :: alpha
@@ -61,11 +63,11 @@ contains
     end select
 
 #ifdef __LIBXSMM__
-    call TPO_INS_Convection_D_XSMM(nv, nq, ne, bc, alpha, &
-             D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_c)
+    call TPO_INS_Convection_D_XSMM( nv, nq, ne, bc, alpha, D_v, I_vq, w_q   &
+                                  , Jd_q, Ji_q, a_q, n_q, v, vp, F_c, e_max )
 #else
-    call TPO_INS_Convection_D_Gen(nv, nq, ne, bc, alpha, &
-             D_v, I_vq, w_q, Jd_q, Ji_q, a_q, n_q, v, vp, F_c)
+    call TPO_INS_Convection_D_Gen( nv, nq, ne, bc, alpha, D_v, I_vq, w_q   &
+                                 , Jd_q, Ji_q, a_q, n_q, v, vp, F_c, e_max )
 #endif
 
   end subroutine TPO_INS_Convection_D_RDP
