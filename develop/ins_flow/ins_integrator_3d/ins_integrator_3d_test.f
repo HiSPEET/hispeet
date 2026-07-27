@@ -34,7 +34,7 @@ program INS_Integrator_3D_Test
   use INS__Time_Scales__3D
   use INS__Integrator__3D
   use INS__Integrator__Euler__3D
-  use INS__Integrator__BDF2__3D
+  use INS__Integrator__BDF__3D
   use INS__Integrator__Runge_Kutta__3D
   use INS__Flow_Characteristics__3D
 
@@ -139,21 +139,21 @@ program INS_Integrator_3D_Test
   real(RNP) :: t_end       = 1  ! final time
   real(RNP) :: dt          = 1  ! time step size
   integer   :: nt_max      = 0  ! max num time steps, < 0 if no limit
-  integer   :: time_method = 1  ! 1/2/3: Euler/BDF2/Runge-Kutta
+  integer   :: time_method = 1  ! 1/2/3: Euler/BDF/Runge-Kutta
 
   logical   :: smooth_initial_data = .false.
   integer   :: smooth_filter = 3  ! 1/2/3: cut-off/erfc-log/exponential
   integer   :: smooth_order  = 0  ! filter order (0: auto)
 
   type(INS_Integrator_Euler_Options_3D)      :: ins_ti_euler_opt
-  type(INS_Integrator_BDF2_Options_3D)       :: ins_ti_bdf2_opt
+  type(INS_Integrator_BDF_Options_3D)        :: ins_ti_bdf_opt
   type(INS_Integrator_RungeKutta_Options_3D) :: ins_ti_rk_opt
 
   namelist/temporal_prm/ t_end, dt, nt_max
   namelist/temporal_prm/ smooth_initial_data, smooth_filter, smooth_order
   namelist/temporal_prm/ time_method
   namelist/temporal_prm/ ins_ti_euler_opt
-  namelist/temporal_prm/ ins_ti_bdf2_opt
+  namelist/temporal_prm/ ins_ti_bdf_opt
   namelist/temporal_prm/ ins_ti_rk_opt
 
   ! mesh .......................................................................
@@ -429,8 +429,8 @@ program INS_Integrator_3D_Test
 
 
   ! globalize options
-  call ins_ti_euler_opt       % Bcast(0, comm)
-  call ins_ti_bdf2_opt        % Bcast(0, comm)
+  call ins_ti_euler_opt % Bcast(0, comm)
+  call ins_ti_bdf_opt   % Bcast(0, comm)
   call ins_ti_rk_opt % Bcast(0, comm)
 
   ! time integrator
@@ -438,7 +438,7 @@ program INS_Integrator_3D_Test
   case(1)
     ins_ti = INS_Integrator_Euler_3D(problem, ins_op, ins_ti_euler_opt)
   case(2)
-    ins_ti = INS_Integrator_BDF2_3D(problem, ins_op, ins_ti_bdf2_opt)
+    ins_ti = INS_Integrator_BDF_3D(problem, ins_op, ins_ti_bdf_opt)
   case(3)
     ins_ti = INS_Integrator_RungeKutta_3D(problem, ins_op, ins_ti_rk_opt)
   end select
