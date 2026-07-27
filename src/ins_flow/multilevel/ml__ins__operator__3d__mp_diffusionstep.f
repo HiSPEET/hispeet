@@ -15,19 +15,19 @@ contains
   !-----------------------------------------------------------------------------
   !> Solves the implicit viscous subproblem
 
-  module subroutine DiffusionStep(this, tau, mu, nu, bv, u, l_top)
+  module subroutine DiffusionStep(this, tau, mu, nu, bv, f, u, l_top)
     class(ML_INS_Operator_3D),     intent(in)    :: this
     real(RNP),                     intent(in)    :: tau   !< effective time step
     class(ML_MeshVariable_3D),     intent(in)    :: mu    !< bulk viscosity
     class(ML_MeshVariable_3D),     intent(in)    :: nu    !< shear viscosity
     class(ML_BoundaryVariable_3D), intent(in)    :: bv    !< boundary values
+    class(ML_MeshVariable_3D),     intent(inout) :: f     !< RHS
     class(ML_MeshVariable_3D),     intent(inout) :: u     !< solution
     integer,             optional, intent(in)    :: l_top !< top level    [auto]
 
     ! internal variables :::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
     type(ML_MeshVariable_3D), allocatable, save :: mm_inv ! inverse mass matrix
-    type(ML_MeshVariable_3D), allocatable, save :: f      ! RHS
     type(ML_MeshVariable_3D), allocatable, save :: r      ! residual
     type(ML_MeshVariable_3D), allocatable, save :: w      ! workspace
     type(ML_MeshVariable_3D), allocatable, save :: z      ! zero
@@ -63,9 +63,8 @@ contains
         print '(2A)', log_prefix, 'start'
       end if
 
-      allocate(mm_inv, f, r, w, z)
+      allocate(mm_inv, r, w, z)
       call mm_inv % Init(this%ml_op_u, nc = 1, l_top = l_top_)
-      call f      % Init(this%ml_op_u, nc = 3, l_top = l_top_)
       call r      % Init(this%ml_op_u, nc = 3, l_top = l_top_)
       call w      % Init(this%ml_op_u, nc = 3, l_top = l_top_)
       call z      % Init(this%ml_op_u, nc = 1, l_top = l_top_)
@@ -79,20 +78,6 @@ contains
           !$omp do
           do e = 1, sem(l) % mesh % n_elem
             mm_inv_l(:,:,:,e) = 1 / mm_inv_l(:,:,:,e)
-          end do
-          !$omp end do nowait
-        end associate
-      end do
-
-      ! RHS = velocity after extrapolation and projection
-      do l = 1, l_top_
-        associate( v_l => u % level(l) % val(:,:,:,:,1:3) &
-                 , f_l => f % level(l) % val(:,:,:,:,1:3) )
-          !$omp do collapse(2)
-          do c = 1, 3
-          do e = 1, sem(l) % mesh % n_elem
-             f_l(:,:,:,e,c) = 1/tau * v_l(:,:,:,e,c)
-          end do
           end do
           !$omp end do nowait
         end associate
@@ -258,7 +243,7 @@ contains
       ! finalization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      deallocate(mm_inv, f, r, w, z)
+      deallocate(mm_inv, r, w, z)
       !$omp end master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     end associate

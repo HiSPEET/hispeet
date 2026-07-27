@@ -72,8 +72,6 @@ module ML__INS__Operator__3D
     procedure :: CalibratePressure
     procedure :: DiffusionStep
     procedure :: ProjectionStep
-    procedure :: MG_Stokes_Cycle
-    procedure :: MG_Stokes_Start
   end type ML_INS_Operator_3D
 
   ! constructor interface
@@ -89,12 +87,13 @@ module ML__INS__Operator__3D
   !---------------------------------------------------------------------------
   !> Solves the implicit viscous subproblem
 
-    module subroutine DiffusionStep(this, tau, mu, nu, bv, u, l_top)
+    module subroutine DiffusionStep(this, tau, mu, nu, bv, f, u, l_top)
       class(ML_INS_Operator_3D),     intent(in)    :: this
       real(RNP),                     intent(in)    :: tau
       class(ML_MeshVariable_3D),     intent(in)    :: mu
       class(ML_MeshVariable_3D),     intent(in)    :: nu
       class(ML_BoundaryVariable_3D), intent(in)    :: bv
+      class(ML_MeshVariable_3D),     intent(inout) :: f
       class(ML_MeshVariable_3D),     intent(inout) :: u
       integer,             optional, intent(in)    :: l_top
     end subroutine DiffusionStep
@@ -109,49 +108,6 @@ module ML__INS__Operator__3D
       class(ML_MeshVariable_3D),     intent(inout) :: u
       integer,             optional, intent(in)    :: l_top
     end subroutine ProjectionStep
-
-    !---------------------------------------------------------------------------
-    !> Cascade start procedure for the Stokes part
-
-    module subroutine Stokes_Cascade(this, tau, mu, nu, bv, f, u)
-      class(ML_INS_Operator_3D),           intent(in)    :: this
-      real(RNP),                           intent(in)    :: tau
-      class(ML_MeshVariable_3D), optional, intent(in)    :: mu
-      class(ML_MeshVariable_3D), optional, intent(in)    :: nu
-      class(ML_BoundaryVariable_3D),       intent(in)    :: bv
-      class(ML_MeshVariable_3D),           intent(inout) :: f
-      class(ML_MeshVariable_3D),           intent(inout) :: u
-    end subroutine Stokes_Cascade
-
-    !---------------------------------------------------------------------------
-    !> Cascade and FMG start for the Stokes multigrid solver
-
-    module subroutine MG_Stokes_Start(this, tau, mu, nu, bv, f_d0, f, u, n_cyc)
-      class(ML_INS_Operator_3D),     intent(in)    :: this
-      real(RNP),                     intent(in)    :: tau
-      class(ML_MeshVariable_3D),     intent(in)    :: mu
-      class(ML_MeshVariable_3D),     intent(in)    :: nu
-      class(ML_BoundaryVariable_3D), intent(in)    :: bv
-      class(ML_MeshVariable_3D),     intent(in)    :: f_d0
-      class(ML_MeshVariable_3D),     intent(inout) :: f
-      class(ML_MeshVariable_3D),     intent(inout) :: u
-      integer,             optional, intent(in)    :: n_cyc
-    end subroutine MG_Stokes_Start
-
-    !---------------------------------------------------------------------------
-    !> Performs one or more FAS-MG V-cycles for the Stokes part
-
-    module subroutine MG_Stokes_Cycle(this, tau, mu, nu, bv, f, u, n_cyc, l_top)
-      class(ML_INS_Operator_3D),     intent(in)    :: this
-      real(RNP),                     intent(in)    :: tau
-      class(ML_MeshVariable_3D),     intent(in)    :: mu
-      class(ML_MeshVariable_3D),     intent(in)    :: nu
-      class(ML_BoundaryVariable_3D), intent(in)    :: bv
-      class(ML_MeshVariable_3D),     intent(inout) :: f
-      class(ML_MeshVariable_3D),     intent(inout) :: u
-      integer,             optional, intent(in)    :: n_cyc
-      integer,             optional, intent(in)    :: l_top
-    end subroutine MG_Stokes_Cycle
 
   end interface
 

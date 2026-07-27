@@ -78,9 +78,10 @@ contains
     ! divergence :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
     do l = 1, l_top_
-      associate( sem_u => this % ml_op_u % sem(l)         &
+      associate( eop_u => this % ins_op(l) % eop_u        &
+               , sem_u => this % ml_op_u % sem(l)         &
                , v_    => u % level(l) % val(:,:,:,:,1:3) &
-               , div_v => w % level(l) % val(:,:,:,:,3)   )
+               , div_v => w % level(l) % val(:,:,:,:, 3 ) )
         block
           real(RNP), allocatable, save :: vp(:,:,:,:,:) ! v⁺
           integer :: ne, np
@@ -94,7 +95,7 @@ contains
           ! no barrier required ;)
 
           call GetOuterVectorTraces_3D(sem_u%mesh, v_, vp)
-          call TPO_Div(sem_u%std_op, sem_u, v_, vp, div_v)
+          call TPO_Div(eop_u, sem_u, v_, vp, div_v)
 
           !$omp master
           deallocate(vp)
@@ -212,9 +213,10 @@ contains
     ! correction :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
     do l = 1, l_top_
-      associate( sem_u  => this % ml_op_u % sem(l)         &
+      associate( eop_u  => this % ins_op(l) % eop_u        &
+               , sem_u  => this % ml_op_u % sem(l)         &
                , v_     => u % level(l) % val(:,:,:,:,1:3) &
-               , p_     => u % level(l) % val(:,:,:,:,4)   &
+               , p_     => u % level(l) % val(:,:,:,:, 4 ) &
                , grad_p => w % level(l) % val(:,:,:,:,1:3) )
         block
           real(RNP), allocatable, save :: pp(:,:,:,:) ! p⁺
@@ -230,7 +232,7 @@ contains
           ! no barrier required ;)
 
           call GetOuterTraces_3D(sem_u % mesh, p_, pp)
-          call TPO_Grad(sem_u%std_op, sem_u, p_, pp, grad_p)
+          call TPO_Grad(eop_u, sem_u, p_, pp, grad_p)
 
           ! correct velocity: v = v - τ∇p
           do c = 1, 3
