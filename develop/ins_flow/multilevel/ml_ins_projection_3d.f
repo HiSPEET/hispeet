@@ -174,6 +174,9 @@ program ML_INS_Projection_3D
 
   end if
 
+  ! globalize logging levels
+  call XMPI_Bcast_LoggingLevels(0, comm)
+
   ! globalize control parameters
   call XMPI_Bcast( flow_case   , 0, comm)
   call XMPI_Bcast( case_file   , 0, comm)

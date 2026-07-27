@@ -95,6 +95,7 @@ program ML_INS_Projection_3D
   ! variables ..................................................................
 
   type(ML_MeshVariable_3D),     save :: u   ! solution variables
+  type(ML_MeshVariable_3D),     save :: f   ! RHS
   type(ML_MeshVariable_3D),     save :: mu  ! bulk diffusivity μ
   type(ML_MeshVariable_3D),     save :: nu  ! shear diffusivity ν
   type(ML_MeshVariable_3D),     save :: vtk ! variables exported to VTK
@@ -161,6 +162,9 @@ program ML_INS_Projection_3D
     end if
 
   end if
+
+  ! globalize logging levels
+  call XMPI_Bcast_LoggingLevels(0, comm)
 
   ! globalize control parameters
   call XMPI_Bcast( flow_case   , 0, comm)
@@ -244,7 +248,6 @@ program ML_INS_Projection_3D
   ! globalize
   call XMPI_Bcast(dt, 0, comm)
 
-
   ! variables ..................................................................
 
   n_comp = problem % nc
@@ -253,6 +256,7 @@ program ML_INS_Projection_3D
   var_name = [ 'v_x', 'v_y', 'v_z', 'p  ']
 
   call u  % Init(ml_ins % ml_op_u, nc = n_var, name = var_name)
+  call f  % Init(ml_ins % ml_op_u, nc = n_comp                )
   call mu % Init(ml_ins % ml_op_u, nc = 1                     )
   call nu % Init(ml_ins % ml_op_u, nc = 1                     )
   call bv % Init(ml_ins % ml_op_u, nc = ml_ins % problem % nc )
@@ -266,6 +270,7 @@ program ML_INS_Projection_3D
              , nu_l => nu % level(l) % val(:,:,:,:, 1 )         &
              , u_l  => u  % level(l) % val(:,:,:,:,1:4)         &
              , v_l  => u  % level(l) % val(:,:,:,:,1:3)         &
+             , f_l  => f  % level(l) % val(:,:,:,:,1:3)         &
              , bv_l => bv % level(l) % var                      )
       block
         real(RNP), allocatable :: F_d(:,:,:,:,:)
@@ -286,6 +291,7 @@ program ML_INS_Projection_3D
         allocate(F_d, mold = v_l)
         call problem % GetExactDiffusiveTerm (x_l, t, F_d)
         v_l = v_l - dt * F_d
+        f_l = v_l / dt
 
       end block
     end associate
@@ -313,7 +319,7 @@ program ML_INS_Projection_3D
   call ml_flow_char % PrintValues()
 
   ! diffusion step
-  call ml_ins % DiffusionStep(dt, mu, nu, bv, u)
+  call ml_ins % DiffusionStep(dt, mu, nu, bv, f, u)
 
   call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf=.true.)
   call ml_flow_char % PrintValues()
