@@ -1,10 +1,10 @@
-!> summary:  Preparation for BDF2 time step
+!> summary:  Preparation for BDF time step
 !> author:   Joerg Stiller
 !> date:     2025/05/20
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module INS__Integrator__BDF2__PrepStep__3D
+module INS__Integrator__BDF__PrepStep__3D
   use Kind_Parameters
   use Constants, only: ZERO, HALF, ONE
   use Execution_Control
@@ -15,14 +15,14 @@ module INS__Integrator__BDF2__PrepStep__3D
   implicit none
   private
 
-  public :: INS_Integrator_BDF2_PrepStep_3D
+  public :: INS_Integrator_BDF_PrepStep_3D
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Preparation of a BDF2 time step for one level
+  !> Preparation of a BDF time step for one level
 
-  subroutine INS_Integrator_BDF2_PrepStep_3D &
+  subroutine INS_Integrator_BDF_PrepStep_3D &
       (ins_op, t0, dt, u0, u1, f_c1, f_d1, tau, f, f_d, bv_u, mu, nu, first)
 
     ! arguments ................................................................
@@ -40,7 +40,7 @@ contains
     class(BoundaryVariable_3D), intent(inout) :: bv_u(:)     !< BV at tⁿ⁺¹
     real(RNP), contiguous, optional, intent(out) :: mu(:,:,:,:) !< approx μⁿ⁺¹
     real(RNP), contiguous, optional, intent(out) :: nu(:,:,:,:) !< approx νⁿ⁺¹
-    logical, optional, intent(in) :: first !< T/F for Euler/BDF2 [F]
+    logical, optional, intent(in) :: first !< T/F for Euler/BDF [F]
 
     ! internal variables .......................................................
 
@@ -57,7 +57,7 @@ contains
     type(BoundaryVariable_3D), allocatable, save :: bv_p(:)
     type(BoundaryVariable_3D), allocatable, save :: bv_dp(:)
 
-    ! IMEX BDF2 coefficients ...................................................
+    ! IMEX BDF coefficients ...................................................
 
     real(RNP), parameter :: gamma_0 =  3 * HALF
     real(RNP), parameter :: alpha_0 =  2
@@ -144,7 +144,7 @@ contains
           call MergeArrays(b0, u, b1, u1, multi=.true.)
           call ins_op % GetVariableViscosity(t, u, mu, nu)
         else
-          call Error( 'INS_Integrator_BDF2_PrepStep_3D'            &
+          call Error( 'INS_Integrator_BDF_PrepStep_3D'             &
                     , 'mu and nu required with variable viscosity' )
         end if
       end if
@@ -231,8 +231,8 @@ contains
 
     end associate
 
-  end subroutine INS_Integrator_BDF2_PrepStep_3D
+  end subroutine INS_Integrator_BDF_PrepStep_3D
 
   !=============================================================================
 
-end module INS__Integrator__BDF2__PrepStep__3D
+end module INS__Integrator__BDF__PrepStep__3D
