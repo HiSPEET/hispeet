@@ -11,7 +11,7 @@
 ! log_level_outer_iteration = 1  ! verbosity
 ! log_level_multigrid_cycle = 1  !
 
-  problem_file = 'poiseuille_periodic'
+  problem_file = 'poiseuille_open'
   flow_problem = 'Poiseuille'
   flow_domain  = 1
 
@@ -79,7 +79,7 @@
 &cuboid_cartesian_prm
   xo = 0.0, 0.0, 0.00
   lx = 2.0, 2.0, 0.25
-  periodic = T,F,T
+  periodic = F,F,T
 
 ! for serial runs
   np =  1,1,1
