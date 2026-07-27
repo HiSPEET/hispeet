@@ -1,0 +1,94 @@
+!===============================================================================
+! FAS MG with global hp-refinement and simple pressure smoothing
+!
+! Copy this file to 'test-hp.prm' before use
+
+!-------------------------------------------------------------------------------
+! Control
+
+&control_prm
+
+! log levels,  set to ≥ 1 for higher verbosity
+! log_level                 = 0
+! log_level_inner_iteration = 1
+! log_level_outer_iteration = 1
+! log_level_multigrid_cycle = 1
+
+  problem_file  = 'cylinder_2d'
+  flow_problem  = 'Cylinder2D'
+  flow_domain   =  10
+  raw_mesh_file = '../../../gmsh/cylinder_2d'
+
+  char_freq  =  2 ! set frequency of control output
+! avg_rate   =  1 ! sampling rate for averaging, 0 if none
+  vtk_mode   =  3 ! VTK export mode, 0/1/2/3: none/all/active/leafs
+
+  restart_tag_in  = 'run4'
+  restart_tag_out = 'run5'
+  restart_adjust  = T
+/
+
+!-------------------------------------------------------------------------------
+! Mesh
+
+&ml_mesh_options_3d__static
+  l_top   = 1  ! initial top level
+  l_max   = 5  ! maximum top level
+  l_adapt = 3
+  n_bnd   = 1
+  n_box   = 1
+/
+
+&ml_mesh_options_3d__dynamic
+  n_parts            = 3*13, 39, 78    ! 156 elements in total
+  refinement         = 2*'c',2*'s'     ! (1:l_max-1) refinement type {'c','s'}
+  adapt_bnd(1:1)     = 3               ! (n_bnd)
+  adapt_box(1:3,1,1) = 0.0, -0.05, -1  ! (1:3,1,*)
+  adapt_box(1:3,2,1) = 1.0,  0.05,  1  ! (1:3,2,*)
+/
+
+!-------------------------------------------------------------------------------
+! Spatial
+
+&spatial_prm
+
+  po = 2 3 7 7 7
+
+  ml_ins_opt%mixed = F
+
+  ml_ins_opt%pressure%smooth_method = 3
+  ml_ins_opt%pressure%i_crs = 10000 ! max num coarse iterations          [ 1]
+  ml_ins_opt%pressure%i_max =    20 ! max num cycles                     [ 1]
+  ml_ins_opt%pressure%ns_1  =     6 ! num pre-smoothing steps            [ 1]
+  ml_ins_opt%pressure%ns_2  =     2 ! num post-smoothing steps           [ 1]
+  ml_ins_opt%pressure%ns_c  =     4 ! num continuation smoothing steps   [ 1]
+  ml_ins_opt%pressure%r_red = 1e-10 ! min residual reduction,  if > 0    [-1]
+  ml_ins_opt%pressure%r_max = 1e-12 ! max admissible residual, if > 0    [-1]
+
+  ml_ins_opt%diffusion%i_max =    4 ! max num cycles                     [ 1]
+  ml_ins_opt%diffusion%ns_1  =    6 ! num pre-smoothing steps            [ 1]
+  ml_ins_opt%diffusion%ns_2  =    2 ! num post-smoothing steps           [ 1]
+  ml_ins_opt%diffusion%ns_c  =    4 ! num continuation smoothing steps   [ 1]
+
+  ml_ins_opt%ins_op%diffusion_solver = 'DPCG'
+  ml_ins_opt%ins_op%c_mu = 1
+
+  ml_ins_opt%ins_op%dealiasing       = T
+  ml_ins_opt%ins_op%penalty_p        = 10
+  ml_ins_opt%ins_op%schwarz_u%delta  = 0.04
+  ml_ins_opt%ins_op%schwarz_u%no_min = 1
+  ml_ins_opt%ins_op%schwarz_p%delta  = 0.04
+  ml_ins_opt%ins_op%schwarz_p%no_min = 1
+  ml_ins_opt%ins_op%i_max_v          = 100
+  ml_ins_opt%ins_op%r_red            = 1e-10
+  ml_ins_opt%ins_op%r_max            = 1e-12
+/
+
+!-------------------------------------------------------------------------------
+! Temporal
+
+&temporal_prm
+  t_end  = 5
+  dt     = 1e-4
+  nt_max = 10000
+/
