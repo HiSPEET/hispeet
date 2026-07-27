@@ -223,7 +223,12 @@ contains
               end associate
             end if
 
-            n = this % NumSmoothingSteps(l, 1)
+            if (l < l_top_ .or. m == 1) then
+              n = this % NumSmoothingSteps(l, stage = 1)
+            else
+              n = 0
+            end if
+
             if (present(nu_0)) then
               call this % Smoother(l, bc, lambda, nu_0, u_l, f_l, bv_l, n)
               call this % Residual(l, bc, lambda, nu_0, f_l, bv_l, u_l, r_l)
