@@ -57,7 +57,7 @@
 ! smooth_filter = 3  ! 1/2/3: cut-off/erfc-log/exponential
 ! smooth_order  = 0  ! filter order (0: auto)
 
-  time_method = 2  ! 1/2/3: Euler/BDF2/Runge-Kutta
+  time_method = 2  ! 1/2/3: Euler/BDF/Runge-Kutta
 /
 
 !-------------------------------------------------------------------------------

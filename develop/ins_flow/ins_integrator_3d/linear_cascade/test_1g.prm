@@ -35,5 +35,5 @@
   dt     = 1e-5
   nt_max = 10!00
 
-  time_method = 2  ! BDF2
+  time_method = 2  ! BDF
 /

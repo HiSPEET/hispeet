@@ -12,7 +12,6 @@
   problem_file = 'channel'
   flow_problem = 'Channel'
   flow_domain  = 1
-  refinement_strategy = 'L'
 
 ! char_freq  = 0 ! set frequency of control output
 ! avg_rate   = 1 ! sampling rate for averaging, 0 if none
