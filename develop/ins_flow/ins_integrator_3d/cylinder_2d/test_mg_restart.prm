@@ -68,5 +68,5 @@
   nt_max = 10
   smooth_initial_data = T                     ! not used for restart
 
-  time_method = 2  ! BDF2
+  time_method = 2  ! BDF
 /

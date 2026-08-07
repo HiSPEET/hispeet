@@ -22,7 +22,7 @@
   po_u = 7
   po_p = 7
 
-  ins_op_opt%mu_0      = 1
+  ins_op_opt%c_mu      = 1
   ins_op_opt%i_max_v   = 20
 /
 
@@ -32,9 +32,9 @@
 &temporal_prm
   t_end  = 0.1
   dt     = 1e-3
-  nt_max = 10!00
+  nt_max = 1000
 
-  time_method = 2  ! 1/2 Euler/BDF2
+  time_method = 2  ! 1/2 Euler/BDF
 /
 
 !-------------------------------------------------------------------------------

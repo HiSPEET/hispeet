@@ -1,6 +1,6 @@
-!> summary:  Test of multilevel INS projection step
+!> summary:  Test of multilevel INS diffusion step
 !> author:   Joerg Stiller
-!> date:     2026/07/01
+!> date:     2026/07/03
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> If present, the first argument of the invoking command will be interpreted
@@ -92,22 +92,12 @@ program ML_INS_Projection_3D
 
   namelist/temporal_prm/ dt
 
-  ! pressure disturbance .......................................................
-
-  ! p' = a_w * sin(φ₁) sin(φ₂) sin(φ₃)
-  ! φᵢ = 2π(xᵢ - x_wᵢ)/l_wᵢ
-
-  integer   :: k_w    = 1 ! wave number
-  real(RNP) :: x_w(3) = 0 ! wave starting position xw
-  real(RNP) :: l_w(3) = 1 ! wave lengths
-  real(RNP) :: a_w    = 1 ! wave amplitude
-
-  namelist/disturbance_prm/ k_w, x_w, l_w, a_w
-
   ! variables ..................................................................
 
   type(ML_MeshVariable_3D),     save :: u   ! solution variables
-  type(ML_MeshVariable_3D),     save :: q   ! disturbed pressure
+  type(ML_MeshVariable_3D),     save :: f   ! RHS
+  type(ML_MeshVariable_3D),     save :: mu  ! bulk diffusivity μ
+  type(ML_MeshVariable_3D),     save :: nu  ! shear diffusivity ν
   type(ML_MeshVariable_3D),     save :: vtk ! variables exported to VTK
   type(ML_BoundaryVariable_3D), save :: bv  ! boundary values
 
@@ -165,7 +155,6 @@ program ML_INS_Projection_3D
       write(*,'(2X,A)') 'reading ' // trim(case_file)
       open(newunit = io, file = case_file)
       read(io, nml = control_prm)
-      read(io, nml = disturbance_prm)
       close(io)
     else
        call Error( 'ML_INS_Solver_3D', &
@@ -183,12 +172,6 @@ program ML_INS_Projection_3D
   call XMPI_Bcast( flow_problem, 0, comm)
   call XMPI_Bcast( problem_file, 0, comm)
   call XMPI_Bcast( vtk_mode    , 0, comm)
-
-  ! globalize disturbance parameters
-  call XMPI_Bcast( k_w, 0, comm)
-  call XMPI_Bcast( x_w, 0, comm)
-  call XMPI_Bcast( l_w, 0, comm)
-  call XMPI_Bcast( a_w, 0, comm)
 
   ! create mesh ................................................................
 
@@ -252,6 +235,19 @@ program ML_INS_Projection_3D
 
   call ml_ins % ml_op_u % Get_Volume(domain_volume)
 
+  ! temporal ...................................................................
+
+  ! read
+  if (rank == 0) then
+    write(*,'(/,A)') 'readin temporal discretization parameters'
+    open(newunit = io, file = case_file)
+    read(io, nml = temporal_prm)
+    close(io)
+  end if
+
+  ! globalize
+  call XMPI_Bcast(dt, 0, comm)
+
   ! variables ..................................................................
 
   n_comp = problem % nc
@@ -260,64 +256,42 @@ program ML_INS_Projection_3D
   var_name = [ 'v_x', 'v_y', 'v_z', 'p  ']
 
   call u  % Init(ml_ins % ml_op_u, nc = n_var, name = var_name)
-  call q  % Init(ml_ins % ml_op_u, nc = 1)
-  call bv % Init(ml_ins % ml_op_u, nc = ml_ins % problem % nc)
+  call f  % Init(ml_ins % ml_op_u, nc = n_comp                )
+  call mu % Init(ml_ins % ml_op_u, nc = 1                     )
+  call nu % Init(ml_ins % ml_op_u, nc = 1                     )
+  call bv % Init(ml_ins % ml_op_u, nc = ml_ins % problem % nc )
 
   !-----------------------------------------------------------------------------
-  ! Initial conditions and boundary values
+  ! Viscosity, boundary values, sources and initial conditions
 
   do l = 1, l_top
-    associate( x_l    => ml_ins % ml_op_u % sem(l) % metrics % x  &
-             , u_l    => u  % level(l) % val                      &
-             , q_l    => q  % level(l) % val                      &
-             , bv_l   => bv % level(l) % var                      )
+    associate( x_l  => ml_ins % ml_op_u % sem(l) % metrics % x  &
+             , mu_l => mu % level(l) % val(:,:,:,:, 1 )         &
+             , nu_l => nu % level(l) % val(:,:,:,:, 1 )         &
+             , u_l  => u  % level(l) % val(:,:,:,:,1:4)         &
+             , v_l  => u  % level(l) % val(:,:,:,:,1:3)         &
+             , f_l  => f  % level(l) % val(:,:,:,:,1:3)         &
+             , bv_l => bv % level(l) % var                      )
       block
-        real(RNP) :: alpha(3), kappa(3), phi(3)
-        integer   :: b, i, j, k, e
+        real(RNP), allocatable :: F_d(:,:,:,:,:)
+        integer :: b
 
-        ! exact initial conditions .............................................
+        ! exact solution
+        call problem % GetExactSolution(x_l, t, u_l)
 
-        call problem % GetInitialValues(x_l, u_l)
+        ! viscosity
+        call ml_ins % ins_op(l) % GetVariableViscosity(t, u_l, mu_l, nu_l)
 
-        ! add pressure disturbance .............................................
-
-        kappa = 2 * k_w * PI / l_w
-        alpha = kappa * a_w * dt
-
-        do e = 1, ubound(u_l, 4)
-          do k = 0, po(l)
-          do j = 0, po(l)
-          do i = 0, po(l)
-
-            phi(1) = kappa(1) * (x_l(i,j,k,e,1) - x_w(1))
-            phi(2) = kappa(2) * (x_l(i,j,k,e,2) - x_w(2))
-            phi(3) = kappa(3) * (x_l(i,j,k,e,3) - x_w(3))
-
-            ! disturbed velocity
-            u_l(i,j,k,e,1) = u_l(i,j,k,e,1)  &
-                           + alpha(1) * cos(phi(1)) * sin(phi(2)) * sin(phi(3))
-            u_l(i,j,k,e,2) = u_l(i,j,k,e,2)  &
-                           + alpha(2) * sin(phi(1)) * cos(phi(2)) * sin(phi(3))
-            u_l(i,j,k,e,3) = u_l(i,j,k,e,3)  &
-                           + alpha(3) * sin(phi(1)) * sin(phi(2)) * cos(phi(3))
-
-            ! disturbed pressure
-            q_l(i,j,k,e,1) = u_l(i,j,k,e,4)  &
-                           - a_w * sin(phi(1)) * sin(phi(2)) * sin(phi(3))
-
-            ! reset pressure
-            u_l(i,j,k,e,4) = 0
-
-          end do
-          end do
-          end do
-        end do
-
-        ! boundary values ......................................................
-
+        ! boundary values
         do b = 1, size(bv_l)
           call bv_l(b) % Extract(u_l)
         end do
+
+        ! sources and disturbed velocity
+        allocate(F_d, mold = v_l)
+        call problem % GetExactDiffusiveTerm (x_l, t, F_d)
+        v_l = v_l - dt * F_d
+        f_l = v_l / dt
 
       end block
     end associate
@@ -344,21 +318,8 @@ program ML_INS_Projection_3D
   call ml_flow_char % PrintHeader()
   call ml_flow_char % PrintValues()
 
-  ! projection step
-  call ml_ins % ProjectionStep(dt, bv, u)
-
-  ! add disturbed to computed pressure
-  do l = 1, l_top
-    associate( p_l => u % level(l) % val(:,:,:,:,4) &
-             , q_l => q % level(l) % val(:,:,:,:,1) )
-
-      p_l = p_l + q_l
-
-    end associate
-  end do
-
-  ! remove mean pressure
-  !call ml_ins % CalibratePressure(u)
+  ! diffusion step
+  call ml_ins % DiffusionStep(dt, mu, nu, bv, f, u)
 
   call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf=.true.)
   call ml_flow_char % PrintValues()
@@ -383,7 +344,7 @@ program ML_INS_Projection_3D
       block
         integer :: i, k
 
-        n_vtk = 3 * n_comp
+        n_vtk = 3 * n_comp + 2
 
         allocate(vtk_name(n_vtk))
         vtk_name(1:n_var) = var_name
@@ -392,18 +353,25 @@ program ML_INS_Projection_3D
           write(vtk_name(k + i         ),'(2A)') trim(var_name(i)), '__exact'
           write(vtk_name(k + i + n_comp),'(2A)') trim(var_name(i)), '__error'
         end do
+        k = 3 * n_comp + 1
+        vtk_name(k  ) = 'mu'
+        vtk_name(k+1) = 'nu'
 
         call vtk % Init(ml_ins%ml_op_u, n_vtk, vtk_name)
 
         do l = 1, l_top
           call SetArray(vtk%level(l)%val(:,:,:,:,1:n_var), u%level(l)%val)
-          associate( x_l => ml_ins % ml_op_u % sem(l) % metrics % x           &
-                   , u_l => vtk % level(l) % val(:,:,:,:,1+0*n_comp:1*n_comp) &
-                   , s_l => vtk % level(l) % val(:,:,:,:,1+1*n_comp:2*n_comp) &
-                   , e_l => vtk % level(l) % val(:,:,:,:,1+2*n_comp:3*n_comp) )
+          associate( x_l  => ml_ins % ml_op_u % sem(l) % metrics % x           &
+                   , u_l  => vtk % level(l) % val(:,:,:,:,1+0*n_comp:1*n_comp) &
+                   , s_l  => vtk % level(l) % val(:,:,:,:,1+1*n_comp:2*n_comp) &
+                   , e_l  => vtk % level(l) % val(:,:,:,:,1+2*n_comp:3*n_comp) &
+                   , mu_l => vtk % level(l) % val(:,:,:,:,3*n_comp + 1)        &
+                   , nu_l => vtk % level(l) % val(:,:,:,:,3*n_comp + 2)        )
 
             call problem % GetExactSolution(x_l, t, s_l)
             e_l = u_l - s_l
+            mu_l = mu % level(l) % val(:,:,:,:,1)
+            nu_l = nu % level(l) % val(:,:,:,:,1)
           end associate
         end do
 
@@ -413,7 +381,7 @@ program ML_INS_Projection_3D
 
     else
 
-      ! export solution and averaged variables .................................
+      ! export solution ........................................................
 
       call u % ExportVTK(ml_ins%ml_op_u, file = flow_case, mode = vtk_mode)
 

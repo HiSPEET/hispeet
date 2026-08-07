@@ -110,33 +110,33 @@ contains
                , sp     => tr(:,:,:,:,4:6) &
                , pp     => tr(:,:,:,:, 7 ) )
 
-      ! extrapolation step .....................................................
+        ! extrapolation step ...................................................
 
-      if (predictor) then
+        if (predictor) then
 
-        !$omp do collapse(2)
-        do c = 1, 3
-        do e = 1, na
-          v(:,:,:,e,c) =  tau * (f(:,:,:,e,c) + f_d0(:,:,:,e,c))
-        end do
-        end do
-
-      else ! corrector
-
-        call this % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_w &
-                                    , xout = .true. , form = 2     )
-
-        call this % sem_u % Get_DG_DiagonalMassMatrix( mm )
-
-        !$omp do
-        do e = 1, na
-          mm_inv = 1 / mm(:,:,:,e)
+          !$omp do collapse(2)
           do c = 1, 3
-            v(:,:,:,e,c) = tau * ( f(:,:,:,e,c) + mm_inv * f_d(:,:,:,e,c) )
+          do e = 1, na
+            v(:,:,:,e,c) =  tau * (f(:,:,:,e,c) + f_d0(:,:,:,e,c))
           end do
-        end do
+          end do
 
-      end if
+        else ! corrector
+
+          call this % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_w &
+                                      , xout = .true. , form = 2     )
+
+          call this % sem_u % Get_DG_DiagonalMassMatrix( mm )
+
+          !$omp do
+          do e = 1, na
+            mm_inv = 1 / mm(:,:,:,e)
+            do c = 1, 3
+              v(:,:,:,e,c) = tau * ( f(:,:,:,e,c) + mm_inv * f_d(:,:,:,e,c) )
+            end do
+          end do
+
+        end if
 
         ! projection step ......................................................
 
@@ -203,7 +203,7 @@ contains
 
         end if
 
-        call this % DiffusionSolver(tau, mu, nu, q_d, bv_w, v, precon)
+        call this % DiffusionSolver(tau, mu, nu, q_d, bv_w, v, precon=precon)
 
       end associate
 

@@ -103,14 +103,14 @@ contains
       ! map center of shell faces
       select case(mod(shellOrder,2))
       case(0)
-        p_edge(l,numShells,1:4,:) = p_face(l,size(p_face(l,:)))
+        p_edge(l,numShells,1:4,:) = p_face(l,np_face)
 
       case(1)
         m = size(p_face(l,:))
-        p_edge(l,numShells,1,:) = [ p_face(l,m-3), p_face(l,m-2) ]
-        p_edge(l,numShells,2,:) = [ p_face(l,m-2), p_face(l,m-1) ]
-        p_edge(l,numShells,3,:) = [ p_face(l,m-1), p_face(l,m  ) ]
-        p_edge(l,numShells,4,:) = [ p_face(l,m  ), p_face(l,m-3) ]
+        p_edge(l,numShells,1,1:2) = [ p_face(l,m-3), p_face(l,m-2) ]
+        p_edge(l,numShells,2,1:2) = [ p_face(l,m-2), p_face(l,m-1) ]
+        p_edge(l,numShells,3,1:2) = [ p_face(l,m-1), p_face(l,m  ) ]
+        p_edge(l,numShells,4,1:2) = [ p_face(l,m  ), p_face(l,m-3) ]
       end select
 
     end do

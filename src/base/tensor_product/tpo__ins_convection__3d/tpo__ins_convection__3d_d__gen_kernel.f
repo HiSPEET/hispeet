@@ -4,8 +4,9 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-subroutine TPO_INS_Convection_D_Gen_RWP( nv, nq, ne, bc, alpha, D_v, I_vq, w_q &
-                                       , Jd_q, Ji_q, a_q, n_q, v, vp, F_c      )
+subroutine TPO_INS_Convection_D_Gen_RWP( nv, nq, ne, bc, alpha, D_v, I_vq &
+                                       , w_q, Jd_q, Ji_q, a_q, n_q, v, vp &
+                                       , F_c, e_max                       )
 
   ! arguments ..................................................................
 
@@ -28,6 +29,8 @@ subroutine TPO_INS_Convection_D_Gen_RWP( nv, nq, ne, bc, alpha, D_v, I_vq, w_q &
   real(RWP), intent(in)  :: v(nv,nv,nv,ne,3)      !< velocity
   real(RWP), intent(in)  :: vp(nv,nv,6,ne,3)      !< velocity v⁺ at faces
   real(RWP), intent(out) :: F_c(nv,nv,nv,ne,3)    !< convective flux integrals
+
+  integer, optional, intent(in) :: e_max !< last element to evaluate [ne]
 
   ! local variables ............................................................
 
@@ -60,7 +63,7 @@ subroutine TPO_INS_Convection_D_Gen_RWP( nv, nq, ne, bc, alpha, D_v, I_vq, w_q &
   real(RWP) :: vb_1, vb_2, vb_3, vb_n
   real(RWP) :: cf, vn, tmp
 
-  integer   :: c, e, f, i, j, k, p
+  integer   :: c, e, f, i, j, k, p, ne_
   integer   :: iv, iq, jv, jq, kv, kq
 
   !-----------------------------------------------------------------------------
@@ -83,8 +86,14 @@ subroutine TPO_INS_Convection_D_Gen_RWP( nv, nq, ne, bc, alpha, D_v, I_vq, w_q &
     M_div_v = 0
   end if
 
+  if (present(e_max)) then
+    ne_ = e_max
+  else
+    ne_ = ne
+  end if
+
   !$omp do
-  Elements: do e = 1, ne
+  Elements: do e = 1, ne_
 
     !---------------------------------------------------------------------------
     ! volume integral

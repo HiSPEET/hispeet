@@ -10,17 +10,18 @@ submodule(INS__Operator__3D) MP_ApplyDiffusionOperator_V
 contains
 
   !-----------------------------------------------------------------------------
-  !> Homogeneous diffusion operator with variable viscosity
+  !> Diffusion operator with variable viscosity
   !>
-  !> Computes the homogeneous DG-SEM viscous diffusion operator including the
-  !> implicit part of the discretized time derivative, i.e.,
+  !> Computes the DG-SEM viscous diffusion operator including the implicit part
+  !> of the discretized time derivative, i.e.,
   !>
-  !>     r = Mv/τ - F_d(v, vb=0, sb=0)
+  !>     r = Mv/τ - F_d(v, bv)
   !>
   !> where `F_d` is the weak form of the diffusion term for the given velocity
-  !> `v` with zero boundary values `vb`, `sb` and `M` is diagonal mass matrix.
+  !> `v` using the diagonal mass matrix `M`.
+  !> Homogeneous boundary conditions are applied if `bv` is absent.
 
-  module subroutine ApplyDiffusionOperator_V(this, tau, mu, nu, v, r, form)
+  module subroutine ApplyDiffusionOperator_V(this, tau, mu, nu, bv, v, r, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -33,6 +34,11 @@ contains
 
     real(RNP), contiguous, intent(in) :: nu(:,:,:,:)
     !< kinematic shear viscosity ν (np,np,np,ne)
+
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
+    !< boundary values
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]
+    !!   - Γᴼ :  [ - , - , ∆p, p ]
 
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
@@ -74,7 +80,7 @@ contains
 
       ! computation ............................................................
 
-      call this % GetDiffusionTerm_V(mu, nu, v, vp, sp, r, form=form)
+      call this % GetDiffusionTerm_V(mu, nu, v, vp, sp, r, bv_v=bv, form=form)
 
       !$omp do collapse(2)
       do e = 1, na

@@ -2,12 +2,9 @@
 !> author:   Joerg Stiller
 !> date:     2025/05/12
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @remark
-!> Auxiliary version skipping bulk viscosity part when restricting
 !===============================================================================
 
-submodule (ML__INS__Operator__3D) MP_MG_Stokes_Cycle
+submodule (ML__INS__Operator__3D) MP_Stokes_MG_Cycle
   use Child_To_Parent_Projection__3D
   use Child_To_Parent_Restriction__3D
   use Parent_To_Child_Interpolation__3D
@@ -18,7 +15,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs one or more FAS-MG V-cycles for the Stokes part
 
-  module subroutine MG_Stokes_Cycle(this, tau, mu, nu, bv, f, u, n_cyc, l_top)
+  module subroutine Stokes_MG_Cycle(this, tau, mu, nu, bv, f, u, n_cyc, l_top)
     class(ML_INS_Operator_3D), intent(in) :: this
     real(RNP), intent(in) :: tau
       !< effective time step
@@ -69,7 +66,7 @@ contains
 
       associate(mesh => sem(1)%mesh)
         if (log_level == 1 .and. mesh%part == 0 .or. log_level > 1) then
-          log_prefix = LoggingPrefix('MG_Stokes_Cycle', mesh%part, mesh%n_parts)
+          log_prefix = LoggingPrefix('Stokes_MG_Cycle', mesh%part, mesh%n_parts)
         end if
       end associate
 
@@ -138,19 +135,15 @@ contains
               call ins_l % StokesSolver(tau, f_l, bv_l, mu_l, nu_l, u_l)
             end if
 
-            ! residual
-            if (this % dc_bulk) then
-              ! with bulk diffusion
-              call ins_l % GetStokesResidual(tau, f_l, bv_l, mu_l, nu_l, u_l, r_l)
-            else
-              ! without bulk diffusion, μ → z ≡ 0
-              call ins_l % GetStokesResidual(tau, f_l, bv_l, z_l, nu_l, u_l, r_l)
-            end if
+            ! residual -- with bulk diffusion
+            call ins_l % GetStokesResidual(tau, f_l, bv_l, mu_l, nu_l, u_l, r_l)
+!!!         ! residual -- without bulk diffusion, μ → z ≡ 0
+!!!         call ins_l % GetStokesResidual(tau, f_l, bv_l, z_l, nu_l, u_l, r_l)
 
             ! restriction ......................................................
 
             ! project solution to regularly refined parent elements
-            select case(this % fc_project)
+            select case(this % ml_diffusion_opt % fc_projection)
             case('I')
               ! interpolation
               call ChildToParentProjection_3D &
@@ -177,14 +170,10 @@ contains
             end do
             !$omp end do nowait
 
-            ! homogeneous Stokes operator
-            if (this % dc_bulk) then
-              ! with bulk diffusion
-              call ins_p % ApplyStokesOperator(tau, bv_p, mu_p, nu_p, w_p, r_p)
-            else
-              ! without bulk diffusion, μ → z ≡ 0
-              call ins_p % ApplyStokesOperator(tau, bv_p, z_p, nu_p, w_p, r_p)
-            end if
+            ! Stokes operator -- with bulk diffusion
+            call ins_p % ApplyStokesOperator(tau, bv_p, mu_p, nu_p, w_p, r_p)
+!!!         ! Stokes operator -- without bulk diffusion, μ → z ≡ 0
+!!!         call ins_p % ApplyStokesOperator(tau, bv_p, z_p, nu_p, w_p, r_p)
 
             !$omp do
             do e = 1, mesh_p % n_elem
@@ -292,8 +281,8 @@ contains
       print '(2A)', log_prefix, 'exit'
     end if
 
-  end subroutine MG_Stokes_Cycle
+  end subroutine Stokes_MG_Cycle
 
   !=============================================================================
 
-end submodule MP_MG_Stokes_Cycle
+end submodule MP_Stokes_MG_Cycle

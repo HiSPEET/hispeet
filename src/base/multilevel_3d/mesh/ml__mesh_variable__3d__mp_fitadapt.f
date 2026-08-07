@@ -20,6 +20,7 @@ contains
     class(DataExchangePlan_3D), intent(in)    :: x_plan(:) !< reassignment plan
 
     type(MeshVariable_3D), allocatable, save :: old_level(:)
+    character(len=:),      allocatable, save :: old_name(:)
 
     integer :: l
 
@@ -27,9 +28,11 @@ contains
 
     ! save old mesh data
     call move_alloc(this % level, old_level)
+    call move_alloc(this % name , old_name )
+
 
     ! re-initialize ML mesh variable
-    call this % Init(ml_op, size(this%name), this%name)
+    call this % Init(ml_op, size(old_name), old_name)
 
     ! redistribute root level ..................................................
 
@@ -53,7 +56,7 @@ contains
 
     ! finalization .............................................................
 
-    deallocate(old_level)
+    deallocate(old_level, old_name)
 
   end subroutine FitAdapt
 

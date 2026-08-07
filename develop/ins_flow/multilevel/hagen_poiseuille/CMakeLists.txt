@@ -1,6 +1,6 @@
-file( COPY test-1l.prm
+file( COPY hagen_poiseuille.prm
+           test-1l.prm
            test-pg.prm
            test-hp.prm
-           hagen_poiseuille.prm
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR} )

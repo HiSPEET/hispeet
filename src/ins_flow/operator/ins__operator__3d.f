@@ -174,25 +174,27 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Homogeneous diffusion operator with constant viscosity
 
-    module subroutine ApplyDiffusionOperator_C(this, tau, v, r, form)
-      class(INS_Operator_3D), intent(in)  :: this
-      real(RNP),              intent(in)  :: tau
-      real(RNP),  contiguous, intent(in)  :: v(:,:,:,:,:)
-      real(RNP),  contiguous, intent(out) :: r(:,:,:,:,:)
-      integer,      optional, intent(in)  :: form
+    module subroutine ApplyDiffusionOperator_C(this, tau, bv, v, r, form)
+      class(INS_Operator_3D),               intent(in)  :: this
+      real(RNP),                            intent(in)  :: tau
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
+      real(RNP), contiguous,                intent(in)  :: v(:,:,:,:,:)
+      real(RNP), contiguous,                intent(out) :: r(:,:,:,:,:)
+      integer,                    optional, intent(in)  :: form
     end subroutine ApplyDiffusionOperator_C
 
     !---------------------------------------------------------------------------
     !> Homogeneous diffusion operator with variable viscosity
 
-    module subroutine ApplyDiffusionOperator_V(this, tau, mu, nu, v, r, form)
-      class(INS_Operator_3D), intent(in)  :: this
-      real(RNP),              intent(in)  :: tau
-      real(RNP), contiguous,  intent(in)  :: mu(:,:,:,:)
-      real(RNP), contiguous,  intent(in)  :: nu(:,:,:,:)
-      real(RNP), contiguous,  intent(in)  :: v(:,:,:,:,:)
-      real(RNP), contiguous,  intent(out) :: r(:,:,:,:,:)
-      integer,     optional,  intent(in)  :: form
+    module subroutine ApplyDiffusionOperator_V(this, tau, mu, nu, bv, v, r, form)
+      class(INS_Operator_3D),               intent(in)  :: this
+      real(RNP),                            intent(in)  :: tau
+      real(RNP), contiguous,                intent(in)  :: mu(:,:,:,:)
+      real(RNP), contiguous,                intent(in)  :: nu(:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
+      real(RNP), contiguous,                intent(in)  :: v(:,:,:,:,:)
+      real(RNP), contiguous,                intent(out) :: r(:,:,:,:,:)
+      integer,                    optional, intent(in)  :: form
     end subroutine ApplyDiffusionOperator_V
 
     !---------------------------------------------------------------------------
@@ -231,7 +233,8 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion solver
 
-    module subroutine DiffusionSolver(this, tau, mu, nu, f, bv, v, precon, ni)
+    module subroutine DiffusionSolver( this, tau, mu, nu, f, bv, v, i_max &
+                                     , precon, ni )
       class(INS_Operator_3D),          intent(in)    :: this
       real(RNP),                       intent(in)    :: tau
       real(RNP), contiguous, optional, intent(in)    :: mu(:,:,:,:)
@@ -239,6 +242,7 @@ module INS__Operator__3D
       real(RNP), contiguous,           intent(in)    :: f(:,:,:,:,:)
       class(BoundaryVariable_3D),      intent(in)    :: bv(:)
       real(RNP), contiguous,           intent(inout) :: v(:,:,:,:,:)
+      integer,               optional, intent(in)    :: i_max
       logical,               optional, intent(in)    :: precon
       integer,               optional, intent(out)   :: ni
     end subroutine DiffusionSolver
@@ -626,15 +630,16 @@ contains
     character, allocatable, save :: bc_elem(:,:)
 
     character :: bc
-    integer   :: b, e, i, j, k, ne
+    integer   :: b, e, i, j, k, ne, e_max
 
     ! range ....................................................................
 
-    ne = this % mesh % n_elem_active
+    ne = this % mesh % n_elem
 
+    e_max = ne
     if (present(frozen)) then
       if (frozen) then
-        ne = this % mesh % n_elem
+        e_max = this % mesh % n_elem_active
       end if
     end if
 
@@ -658,21 +663,22 @@ contains
 
     ! evaluation ...............................................................
 
-    call TPO_INS_Convection( nv   = this % eop_u % po + 1       &
-                           , nq   = this % sop_q % po + 1       &
-                           , ne   = ne                          &
-                           , bc   = bc_elem                     &
-                           , D_v  = this % eop_u  % D           &
-                           , I_vq = this % iop_uq % A           &
-                           , w_q  = this % sop_q  % w           &
-                           , Jd_q = this % sem_q % metrics % Jd &
-                           , Ji_q = this % sem_q % metrics % Ji &
-                           , a_q  = this % sem_q % metrics % a  &
-                           , n_q  = this % sem_q % metrics % n  &
-                           , v    = v                           &
-                           , vp   = vp                          &
-                           , f_c  = f_c                         &
-                           , form = this % convection_term      )
+    call TPO_INS_Convection( nv    = this % eop_u % po + 1       &
+                           , nq    = this % sop_q % po + 1       &
+                           , ne    = ne                          &
+                           , bc    = bc_elem                     &
+                           , D_v   = this % eop_u  % D           &
+                           , I_vq  = this % iop_uq % A           &
+                           , w_q   = this % sop_q  % w           &
+                           , Jd_q  = this % sem_q % metrics % Jd &
+                           , Ji_q  = this % sem_q % metrics % Ji &
+                           , a_q   = this % sem_q % metrics % a  &
+                           , n_q   = this % sem_q % metrics % n  &
+                           , v     = v                           &
+                           , vp    = vp                          &
+                           , f_c   = f_c                         &
+                           , form  = this % convection_term      &
+                           , e_max = e_max                       )
 
     ! Coriolis force in rotating frame .........................................
 
@@ -696,7 +702,7 @@ contains
           end do
 
           !$omp do
-          do e = 1, ne
+          do e = 1, e_max
 
             ce = -2 * Ms * Jd(:,:,:,e)
 
@@ -721,22 +727,23 @@ contains
   end subroutine GetConvectionTerm
 
   !-----------------------------------------------------------------------------
-  !> Homogeneous diffusion operator with constant or variable viscosity
+  !> Diffusion operator with constant or variable viscosity
 
-  subroutine ApplyDiffusionOperator(this, tau, mu, nu, v, r, form)
-    class(INS_Operator_3D),          intent(in)  :: this
-    real(RNP),                       intent(in)  :: tau
-    real(RNP), contiguous, optional, intent(in)  :: mu(:,:,:,:)
-    real(RNP), contiguous, optional, intent(in)  :: nu(:,:,:,:)
-    real(RNP), contiguous,           intent(in)  :: v(:,:,:,:,:)
-    real(RNP), contiguous,           intent(out) :: r(:,:,:,:,:)
-    integer,               optional, intent(in)  :: form
+  subroutine ApplyDiffusionOperator(this, tau, mu, nu, bv, v, r, form)
+    class(INS_Operator_3D),               intent(in)  :: this
+    real(RNP),                            intent(in)  :: tau
+    real(RNP), contiguous,      optional, intent(in)  :: mu(:,:,:,:)
+    real(RNP), contiguous,      optional, intent(in)  :: nu(:,:,:,:)
+    class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
+    real(RNP), contiguous,                intent(in)  :: v(:,:,:,:,:)
+    real(RNP), contiguous,                intent(out) :: r(:,:,:,:,:)
+    integer,                    optional, intent(in)  :: form
 
     if (.not. this % HasVariableViscosity()) then
-      call this % ApplyDiffusionOperator_C(tau, v, r, form)
+      call this % ApplyDiffusionOperator_C(tau, bv, v, r, form)
 
     else if (present(mu) .and. present(nu)) then
-      call this % ApplyDiffusionOperator_V(tau, mu, nu, v, r, form)
+      call this % ApplyDiffusionOperator_V(tau, mu, nu, bv, v, r, form)
 
     else
       call Error( 'ApplyDiffusionOperator'                     &

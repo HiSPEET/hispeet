@@ -33,6 +33,7 @@ module ML__Mesh__3D
     type(Mesh_3D), allocatable :: mesh(:) !< mesh partitions
   contains
     procedure :: Init_ML_Mesh_3D
+    procedure :: MarkByOptions
     procedure :: Adapt
     procedure :: ReadHDF5
     procedure :: WriteHDF5
@@ -203,14 +204,40 @@ contains
 
     type(DataExchangePlan_3D), allocatable, save :: x_plan(:)
 
-    integer :: n_box, n_bnd
-    integer :: i, e, l, m
+    integer :: l
 
     ! preliminaries ............................................................
 
     if (mesh%part == 0) then
       write(*,'(/,A)') 'creating adapted multilevel mesh'
     end if
+
+    allocate(this % mesh(1), source = mesh)
+
+    ADAPTATION: do l = 1, opt%l_top - 1
+
+      if (mesh%part == 0) then
+        write(*,'(2X,9G0)') 'adaptation cycle ',l,'/',opt%l_top-1
+      end if
+
+      call this % MarkByOptions(opt)
+      call this % Adapt(opt%partition, x_plan)
+
+    end do ADAPTATION
+
+  end subroutine Create_Adapted_ML_Mesh_3D
+
+  !-----------------------------------------------------------------------------
+  !> Set adaptation marks according to given ML mesh options
+
+  subroutine MarkByOptions(this, opt)
+    class(ML_Mesh_3D),         intent(inout) :: this
+    class(ML_Mesh_Options_3D), intent(in)    :: opt
+
+    integer :: n_box, n_bnd
+    integer :: i, e, l
+
+    ! preliminaries ............................................................
 
     if (allocated(opt%adapt_bnd)) then
       n_bnd = size(opt%adapt_bnd, 1)
@@ -224,76 +251,66 @@ contains
       n_box = 0
     end if
 
-    allocate(this % mesh(1), source = mesh)
+    ! set marks ................................................................
 
-    ADAPTATION: do m = 1, opt%l_top - 1
+    do l = 1, size(this % mesh)
+      associate(mesh => this % mesh(l))
 
-      if (mesh%part == 0) then
-        write(*,'(2X,9G0)') 'adaptation cycle ',m,'/',opt%l_top-1
-      end if
+        mesh % refinement = opt % refinement(l)
 
-      ! set adaptation marks ...................................................
+        if (mesh%part < 0) then
+          cycle
 
-      do l = 1, m
-        associate(parent => this % mesh(l))
+        else if (l > opt % l_max) then
+          call mesh % element % MarkForRemoval()
 
-          parent % refinement = opt % refinement(l)
+        else if (l == opt % l_max) then
+          call mesh % element % Unmark()
 
-          if (parent%part < 0) cycle
+        else if (l < opt%l_adapt) then
+          call mesh % element % MarkForRefinement()
 
-          if (l+1 < opt%l_adapt) then
+        else
 
-            call parent % element % MarkForRefinement()
-
+          MARK_INIT: if (mesh % is_root) then
+            call mesh % element % Unmark()
           else
+            call mesh % element % MarkForRemoval()
+          end if MARK_INIT
 
-            MARK_INIT: if (parent % is_root) then
-              call parent % element % Unmark()
-            else
-              call parent % element % MarkForRemoval()
-            end if MARK_INIT
-
-            MARK_BND: if (n_bnd > 0) then
-              do e = 1, parent % n_elem
-                associate(element => parent%element(e), bnd => opt%adapt_bnd)
-
-                  do i = 1, n_bnd
-                    if (any(element%face%boundary == bnd(i))) then
-                      call element % MarkForRefinement()
-                      exit
-                    end if
-                  end do
-
-                end associate
-              end do
-            end if MARK_BND
-
-            MARK_BOX: if (n_box > 0) then
-              do e = 1, parent % n_elem
-                associate( element => parent % element(e)                  &
-                         , x_cub   => parent % element(e) % geometry % x_c &
-                         , x_box   => opt % adapt_box                      )
-
-                  if (ElementIntersectsBox(n_box, x_box, x_cub)) then
+          MARK_BND: if (n_bnd > 0) then
+            do e = 1, mesh % n_elem
+              associate(element => mesh%element(e), bnd => opt%adapt_bnd)
+                do i = 1, n_bnd
+                  if (any(element%face%boundary == bnd(i))) then
                     call element % MarkForRefinement()
+                    exit
                   end if
+                end do
+              end associate
+            end do
+          end if MARK_BND
 
-                end associate
-              end do
-            end if MARK_BOX
+          MARK_BOX: if (n_box > 0) then
+            do e = 1, mesh % n_elem
+              associate( element => mesh % element(e)                  &
+                       , x_cub   => mesh % element(e) % geometry % x_c &
+                       , x_box   => opt % adapt_box                    )
 
-          end if
+                if (ElementIntersectsBox(n_box, x_box, x_cub)) then
+                  call element % MarkForRefinement()
+                end if
 
-        end associate
-      end do
+              end associate
+            end do
+          end if MARK_BOX
 
-      ! adapt mesh .............................................................
+        end if
 
-      call this % Adapt(opt%partition, x_plan)
+      end associate
+    end do
 
-    end do ADAPTATION
-
-  end subroutine Create_Adapted_ML_Mesh_3D
+  end subroutine MarkByOptions
 
   !-----------------------------------------------------------------------------
   !> Check for intersection of element cuboid with any of given boxes

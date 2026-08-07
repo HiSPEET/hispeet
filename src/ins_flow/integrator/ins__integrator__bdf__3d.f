@@ -1,10 +1,10 @@
-!> summary:  BDF2 method for incompressible flows
+!> summary:  BDF method for incompressible flows
 !> author:   Joerg Stiller
 !> date:     2022/11/08
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module INS__Integrator__BDF2__3D
+module INS__Integrator__BDF__3D
   use Kind_Parameters
   use Constants
   use XMPI
@@ -12,73 +12,73 @@ module INS__Integrator__BDF2__3D
   use INS__Integrator__3D
   use INS__Problem__3D
   use INS__Operator__3D
-  use INS__Integrator__BDF2__PrepStep__3D
+  use INS__Integrator__BDF__PrepStep__3D
 
   implicit none
   private
 
-  public :: INS_Integrator_BDF2_3D
-  public :: INS_Integrator_BDF2_Options_3D
+  public :: INS_Integrator_BDF_3D
+  public :: INS_Integrator_BDF_Options_3D
 
   !-----------------------------------------------------------------------------
-  !> BDF2 method for incompressible flows
+  !> BDF method for incompressible flows
 
-  type, extends(INS_Integrator_3D) :: INS_Integrator_BDF2_3D
+  type, extends(INS_Integrator_3D) :: INS_Integrator_BDF_3D
   contains
-    procedure, non_overridable :: Init_INS_Integrator_BDF2_3D
+    procedure, non_overridable :: Init_INS_Integrator_BDF_3D
     procedure :: TimeStep
-  end type INS_Integrator_BDF2_3D
+  end type INS_Integrator_BDF_3D
 
   ! constructor
-  interface INS_Integrator_BDF2_3D
-    module procedure New_INS_Integrator_BDF2_3D
+  interface INS_Integrator_BDF_3D
+    module procedure New_INS_Integrator_BDF_3D
   end interface
 
   !-----------------------------------------------------------------------------
-  !> Type for providing BDF2 time-integrator options (none, so far)
+  !> Type for providing BDF time-integrator options (none, so far)
 
   type, extends(INS_IntegratorOptions_3D) :: &
-    INS_Integrator_BDF2_Options_3D
+    INS_Integrator_BDF_Options_3D
   contains
-    procedure :: Bcast => Bcast_INS_Integrator_BDF2_Options
-  end type INS_Integrator_BDF2_Options_3D
+    procedure :: Bcast => Bcast_INS_Integrator_BDF_Options
+  end type INS_Integrator_BDF_Options_3D
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Constructor for objects of type INS_Integrator_BDF2_3D
+  !> Constructor for objects of type INS_Integrator_BDF_3D
 
-  function New_INS_Integrator_BDF2_3D(problem, ins_op, opt) result(this)
-    class(INS_Problem_3D),                 intent(in) :: problem
-    class(INS_Operator_3D),                intent(in) :: ins_op
-    class(INS_Integrator_BDF2_Options_3D), intent(in) :: opt
-    type(INS_Integrator_BDF2_3D) :: this
+  function New_INS_Integrator_BDF_3D(problem, ins_op, opt) result(this)
+    class(INS_Problem_3D),                intent(in) :: problem
+    class(INS_Operator_3D),               intent(in) :: ins_op
+    class(INS_Integrator_BDF_Options_3D), intent(in) :: opt
+    type(INS_Integrator_BDF_3D) :: this
 
-    call Init_INS_Integrator_BDF2_3D(this, problem, ins_op, opt)
+    call Init_INS_Integrator_BDF_3D(this, problem, ins_op, opt)
 
-  end function New_INS_Integrator_BDF2_3D
+  end function New_INS_Integrator_BDF_3D
 
   !-----------------------------------------------------------------------------
-  !> Initialization of a INS_Integrator_BDF2_3D object
+  !> Initialization of a INS_Integrator_BDF_3D object
 
-  subroutine Init_INS_Integrator_BDF2_3D(this, problem, ins_op, opt)
-    class(INS_Integrator_BDF2_3D),         intent(inout) :: this
-    class(INS_Problem_3D),                 intent(in)    :: problem
-    class(INS_Operator_3D),                intent(in)    :: ins_op
-    class(INS_Integrator_BDF2_Options_3D), intent(in)    :: opt
+  subroutine Init_INS_Integrator_BDF_3D(this, problem, ins_op, opt)
+    class(INS_Integrator_BDF_3D),         intent(inout) :: this
+    class(INS_Problem_3D),                intent(in)    :: problem
+    class(INS_Operator_3D),               intent(in)    :: ins_op
+    class(INS_Integrator_BDF_Options_3D), intent(in)    :: opt
 
     ! intialize parent type
     call this % Init_INS_Integrator_3D(problem, ins_op, opt)
 
-    this % name = 'BDF2 method'
+    this % name = 'BDF method'
 
-  end subroutine Init_INS_Integrator_BDF2_3D
+  end subroutine Init_INS_Integrator_BDF_3D
 
   !-----------------------------------------------------------------------------
-  !> Execution of a BDF2 time step
+  !> Execution of a BDF time step
 
   subroutine TimeStep(this, t, dt, u, standby)
-    class(INS_Integrator_BDF2_3D), intent(inout) :: this
+    class(INS_Integrator_BDF_3D), intent(inout) :: this
     real(RNP),             intent(inout) :: t            !< time t₀ → t
     real(RNP),             intent(in)    :: dt           !< step size ∆t = t-t₀
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:) !< u(x,t₀) → u(x,t)
@@ -142,12 +142,12 @@ contains
       end if
 
       !$omp end master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      !!omp barrier    !! not required because of barrier in BDF2_PrepStep_3D
+      !!omp barrier    !! not required because of barrier in BDF_PrepStep_3D
 
       ! time step ..............................................................
 
-      call INS_Integrator_BDF2_PrepStep_3D( ins_op, t, dt, u, u1, f_c1, f_d1 &
-                                          , tau, f, f_d, bv_u, mu, nu, first )
+      call INS_Integrator_BDF_PrepStep_3D( ins_op, t, dt, u, u1, f_c1, f_d1 &
+                                         , tau, f, f_d, bv_u, mu, nu, first )
 
       call ins_op % StokesSolver(tau, f, bv_u, mu, nu, u, f_d0 = f_d)
 
@@ -172,20 +172,20 @@ contains
   end subroutine TimeStep
 
   !=============================================================================
-  ! TBP of INS_Integrator_BDF2_Options_3D
+  ! TBP of INS_Integrator_BDF_Options_3D
 
   !-----------------------------------------------------------------------------
-  !> MPI broadcasting of BDF2 time-integrator options
+  !> MPI broadcasting of BDF time-integrator options
 
-  subroutine Bcast_INS_Integrator_BDF2_Options(this, root, comm)
-    class(INS_Integrator_BDF2_Options_3D), intent(inout) :: this
+  subroutine Bcast_INS_Integrator_BDF_Options(this, root, comm)
+    class(INS_Integrator_BDF_Options_3D), intent(inout) :: this
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
     call this % INS_IntegratorOptions_3D % Bcast(root, comm)
 
-  end subroutine Bcast_INS_Integrator_BDF2_Options
+  end subroutine Bcast_INS_Integrator_BDF_Options
 
   !=============================================================================
 
-end module INS__Integrator__BDF2__3D
+end module INS__Integrator__BDF__3D

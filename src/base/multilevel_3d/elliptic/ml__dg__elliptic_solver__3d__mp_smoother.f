@@ -54,6 +54,8 @@ contains
     class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     integer, intent(in) :: n_s
 
+    if (n_s < 1) return
+
     select case(this % smooth_method)
     case(SOLVER_CG)
       ! Flexible CG

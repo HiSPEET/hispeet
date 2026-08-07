@@ -1,9 +1,14 @@
-file( COPY test-projection-1g.prm
+file( COPY test-coupled-4g.prm
+           test-coupled-hp.prm
+           test-diffusion-1g.prm
+           test-diffusion-3g.prm
+           test-diffusion-hp.prm
+           test-projection-1g.prm
            test-projection-3g.prm
            test-projection-hp.prm
-           test-3g.prm
-           test-hp-nested.prm
-           test-hp-simple.prm
+           test-solver-1g.prm
+           test-solver-3g.prm
+           test-solver-hp.prm
            variable_viscosity.prm
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR} )

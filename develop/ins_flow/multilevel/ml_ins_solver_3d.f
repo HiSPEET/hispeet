@@ -26,6 +26,7 @@ program ML_INS_Solver_3D
   use Generic_Mesh__3D
   use Verify_Mesh__3D
   use Import_GMSH__3D
+  use Data_Exchange__3D
 
   use INS__Problem__3D
   use INS__Problem__Test_Suite__3D
@@ -33,7 +34,7 @@ program ML_INS_Solver_3D
   use ML__Mesh__3D
   use ML__Mesh_Variable__3D
   use ML__INS__Operator__3D
-  use ML__INS__Integrator__BDF2__3D
+  use ML__INS__Integrator__BDF__3D
   use ML__INS__Flow_Characteristics__3D
   use ML__INS__Time_Scales__3D
   use ML__INS__Time_Averaging__3D
@@ -77,14 +78,6 @@ program ML_INS_Solver_3D
 
   namelist/control_prm/ flow_problem, problem_file, flow_domain, raw_mesh_file
 
-  character :: refinement_strategy = 'G'
-    ! mesh refinement strategy
-    !   'G'  global
-    !   'L'  local
-    !   'A'  adaptive
-
-  namelist/control_prm/ refinement_strategy
-
   integer :: char_freq  = 1 ! characteristics output frequency
   integer :: avg_rate   = 0 ! sampling rate for averaging, 0 if none
   integer :: vtk_mode   = 0 ! VTK export mode, 0/1/2/3: none/all/active/leafs
@@ -108,6 +101,10 @@ program ML_INS_Solver_3D
     !   - trim(flow_case)_trim(restart_tag_out)_data_<rank>.h5  for flow data
     !
     ! no restart data is read or written if the corresponding tag is empty
+
+  ! mesh handling
+  logical :: restart_adjust = .false. ! adjust mesh after restart
+  namelist/control_prm/ restart_adjust
 
   ! mesh .......................................................................
 
@@ -134,10 +131,10 @@ program ML_INS_Solver_3D
 
   ! time integration ...........................................................
 
-  type(ML_INS_Integrator_BDF2_Options_3D), save :: ml_bdf2_opt
-  type(ML_INS_Integrator_BDF2_3D), save :: ml_bdf2
+  type(ML_INS_Integrator_BDF_Options_3D), save :: ml_bdf_opt
+  type(ML_INS_Integrator_BDF_3D), save :: ml_bdf
 
-  namelist/temporal_prm/ ml_bdf2_opt
+  namelist/temporal_prm/ ml_bdf_opt
 
   real(RNP) :: t_end  = 0.25
   real(RNP) :: dt     = 1E-3
@@ -151,6 +148,8 @@ program ML_INS_Solver_3D
 
   type(ML_MeshVariable_3D), save :: var   ! solution and averaged variables
   type(ML_MeshVariable_3D), save :: u     ! handle for solution
+  type(ML_MeshVariable_3D), save :: mu    ! handle for bulk viscosity
+  type(ML_MeshVariable_3D), save :: nu    ! handle for shear viscosity
   type(ML_MeshVariable_3D), save :: q_avg ! handle for averaged quantities
   type(ML_MeshVariable_3D), save :: vtk   ! variables exported to VTK
 
@@ -163,6 +162,8 @@ program ML_INS_Solver_3D
   namelist/restart_prm/ t_0, n_sample
 
   ! auxiliaries ................................................................
+
+  type(DataExchangePlan_3D), allocatable :: x_plan(:)
 
   type(ML_INS_TimeScales_3D)          :: ml_time_scales
   type(ML_INS_FlowCharacteristics_3D) :: ml_flow_char
@@ -183,6 +184,7 @@ program ML_INS_Solver_3D
   integer   :: io, stat
   integer   :: l_top, l_max, n_bound
   integer   :: n_comp  ! number of solution components
+  integer   :: n_aux   ! number of auxiliary variables
   integer   :: n_avg   ! number of averaged quantities
   integer   :: n_var   ! number of solution and averaged variables
   integer   :: n_vtk   ! number of VTK quantities
@@ -203,17 +205,18 @@ program ML_INS_Solver_3D
   n_thread = OMP_Num_Threads()
   !$omp end parallel
 
-  ! parameters .................................................................
-
-  ! read control parameters
   if (rank == 0) then
-
     write(*,'(/,A)') repeat('=',80)
     write(*,'(A)') 'Multilevel Navier-Stokes solver for incompressible flow'
     write(*,*)
     write(*,'(T3,A,T30,9(G0,X))') 'number of processes:', n_proc
     write(*,'(T3,A,T30,9(G0,X))') 'number of threads:'  , n_thread
     write(*,*)
+  end if
+
+  ! control parameters .........................................................
+
+  if (rank == 0) then
 
     call get_command_argument(1, flow_case, status=stat)
     if (stat /= 0 .or. len_trim(flow_case) == 0) then
@@ -226,7 +229,6 @@ program ML_INS_Solver_3D
       write(*,'(2X,A)') 'reading ' // trim(case_file)
       open(newunit = io, file = case_file)
       read(io, nml = control_prm)
-      close(io)
       if (char_freq < 1) then
         ! disable intermediate control output
         char_freq = huge(1)
@@ -238,6 +240,9 @@ program ML_INS_Solver_3D
 
   end if
 
+  ! globalize logging levels
+  call XMPI_Bcast_LoggingLevels(0, comm)
+
   ! globalize control parameters
   call XMPI_Bcast( flow_case           , 0, comm)
   call XMPI_Bcast( case_file           , 0, comm)
@@ -245,16 +250,46 @@ program ML_INS_Solver_3D
   call XMPI_Bcast( problem_file        , 0, comm)
   call XMPI_Bcast( flow_domain         , 0, comm)
   call XMPI_Bcast( raw_mesh_file       , 0, comm)
-  call XMPI_Bcast( refinement_strategy , 0, comm)
   call XMPI_Bcast( char_freq           , 0, comm)
   call XMPI_Bcast( avg_rate            , 0, comm)
   call XMPI_Bcast( vtk_mode            , 0, comm)
   call XMPI_Bcast( restart_tag_in      , 0, comm)
   call XMPI_Bcast( restart_tag_out     , 0, comm)
+  call XMPI_Bcast( restart_adjust      , 0, comm)
 
   ! restart switches
   restart_in  = len_trim(restart_tag_in)  > 0
   restart_out = len_trim(restart_tag_out) > 0
+
+  ! multilevel mesh options ....................................................
+
+  if (rank == 0) then
+    ml_mesh_opt = ML_Mesh_Options_3D(io, n_proc)
+  end if
+
+  call ml_mesh_opt % Bcast(0, comm)
+
+  l_max = max(ml_mesh_opt%l_top, ml_mesh_opt%l_max)
+
+  ! spatial ....................................................................
+
+  allocate(po(l_max), source = -1)
+
+  if (rank == 0) then
+    read(io, nml = spatial_prm)
+  end if
+
+  call XMPI_Bcast(po, 0, comm)
+  call ml_ins_opt % Bcast(0, comm)
+
+  ! temporal ...................................................................
+
+  if (rank == 0) then
+    read(io, nml = temporal_prm)
+    close(io)
+  end if
+
+  call ml_bdf_opt % Bcast(0, comm)
 
   ! domain name ................................................................
 
@@ -328,30 +363,15 @@ program ML_INS_Solver_3D
 
     if (rank == 0) then
       write(*,'(2X,A)') 'creating multilevel mesh'
-      ! read multilevel mesh options
-      open(newunit = io, file = case_file)
-      ml_mesh_opt = ML_Mesh_Options_3D(io, n_proc)
-      close(io)
     end if
 
-    call ml_mesh_opt % Bcast(0, comm)
     ml_mesh = ML_Mesh_3D(base_mesh, ml_mesh_opt)
     deallocate(base_mesh)
 
   end if
 
-  l_top   = size(ml_mesh % mesh)
-  l_max   = max(l_top, ml_mesh_opt % l_max)
+  l_top = size(ml_mesh % mesh)
   n_bound = ml_mesh % mesh(1) % n_bound
-
-  ! compatibility check ........................................................
-
-  if (refinement_strategy == 'G') then
-    if (ml_mesh % mesh(l_top) % n_elem_frozen > 0) then
-      call Error( 'ML_INS_Solver_3D' &
-                , 'multilevel mesh violates global refinement strategy' )
-    end if
-  end if
 
   ! problem ....................................................................
 
@@ -370,52 +390,22 @@ program ML_INS_Solver_3D
     end if
   end do
 
-  ! spatial ....................................................................
-
-  allocate(po(l_max), source = -1)
-
-  ! read
-  if (rank == 0) then
-    write(*,'(/,A)') 'creating spatial operators'
-    open(newunit = io, file = case_file)
-    read(io, nml = spatial_prm)
-    close(io)
-  end if
-
-  ! globalize
-  call XMPI_Bcast(po, 0, comm)
-  call ml_ins_opt % Bcast(0, comm)
+  ! multilevel Navier-Stokes operator ..........................................
 
   ml_ins = ML_INS_Operator_3D(ml_mesh, po, problem, ml_ins_opt)
-
-  call ml_ins % ml_op_u % Get_Volume(domain_volume)
-
-  ! temporal ...................................................................
-
-  ! read
-  if (rank == 0) then
-    write(*,'(A)') 'creating multilevel integrator'
-    open(newunit = io, file = case_file)
-    read(io, nml = temporal_prm)
-    close(io)
-  end if
-
-  ! globalize
-  call ml_bdf2_opt % Bcast(0, comm)
-
-  ml_bdf2 = ML_INS_Integrator_BDF2_3D(problem, ml_ins, ml_bdf2_opt)
 
   ! variables ..................................................................
 
   ! number of variables
   n_comp = problem % nc
+  n_aux  = 2
   if (avg_rate > 0) then
     n_avg = 2 * n_comp  & ! ⟨uᵢ⟩, ⟨uᵢuᵢ⟩
           + 3             ! ⟨u₁u₂⟩, ⟨u₁u₃⟩, ⟨u₂u₃⟩
   else
     n_avg = 0
   end if
-  n_var = n_comp + n_avg
+  n_var = n_comp + n_aux + n_avg
 
   allocate(character(len=20) :: var_name(n_var))
 
@@ -425,9 +415,13 @@ program ML_INS_Solver_3D
     write(var_name(i),'(A,I0)') 'u_',i
   end do
 
+  ! auxiliary variables
+  k = n_comp
+  var_name(k+1:k+2) = [ 'mu', 'nu' ]
+
   ! names of averaged quantities
   if (avg_rate > 0) then
-    k = n_comp
+    k = n_comp + n_aux
     var_name(k+1) = '⟨v_x⟩'
     var_name(k+2) = '⟨v_y⟩'
     var_name(k+3) = '⟨v_z⟩'
@@ -435,7 +429,7 @@ program ML_INS_Solver_3D
     do i = 5, n_comp
       write(var_name(k+i),'(A,I0,A)') '⟨u_',i,'⟩'
     end do
-    k = 2 * n_comp
+    k = 2 * n_comp + n_aux
     k = k + 1;  var_name(k) = '⟨v_x v_x⟩'
     k = k + 1;  var_name(k) = '⟨v_x v_y⟩'
     k = k + 1;  var_name(k) = '⟨v_x v_z⟩'
@@ -451,19 +445,44 @@ program ML_INS_Solver_3D
 
   ! generate multilevel variables and handles
   call var % Init(ml_ins%ml_op_u, nc = n_var, name = var_name)
-  call var % GetSlice(u    , first = 1         , last = n_comp)
-  call var % GetSlice(q_avg, first = 1 + n_comp, last = n_var )
+  k = n_comp
+  call var % GetSlice(u , first =     1, last = k)
+  call var % GetSlice(mu, first = k + 1, last = k + 1)
+  call var % GetSlice(nu, first = k + 2, last = k + 2)
+  k = n_comp + n_aux
+  call var % GetSlice(q_avg, first = k + 1, last = k + n_avg)
 
   !-----------------------------------------------------------------------------
-  ! Initial conditions
+  ! Initial conditions and operators
+
+  if (rank == 0) then
+    write(*,'(/,A)') 'read/generate initial conditions and (re)create operators'
+  end if
 
   if (restart_in) then
 
+    ! read restart data
     data_file = trim(flow_case) // '_' // trim(restart_tag_in) // '_data'
     call var % ReadHDF5(data_file)
 
+    ! adjust mesh, Navier-Stokes operator and variables
+    if (restart_adjust) then
+      call ml_mesh % MarkByOptions(ml_mesh_opt)
+      call ml_mesh % Adapt(ml_mesh_opt%partition, x_plan)
+      ml_ins = ML_INS_Operator_3D(ml_mesh, po, problem, ml_ins_opt)
+      call var % FitAdapt(ml_ins % ml_op_u, x_plan)
+      k = n_comp
+      call var % GetSlice(u , first =     1, last = k)
+      call var % GetSlice(mu, first = k + 1, last = k + 1)
+      call var % GetSlice(nu, first = k + 2, last = k + 2)
+      k = n_comp + n_aux
+      call var % GetSlice(q_avg, first = k + 1, last = k + n_avg)
+    end if
+    l_top = size(ml_mesh % mesh)
+
   else
 
+    ! set initial conditions
     do l = 1, l_top
       associate(ins_l => ml_ins % ins_op(l), u_l => u % level(l) % val)
         call problem % GetInitialValues(ins_l % sem_u % metrics % x, u_l)
@@ -471,6 +490,10 @@ program ML_INS_Solver_3D
     end do
 
   end if
+
+  ! temporal operators .........................................................
+
+  ml_bdf = ML_INS_Integrator_BDF_3D(problem, ml_ins, ml_bdf_opt)
 
   !-----------------------------------------------------------------------------
   ! Print info
@@ -504,6 +527,9 @@ program ML_INS_Solver_3D
   call XMPI_Bcast(t_end , 0, comm)
   call XMPI_Bcast(nt_max, 0, comm)
 
+  !  domain volume
+  call ml_ins % ml_op_u % Get_Volume(domain_volume)
+
   ! initial flow characteristics
   call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf = .true.)
   call ml_flow_char % PrintHeader()
@@ -513,7 +539,7 @@ program ML_INS_Solver_3D
     first = nt == 1
     last  = t + dt >= t_end .or. nt == nt_max
 
-    call ml_bdf2 % TimeStep(t, dt, u, first, last)
+    call ml_bdf % TimeStep(t, dt, u, first, last)
 
     perform_average = avg_rate > 0 .and. mod(nt, max(avg_rate,1)) == 0
     print_flow_char = mod(nt, char_freq) == 0 .or. last

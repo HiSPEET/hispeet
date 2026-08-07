@@ -10,7 +10,7 @@
   problem_file  = 'hagen_poiseuille'
   flow_problem  = 'HagenPoiseuille'
   flow_domain   =  10
-  raw_mesh_file = 'pipe'
+  raw_mesh_file = '../../../gmsh/pipe'
 
 ! export_vtk   = T  ! set T for generating plot files
 ! char_freq    = 0  ! set frequency of control output
@@ -23,7 +23,11 @@
   po_u = 7
   po_p = 7
 
-  ins_op_opt%mu_0 = 1
+  ins_op_opt%c_mu      =    1
+! ins_op_opt%penalty_u =   10
+  ins_op_opt%penalty_p =   10
+  ins_op_opt%i_max_v   =   20
+  ins_op_opt%i_max_p   = 1000
 /
 
 !-------------------------------------------------------------------------------
@@ -32,8 +36,8 @@
 &temporal_prm
   t_end  = 0.1
   dt     = 1e-3
-  nt_max = 1000
+  nt_max = 100!0
 
-  time_method = 2  ! 1/2 Euler/BDF2
+  time_method = 2  ! 1/2 Euler/BDF
 /
 

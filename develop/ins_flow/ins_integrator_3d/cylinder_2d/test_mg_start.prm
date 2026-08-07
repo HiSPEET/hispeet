@@ -66,5 +66,5 @@
   nt_max = 100
   smooth_initial_data = T
 
-  time_method = 2  ! BDF2
+  time_method = 2  ! BDF
 /

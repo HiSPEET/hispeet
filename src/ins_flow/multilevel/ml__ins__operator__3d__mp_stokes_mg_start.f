@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule (ML__INS__Operator__3D) MP_MG_Stokes_Start
+submodule (ML__INS__Operator__3D) MP_Stokes_MG_Start
   use Parent_To_Child_Interpolation__3D
   implicit none
 
@@ -13,7 +13,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Cascade and FMG start for the Stokes multigrid solver
 
-  module subroutine MG_Stokes_Start(this, tau, mu, nu, bv, f_d0, f, u, n_cyc)
+  module subroutine Stokes_MG_Start(this, tau, mu, nu, bv, f_d0, f, u, n_cyc)
     class(ML_INS_Operator_3D), intent(in) :: this
     real(RNP), intent(in) :: tau
       !< effective time step
@@ -38,7 +38,7 @@ contains
     !$omp master
     associate(mesh => this % ins_op(1) % mesh)
       if (log_level == 1 .and. mesh%part == 0 .or. log_level > 1) then
-        log_prefix = LoggingPrefix('MG_Stokes_Start', mesh%part, mesh%n_parts)
+        log_prefix = LoggingPrefix('Stokes_MG_Start', mesh%part, mesh%n_parts)
       end if
     end associate
     !$omp end master
@@ -63,7 +63,7 @@ contains
 
       if (present(n_cyc)) then
         if (n_cyc > 0) then
-          call this % MG_Stokes_Cycle(tau, mu, nu, bv, f, u, n_cyc, l_top = l)
+          call this % Stokes_MG_Cycle(tau, mu, nu, bv, f, u, n_cyc, l_top = l)
         end if
       end if
 
@@ -80,8 +80,8 @@ contains
       print '(2A)', log_prefix, 'exit'
     end if
 
-  end subroutine MG_Stokes_Start
+  end subroutine Stokes_MG_Start
 
   !=============================================================================
 
-end submodule MP_MG_Stokes_Start
+end submodule MP_Stokes_MG_Start
