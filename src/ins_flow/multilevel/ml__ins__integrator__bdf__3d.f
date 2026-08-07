@@ -28,6 +28,9 @@ module ML__INS__Integrator__BDF__3D
   !> Type providing IMEX BDF solvers for 3D incompressible flows
 
   type, extends(ML_INS_Integrator_3D) :: ML_INS_Integrator_BDF_3D
+    logical :: coupled !< switch for using coupled Stokes solver
+    integer :: n_fmg   !< num cycles used in FMG start, 0 for cascade
+    integer :: n_cyc   !< num cycles used by coupled Stokes solver
   contains
     procedure, non_overridable :: Init_ML_INS_Integrator_BDF_3D
     procedure :: TimeStep
@@ -42,6 +45,9 @@ module ML__INS__Integrator__BDF__3D
   !> Type for providing multilevel BDF options (none, so far)
 
   type, extends(ML_INS_IntegratorOptions_3D) :: ML_INS_Integrator_BDF_Options_3D
+    logical :: coupled = .false. !< switch for using coupled Stokes solver
+    integer :: n_fmg   = 0       !< num cycles used in FMG start, 0 for cascade
+    integer :: n_cyc   = 1       !< num cycles used by coupled Stokes solver
   contains
     procedure :: Bcast => Bcast_ML_INS_Integrator_BDF_Options
   end type ML_INS_Integrator_BDF_Options_3D
@@ -75,6 +81,10 @@ contains
 
     ! intialize parent type
     call this % Init_ML_INS_Integrator_3D(problem, ml_ins, opt)
+
+    this % coupled = opt % coupled
+    this % n_fmg   = opt % n_fmg
+    this % n_cyc   = opt % n_cyc
 
   end subroutine Init_ML_INS_Integrator_BDF_3D
 
@@ -198,59 +208,70 @@ contains
         end associate
       end do
 
-      ! projection .............................................................
+      if (this % coupled) then
 
-      call ml_ins % ProjectionStep(tau, bv, u)
+        ! coupled Stokes solver ................................................
 
-      ! diffusion RHS ..........................................................
+        call ml_ins % Stokes_MG_Start(tau, mu, nu, bv, f_d, f, u, this%n_fmg)
+        call ml_ins % Stokes_MG_Cycle(tau, mu, nu, bv, f, u, this%n_cyc)
 
-      do l = 1, size(u%level)
-        associate( mesh_l => ml_ins % ins_op(l) % mesh         &
-                 , v_l    => u   % level(l) % val(:,:,:,:,1:3) &
-                 , f_l    => f   % level(l) % val(:,:,:,:,1:3) &
-                 , f_d0_l => f_d % level(l) % val(:,:,:,:,1:3) )
+      else
 
-          !$omp do collapse(2)
-          do c = 1, 3
-          do e = 1, mesh_l % n_elem_active
-            f_l(:,:,:,e,c) = 1/tau * v_l(:,:,:,e,c) - f_d0_l(:,:,:,e,c)
-          end do
-          end do
-        end associate
+        ! projection ...........................................................
 
-      end do
+        call ml_ins % ProjectionStep(tau, bv, u)
 
-      ! update outflow conditions ..............................................
+        ! diffusion RHS ........................................................
 
-      block
-        type(BoundaryVariable_3D), save :: bv_dp, bv_p
-        integer :: b
+        do l = 1, size(u%level)
+          associate( mesh_l => ml_ins % ins_op(l) % mesh         &
+                   , v_l    => u   % level(l) % val(:,:,:,:,1:3) &
+                   , f_l    => f   % level(l) % val(:,:,:,:,1:3) &
+                   , f_d0_l => f_d % level(l) % val(:,:,:,:,1:3) )
 
-        do b = 1, size(problem % bc_v)
-          if (problem % bc_v(b) /= 'O') cycle
+            !$omp do collapse(2)
+            do c = 1, 3
+            do e = 1, mesh_l % n_elem_active
+              f_l(:,:,:,e,c) = 1/tau * v_l(:,:,:,e,c) - f_d0_l(:,:,:,e,c)
+            end do
+            end do
+          end associate
 
-          do l = 1, size(u%level)
-
-            !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            call bv % level(l) % var(b) % GetSlice(bv_dp, first=3, last=3)
-            call bv % level(l) % var(b) % GetSlice(bv_p , first=4, last=4)
-            !$omp end master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            !$omp barrier
-
-            ! pᵇ = p
-            call bv_p % Extract(u % level(l) % val(:,:,:,:,4))
-
-            ! pᵇ = p - ∆pᵇ
-            call MergeArrays(  ONE, bv_p  % val(:,:,:,1) &
-                            , -ONE, bv_dp % val(:,:,:,1) )
-
-          end do
         end do
-      end block
 
-      ! viscous diffusion ......................................................
+        ! update outflow conditions ............................................
 
-      call ml_ins % DiffusionStep(tau, mu, nu, bv, f, u)
+        block
+          type(BoundaryVariable_3D), save :: bv_dp, bv_p
+          integer :: b
+
+          do b = 1, size(problem % bc_v)
+            if (problem % bc_v(b) /= 'O') cycle
+
+            do l = 1, size(u%level)
+
+              !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+              call bv % level(l) % var(b) % GetSlice(bv_dp, first=3, last=3)
+              call bv % level(l) % var(b) % GetSlice(bv_p , first=4, last=4)
+              !$omp end master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+              !$omp barrier
+
+              ! pᵇ = p
+              call bv_p % Extract(u % level(l) % val(:,:,:,:,4))
+
+              ! pᵇ = p - ∆pᵇ
+              call MergeArrays(  ONE, bv_p  % val(:,:,:,1) &
+                              , -ONE, bv_dp % val(:,:,:,1) )
+
+            end do
+          end do
+        end block
+
+        ! viscous diffusion ....................................................
+
+        call ml_ins % DiffusionStep(tau, mu, nu, bv, f, u)
+
+      end if
 
       !$omp master
       t = t + dt
@@ -284,6 +305,10 @@ contains
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
     call this % ML_INS_IntegratorOptions_3D % Bcast(root, comm)
+
+    call XMPI_Bcast(this % coupled, root, comm)
+    call XMPI_Bcast(this % n_fmg  , root, comm)
+    call XMPI_Bcast(this % n_cyc  , root, comm)
 
   end subroutine Bcast_ML_INS_Integrator_BDF_Options
 

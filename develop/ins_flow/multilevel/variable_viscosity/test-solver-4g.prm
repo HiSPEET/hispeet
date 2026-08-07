@@ -19,17 +19,13 @@
 ! Mesh
 
 &ml_mesh_options_3d__static
-  l_top          =  5  ! initial top level
-  l_adapt        =  3  ! first level to be adapted ≥1
-  n_box          =  1  ! number of boxes to be adapted
+  l_top          =  4  ! initial top level
   n_parts_root   =  8  ! number of partitions at root level   [1]
   n_parts_growth =  8  ! partition number growth rate         [1]
 /
 
 &ml_mesh_options_3d__dynamic
-  refinement = 'c','c',2*'s'
-  adapt_box(1:3,1,1) = 3*-0.1
-  adapt_box(1:3,2,1) = 3*+0.1
+  refinement = 'c','c','s'
 /
 
 !-------------------------------------------------------------------------------
@@ -37,36 +33,30 @@
 
 &spatial_prm
 
-  po = 4, 8, 3*16
+  po = 4, 8, 2*16
 
 ! ml_ins_opt%mixed = F
 
-  ml_ins_opt%pressure%smooth_method = 3
   ml_ins_opt%pressure%i_crs =  1000 ! max num coarse iterations          [ 1]
-  ml_ins_opt%pressure%i_max =    10 ! max num cycles                     [ 1]
+  ml_ins_opt%pressure%i_max =     5 ! max num cycles                     [ 1]
   ml_ins_opt%pressure%ns_1  =     3 ! num pre-smoothing steps            [ 1] 
   ml_ins_opt%pressure%ns_2  =     1 ! num post-smoothing steps           [ 1] 
   ml_ins_opt%pressure%ns_c  =     2 ! num continuation smoothing steps   [ 1] 
-  ml_ins_opt%pressure%r_red = 1e-10 ! min residual reduction,  if > 0    [-1] 
-  ml_ins_opt%pressure%r_max = 1e-12 ! max admissible residual, if > 0    [-1] 
+  ml_ins_opt%pressure%r_red = 1e-12 ! min residual reduction,  if > 0    [-1] 
+  ml_ins_opt%pressure%r_max = 1e-14 ! max admissible residual, if > 0    [-1] 
 
-  ml_ins_opt%diffusion%i_max =    4 ! max num cycles                     [ 1]
-  ml_ins_opt%diffusion%ns_1  =    2 ! num pre-smoothing steps            [ 1]
-  ml_ins_opt%diffusion%ns_2  =    2 ! num post-smoothing steps           [ 1]
-  ml_ins_opt%diffusion%ns_c  =    2 ! num continuation smoothing steps   [ 1]
+  ml_ins_opt%diffusion%i_max =    2 ! max num cycles                     [ 1]
+  ml_ins_opt%diffusion%ns_1  =    3 ! num pre-smoothing steps            [ 1] 
+  ml_ins_opt%diffusion%ns_2  =    1 ! num post-smoothing steps           [ 1] 
+  ml_ins_opt%diffusion%ns_c  =    2 ! num continuation smoothing steps   [ 1] 
 
-  ml_ins_opt%ins_op%diffusion_solver = 'DPCG'
-  ml_ins_opt%ins_op%c_mu = 1
+  ml_ins_opt%ins_op%diffusion_solver = 'SPCG'
+  ml_ins_opt%ins_op%c_mu  = 0
 
-  ml_ins_opt%ins_op%dealiasing       = T
-  ml_ins_opt%ins_op%penalty_p        = 10
-  ml_ins_opt%ins_op%schwarz_u%delta  = 0.08
-  ml_ins_opt%ins_op%schwarz_u%no_min = 1
-  ml_ins_opt%ins_op%schwarz_p%delta  = 0.08
-  ml_ins_opt%ins_op%schwarz_p%no_min = 1
-  ml_ins_opt%ins_op%i_max_v          = 100
-  ml_ins_opt%ins_op%r_red            = 1e-10
-  ml_ins_opt%ins_op%r_max            = 1e-12
+  ml_ins_opt%ins_op%dealiasing = T
+  ml_ins_opt%ins_op%i_max_v    = 20
+  ml_ins_opt%ins_op%r_red      = 1e-12
+  ml_ins_opt%ins_op%r_max      = 1e-14
 /
 
 !-------------------------------------------------------------------------------
@@ -74,16 +64,8 @@
 
 &temporal_prm
   t_end  = 0.01
-  dt     = 0.0001
+  dt     = 0.001
   nt_max = 10!000!0000
-/
-
-!-------------------------------------------------------------------------------
-! Disturbance
-
-&disturbance_prm
-  x_w = 3*-0.5
-  l_w = 3*1.0
 /
 
 !-------------------------------------------------------------------------------

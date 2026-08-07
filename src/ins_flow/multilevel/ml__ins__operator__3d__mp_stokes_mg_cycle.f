@@ -2,12 +2,9 @@
 !> author:   Joerg Stiller
 !> date:     2025/05/12
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @remark
-!> Auxiliary version skipping bulk viscosity part when restricting
 !===============================================================================
 
-submodule (ML__INS__Operator__3D) MP_MG_Stokes_Cycle
+submodule (ML__INS__Operator__3D) MP_Stokes_MG_Cycle
   use Child_To_Parent_Projection__3D
   use Child_To_Parent_Restriction__3D
   use Parent_To_Child_Interpolation__3D
@@ -18,7 +15,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs one or more FAS-MG V-cycles for the Stokes part
 
-  module subroutine MG_Stokes_Cycle(this, tau, mu, nu, bv, f, u, n_cyc, l_top)
+  module subroutine Stokes_MG_Cycle(this, tau, mu, nu, bv, f, u, n_cyc, l_top)
     class(ML_INS_Operator_3D), intent(in) :: this
     real(RNP), intent(in) :: tau
       !< effective time step
@@ -69,7 +66,7 @@ contains
 
       associate(mesh => sem(1)%mesh)
         if (log_level == 1 .and. mesh%part == 0 .or. log_level > 1) then
-          log_prefix = LoggingPrefix('MG_Stokes_Cycle', mesh%part, mesh%n_parts)
+          log_prefix = LoggingPrefix('Stokes_MG_Cycle', mesh%part, mesh%n_parts)
         end if
       end associate
 
@@ -284,8 +281,8 @@ contains
       print '(2A)', log_prefix, 'exit'
     end if
 
-  end subroutine MG_Stokes_Cycle
+  end subroutine Stokes_MG_Cycle
 
   !=============================================================================
 
-end submodule MP_MG_Stokes_Cycle
+end submodule MP_Stokes_MG_Cycle

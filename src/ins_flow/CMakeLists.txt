@@ -50,6 +50,8 @@ add_library(HiINSFlow
             multilevel/ml__ins__operator__3d.f
             multilevel/ml__ins__operator__3d__mp_diffusionstep.f
             multilevel/ml__ins__operator__3d__mp_projectionstep.f
+            multilevel/ml__ins__operator__3d__mp_stokes_mg_cycle.f
+            multilevel/ml__ins__operator__3d__mp_stokes_mg_start.f
             multilevel/ml__ins__integrator__3d.f
             multilevel/ml__ins__integrator__bdf__3d.f
             multilevel/ml__ins__time_scales__3d.f
