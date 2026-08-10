@@ -220,6 +220,7 @@ set( UTIL_3D ${UTIL_3D}
      util_3d/ops/trace_operators__3d.f
      util_3d/ops/volume_integrals__3d.f
      util_3d/ops/surface_integrals__3d.f
+     util_3d/ops/smooth_mesh_data__3d.f
     )
 
 #===============================================================================
@@ -318,6 +319,7 @@ set( MULTILEVEL_3D ${MULTILEVEL_3D}
 set( MULTILEVEL_3D ${MULTILEVEL_3D}
      multilevel_3d/ops/ml__array_assignments__3d.f
      multilevel_3d/ops/ml__array_reductions__3d.f
+     multilevel_3d/ops/ml__smooth_mesh_variable__3d.f
    )
 
 set( MULTILEVEL_3D ${MULTILEVEL_3D}
