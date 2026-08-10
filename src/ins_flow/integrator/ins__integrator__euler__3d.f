@@ -157,7 +157,7 @@ contains
         allocate( vp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
         allocate( sp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
 
-        if (problem % HasVariableProperties()) then
+        if (ins_op % HasVariableViscosity()) then
           allocate( mu(np, np, np, mesh % n_elem), source = this%ins_op%mu_0 )
           allocate( nu(np, np, np, mesh % n_elem), source = ZERO )
         end if
