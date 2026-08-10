@@ -17,21 +17,8 @@ NS=${NS:-"1"}
 # reference velocity
 V_REF="3.46307"
 
-# reference bulk viscosity
-MU_REF=${MU_REF:-"1"}
-
-# method for computing MU
-#
-#   1)  MU = MU_REF
-#   2)  MU = MU_REF * V_REF * DELTA
-#   3)  MU = MU_REF * V_REF * DELTA * max(1, 1/CS)
-#
-# where 
-#   DELTA = DX/2 * DELTA_S 
-#   CS    = V_REF * DELTA / (DT * NS)
-# with NS stages or substeps
-#
-MU_METHOD=${MU_METHOD:-"0"}
+# bulk viscosity coefficient
+C_MU=${C_MU:-"1"}
 
 # polynomial orders
 PO_U=${PO_U:-"4"}
@@ -105,13 +92,6 @@ for k in $(seq $KMIN $KMAX) ; do
         CFL=$(bc -l <<< "${V_REF} * ${DT} / ${DELTA}")
         CS=$(bc -l <<< "${CFL}/${NS}")
 
-        case $MU_METHOD in
-          1)  MU=${MU_REF};;
-          2)  MU=$(bc -l <<< "${MU_REF} * ${V_REF} * ${DELTA}");;
-          3)  MU=$(bc -l <<< "${MU_REF} * ${V_REF} * ${DELTA}")
-              MU=$(bc -l <<< "if (${CS} < 1) ${MU}/${CS} else ${MU}");;
-        esac
-
         NPROC=$(bc -l <<< "${NP[$i]} * ${NP[$i]}")         
 
         echo                   >> ${LOGFILE}
@@ -121,11 +101,11 @@ for k in $(seq $KMIN $KMAX) ; do
         echo "DT    =" $DT     >> ${LOGFILE}
         echo "CFL   =" $CFL    >> ${LOGFILE}
         echo "CS    =" $CS     >> ${LOGFILE}
-        echo "MU    =" $MU     >> ${LOGFILE}
+        echo "C_MU  =" $C_MU   >> ${LOGFILE}
         echo "NPROC =" $NPROC  >> ${LOGFILE}
 
         sed -e "s/<dx>/$DX/g" \
-            -e "s/<mu>/$MU/g" \
+            -e "s/<c_mu>/$C_MU/g" \
             -e "s/<np>/${NP[$i]}/g" \
             -e "s/<ep>/${EP[$i]}/g" \
             -e "s/<po_u>/$PO_U/g" \

@@ -22,9 +22,12 @@
 &spatial_prm
   po_u = 4
   po_p = 3
-  ins_op_opt%dealiasing = T
-  ins_op_opt%mu_0       = 1e-1  !  μ ~ √(ν² + v²h²)
-  ins_op_opt%i_max_p    = 10000
+
+  ins_op_opt%dealiasing       = T
+  ins_op_opt%c_mu             = 1
+  ins_op_opt%diffusion_solver = 'DPCG'
+  ins_op_opt%i_max_p          = 10000
+  ins_op_opt%i_max_v          = 40
 /
 
 !-------------------------------------------------------------------------------

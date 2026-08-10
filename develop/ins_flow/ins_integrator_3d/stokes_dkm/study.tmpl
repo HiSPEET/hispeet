@@ -13,15 +13,13 @@
 ! Spatial
 
 &spatial_prm
-  ins_op_opt%dealiasing = F
-  ins_op_opt%mu_0       = <mu>
-  ins_op_opt%i_max_p    = 10000
-  ins_op_opt%i_max_v    = 10000
-  ins_op_opt%k_max      = 0
-  ins_op_opt%k_pre_p    = 1000
-  ins_op_opt%k_pre_v    = 1000
-  ins_op_opt%r_red      = 1e-10
-  ins_op_opt%r_max      = 1e-12
+  ins_op_opt%dealiasing       = F
+  ins_op_opt%c_mu             = <c_mu>
+  ins_op_opt%diffusion_solver = 'DPCG'
+  ins_op_opt%i_max_p          = 10000
+  ins_op_opt%i_max_v          = 20
+  ins_op_opt%r_red            = 1e-10
+  ins_op_opt%r_max            = 1e-12
 
   po_u = <po_u>
   po_p = <po_p>

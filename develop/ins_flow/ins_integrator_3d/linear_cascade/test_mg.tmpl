@@ -31,11 +31,11 @@
   po_u = 4
   po_p = 1 2 3
 
-  ins_op_opt%mu_0       = 1e-0  !  μ ~ √(ν² + v²h²)
-  ins_op_opt%dealiasing = T
-  ins_op_opt%i_max_v    = 40
-
-  ins_op_opt%pressure_solver = 'MGCG'
+  ins_op_opt%dealiasing       = T
+  ins_op_opt%c_mu             = 1
+  ins_op_opt%pressure_solver  = 'MGCG'
+  ins_op_opt%diffusion_solver = 'DPCG'
+  ins_op_opt%i_max_v          = 40
 
   ! multilevel pressure solver
   ml_solver_p_opt%smooth_method = 3          ! default, works fine now

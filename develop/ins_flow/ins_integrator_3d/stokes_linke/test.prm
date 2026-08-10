@@ -23,19 +23,11 @@
   po_u = 4
   po_p = 3
 
-  ins_op_opt%dealiasing = F
-  ins_op_opt%mu_0       = 1
-
-! use these for coupled pressure-diffusion Krylov solver
-! ins_op_opt%i_max_p  = 1000
-! ins_op_opt%i_max_v  = 1000
-! ins_op_opt%k_max    = 4
-! ins_op_opt%k_pre_p  = 200
-! ins_op_opt%k_pre_v  = 200
-
-! use these for segregated pressure-diffusion solver
-  ins_op_opt%i_max_p  = 10000
-  ins_op_opt%i_max_v  = 10000
+  ins_op_opt%dealiasing       = F
+  ins_op_opt%c_mu             = 1
+  ins_op_opt%diffusion_solver = 'DPCG'
+  ins_op_opt%i_max_p          = 10000
+  ins_op_opt%i_max_v          = 20
 /
 
 !-------------------------------------------------------------------------------

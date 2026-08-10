@@ -4,7 +4,7 @@
 &control_prm
 
 ! log_level                 = 1  ! activate/increase
-! log_level_inner_iteration = 1  ! for higher
+! log_level_inner_iteration = 2  ! for higher
 ! log_level_outer_iteration = 1  ! verbosity
 
   problem_file = 'no_flow_2d'
@@ -23,19 +23,11 @@
   po_u = 3
   po_p = 2
 
-  ins_op_opt%dealiasing = F
-  ins_op_opt%mu_0       = 1000
-
-! use these for coupled pressure-diffusion Krylov solver
-! ins_op_opt%i_max_p  = 10000
-! ins_op_opt%i_max_v  = 10000
-! ins_op_opt%k_max    = 3
-! ins_op_opt%k_pre_p  = 1000
-! ins_op_opt%k_pre_v  = 1000
-
-! use these for segregated pressure-diffusion solver
-  ins_op_opt%i_max_p  = 10000
-  ins_op_opt%i_max_v  = 10000
+  ins_op_opt%dealiasing       = F
+  ins_op_opt%c_mu             = 10000
+  ins_op_opt%diffusion_solver = 'DPCG'
+  ins_op_opt%i_max_p          = 10000
+  ins_op_opt%i_max_v          = 20
 /
 
 !-------------------------------------------------------------------------------
@@ -45,7 +37,7 @@
 
   t_end  = 1
   dt     = 1e-4
-  nt_max = 10000
+  nt_max = 100!00
 
   time_method = 2  ! BDF
 /
