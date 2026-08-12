@@ -1,7 +1,26 @@
+!------------------------------------------------------------------------------!
+! This file is part of HiSPEET: High-order Spectral Element Techniques         !
+!                                                                              !
+! Copyright (C) 2026 by the HiSPEET authors and the                            !
+! Chair of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany                 !
+!                                                                              !
+! HiSPEET is free software: you can redistribute it and/or modify              !
+! it under the terms of the GNU General Public License as published by         !
+! the Free Software Foundation, either version 3 of the License, or            !
+! (at your option) any later version.                                          !
+!                                                                              !
+! HiSPEET is distributed in the hope that it will be useful,                   !
+! but WITHOUT ANY WARRANTY; without even the implied warranty of               !
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                         !
+! See the GNU General Public License for more details.                         !
+!                                                                              !
+! You should have received a copy of the GNU General Public License            !
+! along with HiSPEET. If not, see <http://www.gnu.org/licenses/>.              !
+!------------------------------------------------------------------------------!
+
 !> summary:  element diffusion operator: 3D Cartesian equidistant, LIBXSMM
 !> author:   Erik Pfister, Joerg Stiller
 !> date:     2019/09/23
-!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !>### element diffusion operator: 3D Cartesian equidistant, LIBXSMM
 !>
@@ -66,7 +85,7 @@ subroutine CART__TPO_Diffusion_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v
     Lm(i,j) = Ls(i,j) / Ms(i)
   end do
   end do
-  
+
   ! coefficients
   g = 4 * nu / dx**2
 
@@ -75,22 +94,22 @@ subroutine CART__TPO_Diffusion_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v
   Lm_2  = g(2) * Lm
   Lm_3  = g(3) * Lm
 
-  ! dispatch LIBXSMM functions 
+  ! dispatch LIBXSMM functions
   !$omp master
   call LIBXSMM_Dispatch(xmm_1, np   , np**2, np, alpha=ONE, beta=ONE)
   call LIBXSMM_Dispatch(xmm_2, np   , np   , np, alpha=ONE, beta=ONE)
   call LIBXSMM_Dispatch(xmm_3, np**2, np   , np, alpha=ONE, beta=ONE)
-  
+
   if ( .not. ( LIBXSMM_Available(xmm_1) .and. &
                LIBXSMM_Available(xmm_2) .and. &
                LIBXSMM_Available(xmm_3) )     ) then
-               
+
 		stop "CART__TPO_Diffusion_CI__gen_xsmm: LIBXSMM_Dispatch failed"
 
   end if
   !$omp end master
   !$omp barrier
-     
+
   !-----------------------------------------------------------------------------
   ! evaluation
 
@@ -114,15 +133,15 @@ subroutine CART__TPO_Diffusion_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v
     call LIBXSMM_DMMCall(xmm_1, Lm_1t, M_u, v(:,:,:,e))
 
     ! direction 2 ..............................................................
-   
+
     do k = 1, np
-      call LIBXSMM_DMMCall(xmm_2, M_u(:,:,k), Lm_2, v(:,:,k,e)) 
+      call LIBXSMM_DMMCall(xmm_2, M_u(:,:,k), Lm_2, v(:,:,k,e))
     end do
-    
+
     ! direction 3 ..............................................................
-    
+
     call LIBXSMM_DMMCall(xmm_3, M_u, Lm_3, v(:,:,:,e))
-      
+
   end do
 
 !===============================================================================

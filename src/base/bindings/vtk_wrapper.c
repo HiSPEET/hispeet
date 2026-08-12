@@ -1,18 +1,33 @@
-/**
- * \file       vtk_wrapper.c
- * \brief      Wrappers for accessing the VTK XML writer from Fortran
- * \author     Joerg Stiller
- * \date       2014/05/16
- * \copyright  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
- *
- * \details
- * The module provides access to the C routines defined in vtkXMLWriterC.h. The
- * corresponding Fortran interfaces are found in vtk_binding.f.
- * This implementation is derived from vtkXMLWriterF.c authored by Ken Martin,
- * Will Schroeder, Bill Lorensen. In contrast to the original version, only one
- * wrapper is needed for each routine. The wrappers are accessed from Fortran
- * using the standardized ISO C binding.
- ******************************************************************************/
+//------------------------------------------------------------------------------
+// This file is part of HiSPEET: High-order Spectral Element Techniques
+//
+// Copyright (C) 2026 by the HiSPEET authors and the
+// Chair of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+//
+// HiSPEET is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// HiSPEET is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with HiSPEET. If not, see <http://www.gnu.org/licenses/>.
+//------------------------------------------------------------------------------
+
+//> summary:  Wrappers for accessing the VTK XML writer from Fortran
+//> author:   Joerg Stiller
+//> date:     2014/05/16
+//>
+//> The module provides access to the C routines defined in vtkXMLWriterC.h. The
+//> corresponding Fortran interfaces are found in vtk_binding.f.
+//> This implementation is derived from vtkXMLWriterF.c authored by Ken Martin,
+//> Will Schroeder, Bill Lorensen. In contrast to the original version, only one
+//> wrapper is needed for each routine. The wrappers are accessed from Fortran
+//> using the standardized ISO C binding.
 
 /* Calls will be forwarded to the C interface.  */
 #include "vtkXMLWriterC.h"
