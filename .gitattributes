@@ -1,2 +1,2 @@
 *.f linguist-language=FortranFreeForm
-*.F linguist-language=Fortran
+*.F linguist-language=Fortran90
