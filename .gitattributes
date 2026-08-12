@@ -1,2 +1,2 @@
-*.f linguist-language=Fortran[[:space:]]Free[[:space:]]Form
-*.F linguist-language=Fortran[[:space:]]Free[[:space:]]Form
+*.f linguist-language=Fortran
+*.F linguist-language=Fortran
