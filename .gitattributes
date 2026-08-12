@@ -1,2 +1,2 @@
-*.f linguist-language=Fortran\ Free\ Form
-*.F linguist-language=Fortran\ Free\ Form
+*.f linguist-language='Fortran\ Free\ Form'
+*.F linguist-language=Fortran
