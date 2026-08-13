@@ -33,6 +33,7 @@ add_library(HiINSFlow
             problem/ins__problem__poiseuille__3d.f
             problem/ins__problem__stokes_dkm__3d.f
             problem/ins__problem__stokes_linke__3d.f
+            problem/ins__problem__transition_tg__3d.f
             problem/ins__problem__vortex_tg__3d.f
             problem/ins__problem__variable_viscosity__3d.f
             problem/ins__problem__test_suite__3d.f
