@@ -13,10 +13,16 @@ set(BINDINGS bindings/c_binding.f
              bindings/vtk_wrapper.c
              bindings/vtk_binding.f
              bindings/fftw_binding.f
-             bindings/metis_wrapper.c
-             bindings/parmetis_wrapper.c
-             bindings/parmetis_binding.f
+             bindings/parmetis_binding.F
              )
+
+if (ParMETIS_FOUND)
+    set(BINDINGS ${BINDINGS}
+                 bindings/metis_wrapper.c
+                 bindings/parmetis_wrapper.c
+                 )
+endif ()
+
 
 #===============================================================================
 # xmpi
@@ -289,7 +295,7 @@ set( MULTILEVEL_3D
      multilevel_3d/adaptation/element_hilbert_curve__3d.f
      multilevel_3d/adaptation/globalize_adaptation_pattern__3d.f
      multilevel_3d/adaptation/mesh_partitioner__3d.f
-     multilevel_3d/adaptation/mesh_partitioner__3d__mp_graph_partitioner.f
+     multilevel_3d/adaptation/mesh_partitioner__3d__mp_graph_partitioner.F
      multilevel_3d/adaptation/mesh_partitioner__3d__mp_sfc_partitioner.f
      multilevel_3d/adaptation/process_adaptation_pattern__3d.f
      multilevel_3d/adaptation/restrict_adaptation_pattern__3d.f

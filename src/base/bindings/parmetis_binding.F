@@ -38,6 +38,8 @@ module ParMETIS_Binding
   !> Real kind parameter matching Metis' real_t
   integer, parameter, public :: METIS_REAL_T = C_FLOAT
 
+#ifdef __ParMETIS__
+
   interface
 
     !--------------------------------------------------------------------------
@@ -238,6 +240,8 @@ module ParMETIS_Binding
 
   end interface
 
-!===============================================================================
+#endif
+
+  !=============================================================================
 
 end module ParMETIS_Binding
