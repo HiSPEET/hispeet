@@ -22,7 +22,7 @@ Installing _HiSPEET_ on Ubuntu 22 requires the packages
 - `python3-numpy`
 - `paraview`
 
-Do not install `libvtk9-dev`, which is incompatible with `paraview`
+Note that `libvtk9-dev` is incompatible with `paraview`, although this may change in future releases.
 
 For installing a package you may use the command
 
@@ -31,5 +31,4 @@ For installing a package you may use the command
 Additionally, you may want to install the `ford` documentation package
 
     pip install ford
-
 
