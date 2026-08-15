@@ -34,6 +34,7 @@ module INS__Problem__Test_Suite__3D
   use INS__Problem__Poiseuille__3D        , only: INS_Problem_Poiseuille_3D
   use INS__Problem__Stokes_DKM__3D        , only: INS_Problem_Stokes_DKM_3D
   use INS__Problem__Stokes_Linke__3D      , only: INS_Problem_Stokes_Linke_3D
+  use INS__Problem__Transition_TG__3D     , only: INS_Problem_TransitionTG_3D
   use INS__Problem__Variable_Viscosity__3D, only: INS_Problem_VariableViscosity_3D
   use INS__Problem__Vortex_TG__3D         , only: INS_Problem_Vortex_TG_3D
 
@@ -74,6 +75,8 @@ contains
       allocate(INS_Problem_Stokes_DKM_3D        :: problem)
     case('Stokes_Linke')
       allocate(INS_Problem_Stokes_Linke_3D      :: problem)
+    case('Transition_TG')
+      allocate(INS_Problem_TransitionTG_3D      :: problem)
     case('VariableViscosity')
       allocate(INS_Problem_VariableViscosity_3D :: problem)
     case('Vortex_TG')

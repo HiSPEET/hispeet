@@ -26,6 +26,8 @@ Initialize the computing environment as described in the [environment](./environ
 
 ## Optional testing
 
+**currently not available**
+
 Following to build
 
     ctest

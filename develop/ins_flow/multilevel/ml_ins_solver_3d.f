@@ -52,6 +52,7 @@ program ML_INS_Solver_3D
 
   use ML__Mesh__3D
   use ML__Mesh_Variable__3D
+  use ML__Smooth_Mesh_Variable__3D
   use ML__INS__Operator__3D
   use ML__INS__Integrator__BDF__3D
   use ML__INS__Flow_Characteristics__3D
@@ -150,16 +151,20 @@ program ML_INS_Solver_3D
 
   ! time integration ...........................................................
 
-  type(ML_INS_Integrator_BDF_Options_3D), save :: ml_bdf_opt
-  type(ML_INS_Integrator_BDF_3D), save :: ml_bdf
-
-  namelist/temporal_prm/ ml_bdf_opt
-
   real(RNP) :: t_end  = 0.25
   real(RNP) :: dt     = 1E-3
   integer   :: nt_max = 1
 
+  logical   :: smooth_initial_data = .false.
+  integer   :: smooth_filter = 3  ! 0/1/2/3: none/cut-off/erfc-log/exponential
+  integer   :: smooth_order  = 0  ! filter order (0: auto)
+
+  type(ML_INS_Integrator_BDF_Options_3D), save :: ml_bdf_opt
+  type(ML_INS_Integrator_BDF_3D), save :: ml_bdf
+
   namelist/temporal_prm/ t_end, dt, nt_max
+  namelist/temporal_prm/ smooth_initial_data, smooth_filter, smooth_order
+  namelist/temporal_prm/ ml_bdf_opt
 
   ! variables ..................................................................
 
@@ -307,6 +312,10 @@ program ML_INS_Solver_3D
     read(io, nml = temporal_prm)
     close(io)
   end if
+
+  call XMPI_Bcast(smooth_initial_data, 0, comm)
+  call XMPI_Bcast(smooth_filter      , 0, comm)
+  call XMPI_Bcast(smooth_order       , 0, comm)
 
   call ml_bdf_opt % Bcast(0, comm)
 
@@ -507,6 +516,14 @@ program ML_INS_Solver_3D
         call problem % GetInitialValues(ins_l % sem_u % metrics % x, u_l)
       end associate
     end do
+
+    ! optionally smooth initial conditions
+    if (smooth_initial_data) then
+      call ML_SmoothMeshVariable_3D( ml_op  = ml_ins % ml_op_u &
+                                   , u      = u                &
+                                   , filter = smooth_filter    &
+                                   , order  = smooth_order     )
+    end if
 
   end if
 

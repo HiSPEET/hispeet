@@ -11,7 +11,9 @@ find_package_handle_standard_args( ParMETIS DEFAULT_MSG
                                    ParMETIS_LIBRARIES
                                    ParMETIS_INCLUDE_DIRS )
 
-if (NOT ParMETIS_FOUND)
+if (ParMETIS_FOUND)
+    add_compile_definitions(__ParMETIS__)
+else ()
     set(ParMETIS_LIBRARIES "")
     set(ParMETIS_INCLUDE_DIRS "")
 endif ()

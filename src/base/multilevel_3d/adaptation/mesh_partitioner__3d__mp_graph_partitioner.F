@@ -24,6 +24,7 @@
 !===============================================================================
 
 submodule(Mesh_Partitioner__3D) MP_Graph_Partitioner
+  use Execution_Control
   use ParMETIS_Binding
   use Element_Transfer_Buffer__3D
   implicit none
@@ -50,6 +51,8 @@ contains
     integer :: i, e, tp
 
     type(MPI_Comm) :: comm
+
+#ifdef __ParMETIS__
 
     ! prerequisites ............................................................
 
@@ -134,7 +137,13 @@ contains
 
     call MPI_Comm_free(comm)
 
+#else
+    call Error('Graph_Partitioner', 'ParMETIS not found', 'Mesh_Partitioner__3D')
+#endif
+
   end subroutine Graph_Partitioner
+
+#ifdef __ParMETIS__
 
   !-----------------------------------------------------------------------------
   !> METIS partitioner
@@ -694,6 +703,8 @@ contains
     end associate
 
   end subroutine GetAdjacency
+
+#endif
 
   !=============================================================================
 
