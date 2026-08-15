@@ -399,4 +399,6 @@ target_link_libraries(HiBase
             ${LIBXSMM_LIBRARIES}
             KdTree
             HilbertCurve
+            MPI::MPI_C
+            MPI::MPI_Fortran
             )

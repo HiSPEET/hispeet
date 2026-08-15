@@ -1,16 +1,7 @@
-# Environment
-#
-#     FC            path to MPI/Fortran compiler
-#     CC            path to MPI/C compiler
-#     CXX           path to MPI/C++ compiler
-#
-#     FFTW_ROOT     root path of FFTW3 (if not in system paths)
-#
 # Command-line options for cmake
 #
-#     -D CMAKE_BUILD_TYPE=⟨Release|Check|Debug⟩
+#     -D CMAKE_BUILD_TYPE=⟨Release|Debug⟩
 #         Release:  default build type
-#         Check:    similar to Release, with additional runtime checks
 #         Debug:    enables debugging, may fail with some case
 #
 #     -D OPT=⟨n⟩
@@ -40,7 +31,7 @@ project(HiSPEET)
 #===============================================================================
 # CMake
 
-enable_language(Fortran)
+enable_language(C CXX Fortran)
 enable_testing()
 
 include(FindPackageHandleStandardArgs)
@@ -60,16 +51,13 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 # OpenMP
 
 if (OpenMP OR NOT SKIP_LIBXSMM)
-#   find_package(OpenMP REQUIRED)
    find_package(OpenMP)
 endif ()
 
 #-------------------------------------------------------------------------------
 # MPI
 
-set(MPI_SKIP_COMPILER_WRAPPER TRUE)
-set(MPI_SKIP_GUESSING         TRUE)
-find_package(MPI)
+find_package(MPI REQUIRED COMPONENTS C Fortran)
 if (NOT MPI_Fortran_HAVE_F08_MODULE)
     message(FATAL_ERROR "MPI does not have MPI_F08 module")
 endif ()
@@ -77,19 +65,10 @@ endif ()
 #===============================================================================
 # Flags
 
-# Set default build type to "Release"
-if (NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Release")
-endif ()
-
-# Flags for checking
-if (CMAKE_BUILD_TYPE MATCHES "Check")
-    add_compile_definitions(CHECK)
-endif ()
-
-# Preprocessor settings for debugging
 if (CMAKE_BUILD_TYPE MATCHES "Debug")
     add_compile_definitions(DEBUG)
+else ()
+    set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
 # Preprocessor setting for using the INS grad-div penalty instead bulk viscosity
@@ -103,8 +82,6 @@ endif ()
 if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-form")
-
-    set(CMAKE_Fortran_FLAGS_CHECK "-Wall -Wno-c-binding-type -fcheck=all -fbacktrace")
     set(CMAKE_Fortran_FLAGS_DEBUG "-Wall -Wno-c-binding-type -fcheck=all -fbacktrace -g")
 
     if (OPT)
@@ -119,9 +96,8 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -free -heap-arrays")
-    set(CMAKE_Fortran_FLAGS_CHECK   "-warn all -CA -traceback -fpe0")
-    set(CMAKE_Fortran_FLAGS_DEBUG   "-warn all -CA -traceback -fpe0 -g -gsplit-dwarf")
     set(CMAKE_Fortran_FLAGS_RELEASE "-ip" )
+    set(CMAKE_Fortran_FLAGS_DEBUG   "-warn all -CA -traceback -fpe0 -g -gsplit-dwarf")
 
     if (OPT)
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O${OPT}")

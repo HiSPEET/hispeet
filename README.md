@@ -35,16 +35,6 @@ This creates a clone of the git repository in the directory `hispeet`. Next init
       cd hispeet
       git submodule update --init
 
-## Environment
-
-Building _HiSPEET_ requires a suitable computing environment. Often it is sufficient to set the environment variables `CC`, `CXX` and `FC` to the MPI compiler scripts for C, C++ and Fortran, respectively, e.g.
-
-      export CC=mpicc
-      export CXX=mpicxx
-      export FC=mpifort
-
-If your system offers different sets of compilers and MPI implementations, it is advisable to configure the environment for choosing the right one. See the directory `howto/environment` for examples.
-
 ## Building
 
 For building _HiSPEET_ create a build directory and issue the `cmake` and `make` command from there, e.g:
