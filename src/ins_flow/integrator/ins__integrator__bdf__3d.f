@@ -96,10 +96,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Execution of a BDF time step
 
-  subroutine TimeStep(this, t, dt, u, standby)
+  subroutine TimeStep(this, t, dt, mu, nu, u, standby)
     class(INS_Integrator_BDF_3D), intent(inout) :: this
     real(RNP),             intent(inout) :: t            !< time t₀ → t
     real(RNP),             intent(in)    :: dt           !< step size ∆t = t-t₀
+    real(RNP), contiguous, intent(inout) :: mu(:,:,:,:)  !< bulk viscosity μ
+    real(RNP), contiguous, intent(inout) :: nu(:,:,:,:)  !< shear viscosity ν
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:) !< u(x,t₀) → u(x,t)
     logical,     optional, intent(in)    :: standby      !< reuse workspace [F]
 
@@ -107,8 +109,6 @@ contains
 
     real(RNP), allocatable, save :: f  (:,:,:,:,:) ! unweighted RHS
     real(RNP), allocatable, save :: f_d(:,:,:,:,:) ! unweighted diffusion term
-    real(RNP), allocatable, save :: mu (:,:,:,:)   ! bulk diffusivity μ
-    real(RNP), allocatable, save :: nu (:,:,:,:)   ! shear diffusivity ν
 
     ! saved at time t₁ = t₀-∆t
     real(RNP), allocatable, save :: u1  (:,:,:,:,:) ! flow variables
@@ -136,8 +136,6 @@ contains
         first = any(shape(f) /= shape(u))
         if (first) then
           deallocate(f, bv_u, f_d, u1, f_c1, f_d1)
-          if (allocated(mu)) deallocate(mu)
-          if (allocated(nu)) deallocate(nu)
         end if
       else
         first = .true.
@@ -147,11 +145,6 @@ contains
 
         allocate(f(np, np, np, mesh%n_elem, nc), source = ZERO)
         allocate(f_d, u1, f_c1, f_d1, source = f)
-
-        if (ins_op % HasVariableViscosity()) then
-          allocate(mu(np, np, np, mesh%n_elem))
-          allocate(nu(np, np, np, mesh%n_elem))
-        end if
 
         allocate(bv_u(mesh % n_bound))
         do b = 1, mesh % n_bound
@@ -166,7 +159,7 @@ contains
       ! time step ..............................................................
 
       call INS_Integrator_BDF_PrepStep_3D( ins_op, t, dt, u, u1, f_c1, f_d1 &
-                                         , tau, f, f_d, bv_u, mu, nu, first )
+                                         , tau, mu, nu, f, f_d, bv_u, first )
 
       call ins_op % StokesSolver(tau, f, bv_u, mu, nu, u, f_d0 = f_d)
 
@@ -182,8 +175,6 @@ contains
 
       !$omp master
       deallocate(f, bv_u, f_d, u1, f_c1, f_d1)
-      if (allocated(mu)) deallocate(mu)
-      if (allocated(nu)) deallocate(nu)
       !$omp end master
 
     end associate

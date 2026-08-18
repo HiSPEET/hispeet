@@ -107,10 +107,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Execution of an Euler time step
 
-  subroutine TimeStep(this, t, dt, u, standby)
+  subroutine TimeStep(this, t, dt, mu, nu, u, standby)
     class(INS_Integrator_Euler_3D), intent(inout) :: this
     real(RNP),             intent(inout) :: t            !< time t₀ → t
     real(RNP),             intent(in)    :: dt           !< step size ∆t = t-t₀
+    real(RNP), contiguous, intent(inout) :: mu(:,:,:,:)  !< bulk viscosity μ
+    real(RNP), contiguous, intent(inout) :: nu(:,:,:,:)  !< shear viscosity ν
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:) !< u(x,t₀) → u(x,t)
     logical,     optional, intent(in)    :: standby      !< reuse workspace [F]
 
@@ -122,8 +124,6 @@ contains
     real(RNP), allocatable, save :: f  (:,:,:,:,:)  ! source term / RHS
     real(RNP), allocatable, save :: vp (:,:,:,:,:)  ! outer velocity traces v⁺
     real(RNP), allocatable, save :: sp (:,:,:,:,:)  ! outer viscous flux traces s⁺
-    real(RNP), allocatable, save :: mu (:,:,:,:)    ! variable bulk diffusivity μ
-    real(RNP), allocatable, save :: nu (:,:,:,:)    ! variable shear diffusivity ν
 
     ! boundary points and values
     type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:)
@@ -156,8 +156,6 @@ contains
         if (any(shape(f(:,:,:,:,1:3)) /= shape(v))) then
           deallocate(inv_mm, f_c, f_d, f, vp, sp)
           deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp)
-          if (allocated(mu)) deallocate(mu)
-          if (allocated(nu)) deallocate(nu)
         end if
       end if
 
@@ -175,11 +173,6 @@ contains
         allocate( f      (np, np, np, mesh % n_elem, 3), source = ZERO )
         allocate( vp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
         allocate( sp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
-
-        if (ins_op % HasVariableViscosity()) then
-          allocate( mu(np, np, np, mesh % n_elem), source = this%ins_op%mu_0 )
-          allocate( nu(np, np, np, mesh % n_elem), source = ZERO )
-        end if
 
         allocate(bv_x (mesh % n_bound) )
         allocate(bv_u (mesh % n_bound) )
@@ -277,8 +270,6 @@ contains
       !$omp master
       deallocate(inv_mm, f_c, f_d, f, vp, sp)
       deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp)
-      if (allocated(mu)) deallocate(mu)
-      if (allocated(nu)) deallocate(nu)
       !$omp end master
 
     end associate

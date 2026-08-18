@@ -187,11 +187,11 @@ contains
                                            , f_c1 % level(l) % val            &
                                            , f_d1 % level(l) % val            &
                                            , tau                              &
+                                           , mu   % level(l) % val(:,:,:,:,1) &
+                                           , nu   % level(l) % val(:,:,:,:,1) &
                                            , f    % level(l) % val            &
                                            , f_d  % level(l) % val            &
                                            , bv   % level(l) % var            &
-                                           , mu   % level(l) % val(:,:,:,:,1) &
-                                           , nu   % level(l) % val(:,:,:,:,1) &
                                            , first                            )
 
       end do

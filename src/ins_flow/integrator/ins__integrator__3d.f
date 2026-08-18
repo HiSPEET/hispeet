@@ -61,11 +61,13 @@ module INS__Integrator__3D
     !>
     !> Activate the `standby` option to allow for reusing workspace and data.
 
-    subroutine TimeStep(this, t, dt, u, standby)
+    subroutine TimeStep(this, t, dt, mu, nu, u, standby)
       import
       class(INS_Integrator_3D), intent(inout) :: this
       real(RNP), intent(inout) :: t  !< time t₀ → t
       real(RNP), intent(in)    :: dt !< step size ∆t = t-t₀
+      real(RNP), contiguous, intent(inout) :: mu(:,:,:,:)  !< bulk viscosity μ
+      real(RNP), contiguous, intent(inout) :: nu(:,:,:,:)  !< shear viscosity ν
       real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:) !< u(x,t₀) → u(x,t)
       logical, optional, intent(in) :: standby !< reuse workspace T/F [F]
     end subroutine TimeStep

@@ -203,14 +203,16 @@ program INS_Integrator_3D_Test
   real(RNP), allocatable, target, save :: var(:,:,:,:,:)
   character(len=20), allocatable, save :: var_name(:)
 
-  real(RNP), pointer, contiguous, save :: u(:,:,:,:,:)    ! u = [v, p]
-  real(RNP), pointer, contiguous, save :: v(:,:,:,:,:)    ! velocity
-  real(RNP), pointer, contiguous, save :: p(:,:,:,:)      ! pressure
-  real(RNP), pointer, contiguous, save :: div_v(:,:,:,:)  ! ∇⋅v
+  real(RNP), pointer, contiguous, save :: u(:,:,:,:,:)     ! u = [v, p]
+  real(RNP), pointer, contiguous, save :: v(:,:,:,:,:)     ! velocity
+  real(RNP), pointer, contiguous, save :: p(:,:,:,:)       ! pressure
+  real(RNP), pointer, contiguous, save :: mu(:,:,:,:)      ! bulk viscosity μ
+  real(RNP), pointer, contiguous, save :: nu(:,:,:,:)      ! shear viscosity ν
+  real(RNP), pointer, contiguous, save :: div_v(:,:,:,:)   ! ∇⋅v
 
-  real(RNP), pointer, contiguous, save :: u_ex(:,:,:,:,:) ! u_ex = [v_ex, p_ex]
-  real(RNP), pointer, contiguous, save :: v_ex(:,:,:,:,:) ! exact velocity
-  real(RNP), pointer, contiguous, save :: p_ex(:,:,:,:)   ! exact pressure
+  real(RNP), pointer, contiguous, save :: u_ex(:,:,:,:,:)  ! u_ex = [v_ex, p_ex]
+  real(RNP), pointer, contiguous, save :: v_ex(:,:,:,:,:)  ! exact velocity
+  real(RNP), pointer, contiguous, save :: p_ex(:,:,:,:)    ! exact pressure
 
   real(RNP), pointer, contiguous, save :: err_u(:,:,:,:,:) ! error, u - u_ex
   real(RNP), pointer, contiguous, save :: err_v(:,:,:,:,:) ! velocity error
@@ -465,7 +467,7 @@ program INS_Integrator_3D_Test
 
   ! variables ..................................................................
 
-  n_var = 5
+  n_var = 7
 
   if (problem % HasExactSolution()) then
     n_var = n_var + 8
@@ -481,11 +483,14 @@ program INS_Integrator_3D_Test
   u(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,1:4)
   v(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,1:3)
   p(0:,0:,0:,1:)     =>  var(:,:,:,:,4)
-  div_v(0:,0:,0:,1:) =>  var(:,:,:,:,5)
+  mu(0:,0:,0:,1:)    =>  var(:,:,:,:,5)
+  nu(0:,0:,0:,1:)    =>  var(:,:,:,:,6)
+  div_v(0:,0:,0:,1:) =>  var(:,:,:,:,7)
 
-  var_name(1:5) = [ 'v_x  ', 'v_y  ', 'v_z  ', 'p    ', 'div_v']
+  var_name(1:7) = [ 'v_x  ', 'v_y  ', 'v_z  ', 'p    ' &
+                  , 'mu   ', 'nu   ', 'div_v'          ]
 
-  i = 5
+  i = 7
 
   if (problem % HasExactSolution()) then
 
@@ -533,13 +538,15 @@ program INS_Integrator_3D_Test
     call ReadRestartData(data_file, rank, t, u, n_avg, q_avg)
     call XMPI_Bcast(t, 0, comm)
   else
+    t = 0
+    n_avg = 0
+    call SetArray(mu, ins_op % mu_0)
+    call SetArray(nu, ins_op % nu_0)
     call problem % GetInitialValues(ins_op % sem_u % metrics % x, u)
     if (smooth_initial_data) then
       call SmoothMeshData_3D( ins_op%mesh, ins_op%eop_u, u &
                             , smooth_filter, smooth_order  )
     end if
-    t = 0
-    n_avg = 0
   end if
 
   ! time scales
@@ -592,7 +599,7 @@ program INS_Integrator_3D_Test
 
   do nt = 1, nt_max
     last = t + dt >= t_end .or. nt == nt_max
-    call ins_ti % TimeStep(t, dt, u, standby = .not. last)
+    call ins_ti % TimeStep(t, dt, mu, nu, u, standby = .not. last)
     if (avg_rate > 0 .and. mod(nt, max(avg_rate,1)) == 0) then
       call TemporalAveraging(u, q_avg, n_avg)
     end if

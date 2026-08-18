@@ -42,7 +42,7 @@ contains
   !> Preparation of a BDF time step for one level
 
   subroutine INS_Integrator_BDF_PrepStep_3D &
-      (ins_op, t0, dt, u0, u1, f_c1, f_d1, tau, f, f_d, bv_u, mu, nu, first)
+      (ins_op, t0, dt, u0, u1, f_c1, f_d1, tau, mu, nu, f, f_d, bv_u, first)
 
     ! arguments ................................................................
 
@@ -54,11 +54,11 @@ contains
     real(RNP), contiguous,  intent(inout) :: f_c1(:,:,:,:,:) !< f_cⁿ⁻¹ → f_cⁿ
     real(RNP), contiguous,  intent(inout) :: f_d1(:,:,:,:,:) !< f_dⁿ⁻¹ → f_dⁿ
     real(RNP),              intent(out)   :: tau             !< τ
+    real(RNP), contiguous,  intent(out)   :: mu(:,:,:,:)     !< approx μⁿ⁺¹
+    real(RNP), contiguous,  intent(out)   :: nu(:,:,:,:)     !< approx νⁿ⁺¹
     real(RNP), contiguous,  intent(out)   :: f(:,:,:,:,:)    !< approx fⁿ⁺¹
     real(RNP), contiguous,  intent(out)   :: f_d(:,:,:,:,:)  !< approx f_dⁿ⁺¹
     class(BoundaryVariable_3D), intent(inout) :: bv_u(:)     !< BV at tⁿ⁺¹
-    real(RNP), contiguous, optional, intent(out) :: mu(:,:,:,:) !< approx μⁿ⁺¹
-    real(RNP), contiguous, optional, intent(out) :: nu(:,:,:,:) !< approx νⁿ⁺¹
     logical, optional, intent(in) :: first !< T/F for Euler/BDF [F]
 
     ! internal variables .......................................................
@@ -158,14 +158,9 @@ contains
       ! viscosity ..............................................................
 
       if (ins_op%HasVariableViscosity()) then
-        if (present(mu) .and. present(nu)) then
-          ! extrapolated flow variables: u = β₀u₀ + β₁u₁
-          call MergeArrays(b0, u, b1, u1, multi=.true.)
-          call ins_op % GetVariableViscosity(t, u, mu, nu)
-        else
-          call Error( 'INS_Integrator_BDF_PrepStep_3D'             &
-                    , 'mu and nu required with variable viscosity' )
-        end if
+        ! extrapolated flow variables: u = β₀u₀ + β₁u₁
+        call MergeArrays(b0, u, b1, u1, multi=.true.)
+        call ins_op % GetVariableViscosity(t, u, mu, nu)
       end if
 
       ! external source contribution ...........................................

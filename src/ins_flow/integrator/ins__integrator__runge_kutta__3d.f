@@ -109,10 +109,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Execution of an Runge-Kutta time step
 
-  subroutine TimeStep(this, t, dt, u, standby)
+  subroutine TimeStep(this, t, dt, mu, nu, u, standby)
     class(INS_Integrator_RungeKutta_3D), intent(inout) :: this
     real(RNP),             intent(inout) :: t            !< time t₀ → t
     real(RNP),             intent(in)    :: dt           !< step size ∆t = t-t₀
+    real(RNP), contiguous, intent(inout) :: mu(:,:,:,:)  !< bulk viscosity μ
+    real(RNP), contiguous, intent(inout) :: nu(:,:,:,:)  !< shear viscosity ν
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:) !< u(x,t₀) → u(x,t)
     logical,     optional, intent(in)    :: standby      !< reuse workspace [F]
 
@@ -122,8 +124,6 @@ contains
     real(RNP), allocatable, save :: u_i(:,:,:,:,:)  ! stage solution uᵢ
     real(RNP), allocatable, save :: vp (:,:,:,:,:)  ! velocity traces v⁺
     real(RNP), allocatable, save :: sp (:,:,:,:,:)  ! viscous flux traces s⁺
-    real(RNP), allocatable, save :: mu (:,:,:,:)    ! variable bulk diffusivity μ
-    real(RNP), allocatable, save :: nu (:,:,:,:)    ! variable shear diffusivity ν
 
     ! stage contributions to RHS and BC
     real(RNP), allocatable, save :: f_c     (:,:,:,:,:,:) ! convection
@@ -175,8 +175,6 @@ contains
         if (any(shape(u_i) /= shape(u))) then
           deallocate(u_i, vp, sp, inv_mm, f_c, f_d, f_d_rot, f_s)
           deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp, bv_po)
-          if (allocated(mu)) deallocate(mu)
-          if (allocated(nu)) deallocate(nu)
         end if
       end if
 
@@ -192,11 +190,6 @@ contains
         allocate( vp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
         allocate( sp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
         allocate( inv_mm (np, np, np, mesh % n_elem   ), source = ZERO )
-
-        if (problem % HasVariableProperties()) then
-          allocate( mu(np, np, np, mesh % n_elem), source = this%ins_op%mu_0 )
-          allocate( nu(np, np, np, mesh % n_elem), source = ZERO )
-        end if
 
         allocate( f_c     (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
         allocate( f_d     (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
@@ -515,8 +508,6 @@ contains
       !$omp master
       deallocate(u_i, vp, sp, inv_mm, f_c, f_d, f_d_rot, f_s)
       deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp, bv_po)
-      if (allocated(mu)) deallocate(mu)
-      if (allocated(nu)) deallocate(nu)
       !$omp end master
 
     end associate
