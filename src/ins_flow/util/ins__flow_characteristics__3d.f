@@ -32,6 +32,7 @@ module INS__Flow_Characteristics__3D
 
   use Trace_Operators__3D
   use TPO__Div__3D
+  use Boundary_Variable__3D
   use Volume_Integrals__3D
   use INS__Operator__3D
 
@@ -56,8 +57,17 @@ module INS__Flow_Characteristics__3D
     real(RNP) :: v_max  !< maximum velocity
     real(RNP) :: e_kin  !< kinetic energy per unit mass
 
+    ! only if dissipation requested (diss = T):
+    real(RNP) :: phi_c  !< convection
+    real(RNP) :: phi_d  !< diffusion with μ and ν as given
+    real(RNP) :: phi_ds !< diffusion with μ=0 and ν as given
+    real(RNP) :: phi_d0 !< diffusion with μ=0 and ν=1
+    real(RNP) :: phi_s  !< body force
+
     integer, private :: part = -1
-    logical, private :: has_errors = .false.
+    logical, private :: normalized      = .false. !< normalized by volume
+    logical, private :: has_errors      = .false. !< errors computed
+    logical, private :: has_dissipation = .false. !< dissipation computed
 
   contains
     procedure :: Evaluate
@@ -70,24 +80,41 @@ contains
   !-----------------------------------------------------------------------------
   !> Evaluation of incompressible flow characteristics
 
-  subroutine Evaluate(this, ins_op, t, u, dt, volume, leaf)
+  subroutine Evaluate(this, ins_op, t, mu, nu, u, dt, volume, diss, leaf)
     class(INS_FlowCharacteristics_3D), intent(inout) :: this
     class(INS_Operator_3D), intent(in) :: ins_op
     real(RNP),              intent(in) :: t
+    real(RNP), contiguous,  intent(in) :: mu(:,:,:,:)
+    real(RNP), contiguous,  intent(in) :: nu(:,:,:,:)
     real(RNP), contiguous,  intent(in) :: u(:,:,:,:,:)
     real(RNP), optional,    intent(in) :: dt
     real(RNP), optional,    intent(in) :: volume
-    logical,   optional,    intent(in) :: leaf !< constrain to leaf elements [F]
+    logical,   optional,    intent(in) :: diss   !< compute disspation [F]
+    logical,   optional,    intent(in) :: leaf   !< only leaf elements [F]
 
-    real(RNP), allocatable, save :: vp(:,:,:,:,:), w(:,:,:,:,:)
-    real(RNP), save :: v_max, vv_max
-    real(RNP), save :: e_kin
-    real(RNP), save :: dx_min_loc, dx_max_loc
+    type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:)
+    real(RNP), allocatable, save :: vp(:,:,:,:,:)
+    real(RNP), allocatable, save :: sp(:,:,:,:,:)
+    real(RNP), allocatable, save :: mm(:,:,:,:)
+    real(RNP), allocatable, save :: s0(:,:,:,:)
+    real(RNP), allocatable, save :: s1(:,:,:,:)
+    real(RNP), allocatable, save :: w(:,:,:,:,:)
+    real(RNP), save :: dx_min_loc = huge(ONE)
+    real(RNP), save :: dx_max_loc = 0
+    real(RNP), save :: v_max      = 0
+    real(RNP), save :: vv_max     = 0
+    real(RNP), save :: e_kin      = 0
+    real(RNP), save :: phi_c      = 0
+    real(RNP), save :: phi_d      = 0
+    real(RNP), save :: phi_ds     = 0
+    real(RNP), save :: phi_d0     = 0
+    real(RNP), save :: phi_s      = 0
+
     real(RNP) :: div_v, err_v, err_p, vv
     real(RNP) :: dx(3)
 
     logical :: complete
-    integer :: e, i, j, k, na, nc, ne, np
+    integer :: b, e, i, j, k, na, nc, ne, np
 
     if (present(leaf)) then
       complete = .not. leaf
@@ -100,7 +127,7 @@ contains
              , eop     => ins_op % eop_u               &
              , x       => ins_op % sem_u % metrics % x )
 
-      ! initialization .........................................................
+      ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       if (mesh % part < 0) then
         !$omp barrier
@@ -112,11 +139,18 @@ contains
       nc = size(u,5)
       na = mesh % n_elem_active
 
-      !$omp master
+      !$omp master !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
       this % t          = t
       this % part       = mesh % part
+      this % normalized = present(volume)
       this % has_errors = problem % HasExactSolution()
+
+      if (present(diss)) then
+        this % has_dissipation = diss
+      else
+        this % has_dissipation = .false.
+      end if
 
       if (present(dt)) then
         this % dt = dt
@@ -124,21 +158,30 @@ contains
         this % dt = -1
       end if
 
-      this % po     = ins_op % eop_u % po
-      this % err_v  = -1
-      this % err_p  = -1
-
-      dx_min_loc = huge(ONE)
-      dx_max_loc = 0
-      vv_max = 0
+      this % po    = eop % po
+      this % err_v = -1
+      this % err_p = -1
 
       allocate(vp(np,np,6,ne,3))
+      allocate(sp(np,np,6,ne,3))
+      allocate(mm(np,np,np,ne)  , source = ZERO )
+      allocate(s0(np,np,np,ne)  , source = ZERO )
+      allocate(s1(np,np,np,ne)  , source = ONE )
       allocate(w(np,np,np,ne,nc), source = ZERO)
 
-      !$omp end master
-      !$omp barrier
+      if (this % has_dissipation) then
+        allocate(bv_x (mesh % n_bound) )
+        allocate(bv_u (mesh % n_bound) )
+        do b = 1, mesh % n_bound
+          call bv_u(b) % Init(mesh % boundary(b), eop % po, nc = 4)
+          call bv_x(b) % Init(mesh % boundary(b), eop % po, nc = 3)
+          call bv_x(b) % Extract(x)
+        end do
+      end if
 
-      ! mesh spacing ...........................................................
+      !$omp end master !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+      ! mesh spacing :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       !$omp do private(dx) reduction(min:dx_min_loc) reduction(max:dx_max_loc)
       do e = 1, na
@@ -154,7 +197,7 @@ contains
       call XMPI_Allreduce(dx_max_loc, this%dx_max, MPI_MAX, mesh%comm_parts)
       !$omp end master
 
-      ! errors .................................................................
+      ! errors :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       if (this % has_errors) then
         associate(q => w(:,:,:,:,4))
@@ -166,7 +209,8 @@ contains
             call CalibrateArray(q, comm = mesh%comm_parts)
           end if
 
-          ! pressure
+          ! pressure ...........................................................
+
           !$omp do
           do e = 1, na
             q(:,:,:,e) = q(:,:,:,e)**2
@@ -174,7 +218,8 @@ contains
           call GetVolumeIntegral(ins_op%sem_u, q, err_p, leaf)
           err_p = sqrt(err_p)
 
-          ! velocity
+          ! velocity ...........................................................
+
           !$omp do
           do e = 1, na
             q(:,:,:,e) = w(:,:,:,e,1)**2 + w(:,:,:,e,2)**2 + w(:,:,:,e,3)**2
@@ -185,7 +230,7 @@ contains
         end associate
       end if
 
-      ! divergence .............................................................
+      ! divergence :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       associate(v => u(:,:,:,:,1:3), q => w(:,:,:,:,4))
         call GetOuterVectorTraces_3D(mesh, v, vp)   ! vp = v⁺
@@ -203,7 +248,7 @@ contains
         div_v = sqrt(div_v)
       end associate
 
-      ! maximum velocity and energy ............................................
+      ! maximum velocity and energy ::::::::::::::::::::::::::::::::::::::::::::
 
       associate(v => u(:,:,:,:,1:3), q => w(:,:,:,:,4))
 
@@ -232,11 +277,96 @@ contains
 
       end associate
 
-      ! finalization ...........................................................
+      ! dissipation ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-      !$omp master
+      if (this % has_dissipation) then
+        associate(v => u(:,:,:,:,1:3), q => w(:,:,:,:,4))
 
-      if (present(volume)) then
+          ! BC .................................................................
+
+          do b = 1, mesh % n_bound
+            select case(problem % bc_v(b))
+            case('D')
+              call problem % GetBoundaryValues(b, bv_x(b)%val, t, bv_u(b)%val)
+            end select
+          end do
+
+          ! diffusion with μ and ν as given ....................................
+
+          call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp, w, bv_u &
+                                        , xout = .true. )
+
+          !$omp do reduction(+:phi_d)
+          do e = 1, na
+            if (complete .or. mesh % element(e) % IsLeaf()) then
+              phi_d = phi_d + sum(v(:,:,:,e,1) * w(:,:,:,e,1)) &
+                            + sum(v(:,:,:,e,2) * w(:,:,:,e,2)) &
+                            + sum(v(:,:,:,e,3) * w(:,:,:,e,3))
+            end if
+          end do
+
+          ! diffusion with μ = 0 and ν as given (shear only) ...................
+
+          call ins_op % GetDiffusionTerm( s0, nu, v, vp, sp, w, bv_u &
+                                        , xout = .true. )
+
+          !$omp do reduction(+:phi_ds)
+          do e = 1, na
+            if (complete .or. mesh % element(e) % IsLeaf()) then
+              phi_ds = phi_ds + sum(v(:,:,:,e,1) * w(:,:,:,e,1)) &
+                              + sum(v(:,:,:,e,2) * w(:,:,:,e,2)) &
+                              + sum(v(:,:,:,e,3) * w(:,:,:,e,3))
+            end if
+          end do
+
+          ! diffusion with μ = 0 and ν = 1 (reference) .........................
+
+          call ins_op % GetDiffusionTerm( s0, s1, v, vp, sp, w, bv_u &
+                                        , xout = .true. )
+
+          !$omp do reduction(+:phi_d0)
+          do e = 1, na
+            if (complete .or. mesh % element(e) % IsLeaf()) then
+              phi_d0 = phi_d0 + sum(v(:,:,:,e,1) * w(:,:,:,e,1)) &
+                              + sum(v(:,:,:,e,2) * w(:,:,:,e,2)) &
+                              + sum(v(:,:,:,e,3) * w(:,:,:,e,3))
+            end if
+          end do
+
+          ! convection .........................................................
+
+          call ins_op % GetConvectionTerm(v, vp, w)
+
+          !$omp do reduction(+:phi_c)
+          do e = 1, na
+            if (complete .or. mesh % element(e) % IsLeaf()) then
+              phi_c = phi_c + sum(v(:,:,:,e,1) * w(:,:,:,e,1)) &
+                            + sum(v(:,:,:,e,2) * w(:,:,:,e,2)) &
+                            + sum(v(:,:,:,e,3) * w(:,:,:,e,3))
+            end if
+          end do
+
+          ! body force .........................................................
+
+          call problem % GetExternalSources(x, t, w)
+          call ins_op % sem_u % Get_DG_DiagonalMassMatrix(mm)
+
+          !$omp do reduction(+:phi_c)
+          do e = 1, na
+            if (complete .or. mesh % element(e) % IsLeaf()) then
+              phi_s = phi_s + sum(mm(:,:,:,e) * v(:,:,:,e,1) * w(:,:,:,e,1)) &
+                            + sum(mm(:,:,:,e) * v(:,:,:,e,2) * w(:,:,:,e,2)) &
+                            + sum(mm(:,:,:,e) * v(:,:,:,e,3) * w(:,:,:,e,3))
+            end if
+          end do
+        end associate
+      end if
+
+      !$omp master !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+      ! completion .............................................................
+
+      if (this % normalized) then
         this % err_v = err_v / sqrt(volume)
         this % err_p = err_p / sqrt(volume)
         this % div_v = div_v / sqrt(volume)
@@ -249,11 +379,42 @@ contains
       end if
       this % v_max = v_max
 
-      vv_max = 0
+      if (this % has_dissipation) then
+        call XMPI_Allreduce(phi_c , this%phi_c , MPI_SUM, mesh%comm_parts)
+        call XMPI_Allreduce(phi_d , this%phi_d , MPI_SUM, mesh%comm_parts)
+        call XMPI_Allreduce(phi_ds, this%phi_ds, MPI_SUM, mesh%comm_parts)
+        call XMPI_Allreduce(phi_d0, this%phi_d0, MPI_SUM, mesh%comm_parts)
+        call XMPI_Allreduce(phi_s , this%phi_s , MPI_SUM, mesh%comm_parts)
+        if (this % normalized) then
+          this%phi_c  = this%phi_c  / volume
+          this%phi_d  = this%phi_d  / volume
+          this%phi_ds = this%phi_ds / volume
+          this%phi_d0 = this%phi_d0 / volume
+          this%phi_s  = this%phi_s  / volume
+        end if
+      end if
 
-      deallocate(vp, w)
+      ! finalization ...........................................................
 
-      !$omp end master
+      ! re-initialize parameters
+      dx_min_loc = huge(ONE)
+      dx_max_loc = 0
+      v_max      = 0
+      vv_max     = 0
+      e_kin      = 0
+      phi_c      = 0
+      phi_d      = 0
+      phi_ds     = 0
+      phi_d0     = 0
+      phi_s      = 0
+
+      deallocate(sp, vp, mm, s0, s1, w)
+
+      if (this % has_dissipation) then
+        deallocate(bv_x, bv_u)
+      end if
+
+      !$omp end master !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
     end associate
 
@@ -284,6 +445,14 @@ contains
       if (this % has_errors) then
         write(*,'(2X,A,6X)',advance='NO') 'err_v'
         write(*,'(2X,A,6X)',advance='NO') 'err_p'
+      end if
+
+      if (this % has_dissipation) then
+        write(*,'(2X,A,6X)',advance='NO') 'phi_c'
+        write(*,'(2X,A,6X)',advance='NO') 'phi_d'
+        write(*,'(2X,A,5X)',advance='NO') 'phi_ds'
+        write(*,'(2X,A,5X)',advance='NO') 'phi_d0'
+        write(*,'(2X,A,6X)',advance='NO') 'phi_s'
       end if
 
       if (present(tag)) then
@@ -321,6 +490,14 @@ contains
       if (this % has_errors) then
         write(*,'(ES12.5,1X)',advance='NO') this % err_v
         write(*,'(ES12.5,1X)',advance='NO') this % err_p
+      end if
+
+      if (this % has_dissipation) then
+        write(*,'(ES12.5,1X)',advance='NO') this % phi_c
+        write(*,'(ES12.5,1X)',advance='NO') this % phi_d
+        write(*,'(ES12.5,1X)',advance='NO') this % phi_ds
+        write(*,'(ES12.5,1X)',advance='NO') this % phi_d0
+        write(*,'(ES12.5,1X)',advance='NO') this % phi_s
       end if
 
       if (present(tag)) then

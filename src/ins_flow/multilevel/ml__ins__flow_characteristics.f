@@ -41,6 +41,7 @@ module ML__INS__Flow_Characteristics__3D
     type(INS_FlowCharacteristics_3D), allocatable :: flow_char(:)
     integer, private :: proc = -1
     logical, private :: has_errors = .false.
+    logical, private :: has_dissipation = .false.
   contains
     procedure :: Evaluate
     procedure :: PrintHeader
@@ -52,14 +53,17 @@ contains
   !-----------------------------------------------------------------------------
   !> Evaluation of multilevel incompressible flow characteristics
 
-  subroutine Evaluate(this, ml_ins, t, u, dt, volume, leaf)
+  subroutine Evaluate(this, ml_ins, t, mu, nu, u, dt, volume, diss, leaf)
     class(ML_INS_FlowCharacteristics_3D), intent(inout) :: this
     class(ML_INS_Operator_3D), intent(in) :: ml_ins
     real(RNP),                 intent(in) :: t
+    class(ML_MeshVariable_3D), intent(in) :: mu
+    class(ML_MeshVariable_3D), intent(in) :: nu
     class(ML_MeshVariable_3D), intent(in) :: u
     real(RNP), optional,       intent(in) :: dt
     real(RNP), optional,       intent(in) :: volume
-    logical,   optional,       intent(in) :: leaf !< constrain to leaves [F]
+    logical,   optional,       intent(in) :: diss !< compute disspation [F]
+    logical,   optional,       intent(in) :: leaf !< only leaf elements [F]
 
     integer :: l, l_top
 
@@ -80,15 +84,25 @@ contains
     this % proc       = ml_ins % ins_op(1) % mesh % proc
     this % has_errors = ml_ins % problem % HasExactSolution()
 
+    if (present(diss)) then
+      this % has_dissipation = diss
+    else
+      this % has_dissipation = .false.
+    end if
+
     ! evaluation ...............................................................
 
     do l = 1, l_top
-      call this % flow_char(l) % Evaluate( ins_op = ml_ins % ins_op(l) &
-                                         , t      = t                  &
-                                         , u      = u % level(l) % val &
-                                         , dt     = dt                 &
-                                         , volume = volume             &
-                                         , leaf   = leaf               )
+      call this % flow_char(l) &
+                      % Evaluate( ins_op = ml_ins % ins_op(l)             &
+                                , t      = t                              &
+                                , mu     = mu % level(l) % val(:,:,:,:,1) &
+                                , nu     = nu % level(l) % val(:,:,:,:,1) &
+                                , u      = u  % level(l) % val            &
+                                , dt     = dt                             &
+                                , volume = volume                         &
+                                , diss   = diss                           &
+                                , leaf   = leaf                           )
     end do
 
   end subroutine Evaluate
@@ -117,6 +131,14 @@ contains
       if (this % has_errors) then
         write(*,'(1X,A,5X)',advance='NO') 'err_v'
         write(*,'(1X,A,5X)',advance='NO') 'err_p'
+      end if
+
+      if (this % has_dissipation) then
+        write(*,'(2X,A,6X)',advance='NO') 'phi_c'
+        write(*,'(2X,A,6X)',advance='NO') 'phi_d'
+        write(*,'(2X,A,5X)',advance='NO') 'phi_ds'
+        write(*,'(2X,A,5X)',advance='NO') 'phi_d0'
+        write(*,'(2X,A,6X)',advance='NO') 'phi_s'
       end if
 
       if (present(tag)) then
@@ -154,6 +176,14 @@ contains
         if (this % has_errors) then
           write(*,'(ES10.3,1X)',advance='NO') sqrt(sum(flow_char % err_v ** 2))
           write(*,'(ES10.3,1X)',advance='NO') sqrt(sum(flow_char % err_p ** 2))
+        end if
+
+        if (this % has_dissipation) then
+          write(*,'(ES12.5,1X)',advance='NO') sum(flow_char % phi_c )
+          write(*,'(ES12.5,1X)',advance='NO') sum(flow_char % phi_d )
+          write(*,'(ES12.5,1X)',advance='NO') sum(flow_char % phi_ds)
+          write(*,'(ES12.5,1X)',advance='NO') sum(flow_char % phi_d0)
+          write(*,'(ES12.5,1X)',advance='NO') sum(flow_char % phi_s )
         end if
 
         if (present(tag)) then

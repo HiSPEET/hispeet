@@ -113,12 +113,14 @@ program INS_Integrator_3D_Test
   namelist/control_prm/ flow_problem, problem_file, flow_domain, raw_mesh_file
 
   logical :: mesh_stat  = .true.   ! show mesh statistics
-  integer :: char_freq  = 1        ! characteristics output frequency
+  logical :: eval_diss  = .false.  ! characteristics: evaluate dissipation
+  integer :: char_freq  = 1        ! characteristics: output frequency
   integer :: avg_rate   = 0        ! sampling rate for averaging, 0 if none
-  logical :: export_vtk = .false.  ! generate VTK files
-  logical :: subdiv_vtk = .true.   ! use quadratic subdivision for VTK export
+  logical :: vtk_export = .false.  ! generate VTK files
+  logical :: vtk_subdiv = .true.   ! use quadratic subdivision for VTK export
 
-  namelist/control_prm/ mesh_stat, char_freq, avg_rate, export_vtk, subdiv_vtk
+  namelist/control_prm/ mesh_stat, eval_diss, char_freq, avg_rate
+  namelist/control_prm/ vtk_export, vtk_subdiv
 
   ! restart options
   character(len=80) :: restart_tag_in  = ''  ! tag for restart input files
@@ -232,7 +234,7 @@ program INS_Integrator_3D_Test
   character(:), allocatable :: mesh_file
   character(:), allocatable :: data_file
 
-  real(RNP) :: domain_volume
+  real(RNP) :: volume
   logical   :: exists, last, restart_in, restart_out
   integer   :: io, stat
   integer   :: n_avg, n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var
@@ -301,10 +303,11 @@ program INS_Integrator_3D_Test
   call XMPI_Bcast(flow_domain    , 0, comm)
   call XMPI_Bcast(raw_mesh_file  , 0, comm)
   call XMPI_Bcast(mesh_stat      , 0, comm)
+  call XMPI_Bcast(eval_diss      , 0, comm)
   call XMPI_Bcast(char_freq      , 0, comm)
   call XMPI_Bcast(avg_rate       , 0, comm)
-  call XMPI_Bcast(export_vtk     , 0, comm)
-  call XMPI_Bcast(subdiv_vtk     , 0, comm)
+  call XMPI_Bcast(vtk_export     , 0, comm)
+  call XMPI_Bcast(vtk_subdiv     , 0, comm)
   call XMPI_Bcast(restart_tag_in , 0, comm)
   call XMPI_Bcast(restart_tag_out, 0, comm)
 
@@ -453,7 +456,7 @@ program INS_Integrator_3D_Test
   ! globalize options
   call ins_ti_euler_opt % Bcast(0, comm)
   call ins_ti_bdf_opt   % Bcast(0, comm)
-  call ins_ti_rk_opt % Bcast(0, comm)
+  call ins_ti_rk_opt    % Bcast(0, comm)
 
   ! time integrator
   select case(time_method)
@@ -534,19 +537,31 @@ program INS_Integrator_3D_Test
   ! initial conditions .........................................................
 
   if (restart_in) then
+
     data_file = trim(flow_case) // '_' // trim(restart_tag_in) // '_data'
     call ReadRestartData(data_file, rank, t, u, n_avg, q_avg)
     call XMPI_Bcast(t, 0, comm)
+
   else
-    t = 0
+
+    t     = 0
     n_avg = 0
-    call SetArray(mu, ins_op % mu_0)
-    call SetArray(nu, ins_op % nu_0)
+
+    ! initial values
     call problem % GetInitialValues(ins_op % sem_u % metrics % x, u)
     if (smooth_initial_data) then
       call SmoothMeshData_3D( ins_op%mesh, ins_op%eop_u, u &
                             , smooth_filter, smooth_order  )
     end if
+
+    ! viscosity
+    if (ins_op % HasVariableViscosity()) then
+      call ins_op % GetVariableViscosity(t, u, mu, nu)
+    else
+      call SetArray(mu, ins_op % mu_0)
+      call SetArray(nu, ins_op % nu_0)
+    end if
+
   end if
 
   ! time scales
@@ -554,7 +569,7 @@ program INS_Integrator_3D_Test
 
   ! info .......................................................................
 
-  call ins_op % sem_u % Get_Volume(domain_volume)
+  call ins_op % sem_u % Get_Volume(volume)
 
   call XMPI_Reduce(n_elem, n_elem_tot, MPI_SUM, 0, comm)
   n_point = n_elem_tot * (po_u+1)**3
@@ -563,7 +578,7 @@ program INS_Integrator_3D_Test
     write(*,'(/,A)') 'problem and discretization parameters'
     write(*,'(T3,A,T30,9(G0,X))') 'flow problem:', trim(flow_problem)
     write(*,'(T3,A,T30,9(G0,X))') 'domain:',  domain_name
-    write(*,'(T3,A,T30,9(G0,X))') 'domain volume:', domain_volume
+    write(*,'(T3,A,T30,9(G0,X))') 'domain volume:', volume
     write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions for v:', problem % bc_v
     write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions for p:', problem % bc_p
     write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of v:', ins_op % eop_u % po
@@ -587,7 +602,7 @@ program INS_Integrator_3D_Test
   !-----------------------------------------------------------------------------
   ! Time integration
 
-  call flow_char % Evaluate(ins_op, t, u, dt, domain_volume)
+  call flow_char % Evaluate(ins_op, t, mu, nu, u, dt, volume, eval_diss)
   call flow_char % PrintHeader()
   call flow_char % PrintValues('#init#')
 
@@ -604,11 +619,11 @@ program INS_Integrator_3D_Test
       call TemporalAveraging(u, q_avg, n_avg)
     end if
     if (last) then
-      call flow_char % Evaluate(ins_op, t, u, dt, domain_volume)
+      call flow_char % Evaluate(ins_op, t, mu, nu, u, dt, volume, eval_diss)
       call flow_char % PrintValues('#last#')
       exit
     else if (mod(nt, char_freq) == 0) then
-      call flow_char % Evaluate(ins_op, t, u, dt, domain_volume)
+      call flow_char % Evaluate(ins_op, t, mu, nu, u, dt, volume, eval_diss)
       call flow_char % PrintValues()
     end if
   end do
@@ -674,7 +689,7 @@ program INS_Integrator_3D_Test
   !-----------------------------------------------------------------------------
   ! Write plot files
 
-  if (export_vtk .and. ins_op % mesh%part >= 0) then
+  if (vtk_export .and. ins_op % mesh%part >= 0) then
 
     ! compute divergence
     call GetOuterVectorTraces_3D(ins_op%mesh, v, vp)   ! vp = v⁺
@@ -686,7 +701,7 @@ program INS_Integrator_3D_Test
                              , file    = flow_case                    &
                              , part    = ins_op % mesh % part         &
                              , n_parts = ins_op % mesh % n_parts      &
-                             , subdiv  = subdiv_vtk                   )
+                             , subdiv  = vtk_subdiv                   )
   end if
 
   !-----------------------------------------------------------------------------
