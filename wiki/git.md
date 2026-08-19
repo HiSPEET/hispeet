@@ -84,12 +84,12 @@ This is how the HiSPEET repository was created :smile:
  git commit -a
 ```
 
-## Cloning _HiSPEET_ from GitLab <a name="cloning"></a>
+## Cloning _HiSPEET_ from GitHub
 
 _HiSPEET_ can be downloaded from the GitLab server of TU Chemnitz via
 
 ```bash
- git clone https://gitlab.hrz.tu-chemnitz.de/hispeet/hispeet.git
+ git clone https://github.com/HiSPEET/hispeet.git
 ```
 
 This creates a clone of the git repository in the directory `hispeet`. Next initialize the external libraries which are incorporated as submodules:
@@ -125,7 +125,7 @@ In case of problems with a submodule
   git checkout main
   ```
 
-## Working with branches <a name="branches"></a>
+## Working with branches
 
 ### Getting around
 
@@ -161,7 +161,7 @@ This command preserves uncommited changes and thus can be used to create a worki
 git push --set-upstream origin <new_branch>
 ```
 
-### Comparing branches <a name="comparing"></a>
+### Comparing branches
 
 To compare the current branch against master branch, showing only the names of modified files
 
@@ -182,7 +182,7 @@ git diff --name-status <branch1>..<branch2>
 ```
 
 
-## Making changes <a name="changes"></a>
+## Making changes
 
 ### Updating 
 
@@ -251,7 +251,7 @@ git checkout -- <file>
 ```
 
 
-## Merging <a name="merging"></a>
+## Merging
 
 ### Basic merging
 
@@ -312,19 +312,16 @@ Forks are usually included as remotes. They can merged like branches of the pres
 
 ```bash
   # this is how the master of the external fork is included
-  git branch -a
-  ..
-  remotes/ins-flow-solver/master
-  ..
+  git remote add ins-flow git@gitlab.hrz.tu-chemnitz.de:hispeet-pilot/hispeet-ins-flow-solver.git
   # update the local copy of the remote repository
-  git fetch ins-flow-solver
+  git fetch ins-flow
   # merge, inspect changes, remove conflicts and commit
-  git merge --no-ff --no-commit remotes/ins-flow-solver/master
+  git merge --no-ff --no-commit remotes/ins-flow/master
   git status
-  git commit -m 'merged ins-flow-solver/master'
+  git commit -m 'merged ins-flow/master'
 ```
 
-## Submodules <a name="submodules"></a>
+## Submodules
 
 Some external libraries are provided as git submodules.
 For example, this is how `libxsmm` was included:
@@ -332,7 +329,7 @@ For example, this is how `libxsmm` was included:
     git submodule add https://github.com/hfp/libxsmm.git external/libxsmm
     git commit -m 'added libxsmm submodule'
 
-Note that the submodules must be manually intialized, see [Cloning](#cloning) above.
+Note that the submodules must be manually intialized, see [Cloning](# cloning-hispeet-from-github) above.
 To update the submodules from external repositories use
 
     git submodule update --recursive --remote
