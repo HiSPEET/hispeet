@@ -98,11 +98,13 @@ program ML_INS_Solver_3D
 
   namelist/control_prm/ flow_problem, problem_file, flow_domain, raw_mesh_file
 
+  logical :: eval_diss  = .false. ! evaluate dissipation
+
   integer :: char_freq  = 1 ! characteristics output frequency
   integer :: avg_rate   = 0 ! sampling rate for averaging, 0 if none
   integer :: vtk_mode   = 0 ! VTK export mode, 0/1/2/3: none/all/active/leafs
 
-  namelist/control_prm/ char_freq, avg_rate, vtk_mode
+  namelist/control_prm/ eval_diss, char_freq, avg_rate, vtk_mode
 
   ! restart options
   character(len=80) :: restart_tag_in  = ''  ! tag for restart input files
@@ -200,7 +202,7 @@ program ML_INS_Solver_3D
   character(len=20), allocatable :: var_name(:)
   character(len=20), allocatable :: vtk_name(:)
 
-  real(RNP) :: domain_volume
+  real(RNP) :: volume
   logical   :: exists, restart_in, restart_out
   logical   :: first, last
   logical   :: perform_average
@@ -274,6 +276,7 @@ program ML_INS_Solver_3D
   call XMPI_Bcast( problem_file        , 0, comm)
   call XMPI_Bcast( flow_domain         , 0, comm)
   call XMPI_Bcast( raw_mesh_file       , 0, comm)
+  call XMPI_Bcast( eval_diss           , 0, comm)
   call XMPI_Bcast( char_freq           , 0, comm)
   call XMPI_Bcast( avg_rate            , 0, comm)
   call XMPI_Bcast( vtk_mode            , 0, comm)
@@ -510,6 +513,8 @@ program ML_INS_Solver_3D
 
   else
 
+    t = 0
+
     ! set initial conditions
     do l = 1, l_top
       associate(ins_l => ml_ins % ins_op(l), u_l => u % level(l) % val)
@@ -524,6 +529,23 @@ program ML_INS_Solver_3D
                                    , filter = smooth_filter    &
                                    , order  = smooth_order     )
     end if
+
+    ! viscosity
+    do l = 1, l_top
+      associate( ins_l => ml_ins % ins_op(l)             &
+               , u_l   => u  % level(l) % val            &
+               , mu_l  => mu % level(l) % val(:,:,:,:,1) &
+               , nu_l  => nu % level(l) % val(:,:,:,:,1) )
+
+        if (ins_l % HasVariableViscosity()) then
+          call ins_l % GetVariableViscosity(t, u_l, mu_l, nu_l)
+        else
+          call SetArray(mu_l, ins_l % mu_0)
+          call SetArray(nu_l, ins_l % nu_0)
+        end if
+
+      end associate
+    end do
 
   end if
 
@@ -564,10 +586,11 @@ program ML_INS_Solver_3D
   call XMPI_Bcast(nt_max, 0, comm)
 
   !  domain volume
-  call ml_ins % ml_op_u % Get_Volume(domain_volume)
+  call ml_ins % ml_op_u % Get_Volume(volume)
 
   ! initial flow characteristics
-  call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf = .true.)
+  call ml_flow_char % Evaluate( ml_ins, t, mu, nu, u, dt, volume &
+                              , diss = eval_diss, leaf = .true.  )
   call ml_flow_char % PrintHeader()
   call ml_flow_char % PrintValues('#init#')
 
@@ -575,7 +598,7 @@ program ML_INS_Solver_3D
     first = nt == 1
     last  = t + dt >= t_end .or. nt == nt_max
 
-    call ml_bdf % TimeStep(t, dt, u, first, last)
+    call ml_bdf % TimeStep(t, dt, mu, nu, u, first, last)
 
     perform_average = avg_rate > 0 .and. mod(nt, max(avg_rate,1)) == 0
     print_flow_char = mod(nt, char_freq) == 0 .or. last
@@ -585,11 +608,12 @@ program ML_INS_Solver_3D
     end if
 
     if (perform_average) then
-      call ML_INS_TimeAveraging_3D(u, q_avg, n_avg)
+      call ML_INS_TimeAveraging_3D(u, q_avg, n_sample)
     end if
 
     if (print_flow_char) then
-      call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf=.true.)
+      call ml_flow_char % Evaluate( ml_ins, t, mu, nu, u, dt, volume &
+                                  , diss = eval_diss, leaf = .true.  )
       if (last) then
         call ml_flow_char % PrintValues('#last#')
       else

@@ -110,10 +110,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Execution of a multilevel BDF time step
 
-  subroutine TimeStep(this, t, dt, u, first, last)
+  subroutine TimeStep(this, t, dt, mu, nu, u, first, last)
     class(ML_INS_Integrator_BDF_3D), intent(inout) :: this
     real(RNP),                 intent(inout) :: t     !< time t₀ → t
     real(RNP),                 intent(in)    :: dt    !< step size ∆t = t-t₀
+    class(ML_MeshVariable_3D), intent(inout) :: mu    !< bulk viscosity μ
+    class(ML_MeshVariable_3D), intent(inout) :: nu    !< shear viscosity ν
     class(ML_MeshVariable_3D), intent(inout) :: u     !< u(x,t₀) → u(x,t)
     logical,         optional, intent(in)    :: first !< T for first step [F]
     logical,         optional, intent(in)    :: last  !< T for last  step [F]
@@ -122,8 +124,6 @@ contains
 
     class(ML_MeshVariable_3D), allocatable, save :: f   ! unwtd RHS
     class(ML_MeshVariable_3D), allocatable, save :: f_d ! unwtd diffusion term
-    class(ML_MeshVariable_3D), allocatable, save :: mu  ! bulk diffusivity μ
-    class(ML_MeshVariable_3D), allocatable, save :: nu  ! shear diffusivity ν
 
     ! saved at time t₁ = t₀-∆t
     class(ML_MeshVariable_3D), allocatable, save :: u1   ! flow variables
@@ -156,19 +156,15 @@ contains
       if (first) then
         if (allocated( f    )) deallocate( f    )
         if (allocated( f_d  )) deallocate( f_d  )
-        if (allocated( mu   )) deallocate( mu   )
-        if (allocated( nu   )) deallocate( nu   )
         if (allocated( u1   )) deallocate( u1   )
         if (allocated( f_c1 )) deallocate( f_c1 )
         if (allocated( f_d1 )) deallocate( f_d1 )
         if (allocated( bv   )) deallocate( bv   )
       end if
       if (.not. allocated(f)) then
-        allocate(f, f_d, mu, nu, u1, f_c1, f_d1, bv)
+        allocate(f, f_d, u1, f_c1, f_d1, bv)
         call f    % Init( ml_ins % ml_op_u, nc = problem % nc )
         call f_d  % Init( ml_ins % ml_op_u, nc = problem % nc )
-        call mu   % Init( ml_ins % ml_op_u, nc = 1            )
-        call nu   % Init( ml_ins % ml_op_u, nc = 1            )
         call u1   % Init( ml_ins % ml_op_u, nc = problem % nc )
         call f_c1 % Init( ml_ins % ml_op_u, nc = problem % nc )
         call f_d1 % Init( ml_ins % ml_op_u, nc = problem % nc )
@@ -187,11 +183,11 @@ contains
                                            , f_c1 % level(l) % val            &
                                            , f_d1 % level(l) % val            &
                                            , tau                              &
+                                           , mu   % level(l) % val(:,:,:,:,1) &
+                                           , nu   % level(l) % val(:,:,:,:,1) &
                                            , f    % level(l) % val            &
                                            , f_d  % level(l) % val            &
                                            , bv   % level(l) % var            &
-                                           , mu   % level(l) % val(:,:,:,:,1) &
-                                           , nu   % level(l) % val(:,:,:,:,1) &
                                            , first                            )
 
       end do
@@ -300,7 +296,7 @@ contains
 
       !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       if (last) then
-        deallocate(f, f_d, mu, nu, u1, f_c1, f_d1, bv)
+        deallocate(f, f_d, u1, f_c1, f_d1, bv)
       end if
       !$omp end master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 

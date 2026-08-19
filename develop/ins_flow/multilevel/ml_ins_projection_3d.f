@@ -127,6 +127,8 @@ program ML_INS_Projection_3D
 
   type(ML_MeshVariable_3D),     save :: u   ! solution variables
   type(ML_MeshVariable_3D),     save :: q   ! disturbed pressure
+  type(ML_MeshVariable_3D),     save :: mu  ! bulk viscosity  (not really used)
+  type(ML_MeshVariable_3D),     save :: nu  ! shear viscosity (not really used)
   type(ML_MeshVariable_3D),     save :: vtk ! variables exported to VTK
   type(ML_BoundaryVariable_3D), save :: bv  ! boundary values
 
@@ -137,7 +139,7 @@ program ML_INS_Projection_3D
   character(len=20), allocatable :: var_name(:)
   character(len=20), allocatable :: vtk_name(:)
 
-  real(RNP) :: domain_volume
+  real(RNP) :: volume
   logical   :: exists
   integer   :: io, stat
   integer   :: l_top, l_max, n_bound
@@ -269,7 +271,7 @@ program ML_INS_Projection_3D
 
   ml_ins = ML_INS_Operator_3D(ml_mesh, po, problem, ml_ins_opt)
 
-  call ml_ins % ml_op_u % Get_Volume(domain_volume)
+  call ml_ins % ml_op_u % Get_Volume(volume)
 
   ! variables ..................................................................
 
@@ -280,6 +282,8 @@ program ML_INS_Projection_3D
 
   call u  % Init(ml_ins % ml_op_u, nc = n_var, name = var_name)
   call q  % Init(ml_ins % ml_op_u, nc = 1)
+  call mu % Init(ml_ins % ml_op_u, nc = 1)
+  call nu % Init(ml_ins % ml_op_u, nc = 1)
   call bv % Init(ml_ins % ml_op_u, nc = ml_ins % problem % nc)
 
   !-----------------------------------------------------------------------------
@@ -359,7 +363,7 @@ program ML_INS_Projection_3D
   end if
 
   ! initial flow characteristics
-  call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf = .true.)
+  call ml_flow_char % Evaluate(ml_ins, t, mu, nu, u, dt, volume, leaf = .true.)
   call ml_flow_char % PrintHeader()
   call ml_flow_char % PrintValues()
 
@@ -379,7 +383,7 @@ program ML_INS_Projection_3D
   ! remove mean pressure
   !call ml_ins % CalibratePressure(u)
 
-  call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf=.true.)
+  call ml_flow_char % Evaluate(ml_ins, t, mu, nu, u, dt, volume, leaf=.true.)
   call ml_flow_char % PrintValues()
 
   if (rank == 0) then

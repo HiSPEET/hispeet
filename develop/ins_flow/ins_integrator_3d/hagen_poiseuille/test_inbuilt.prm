@@ -11,7 +11,7 @@
   flow_problem  = 'HagenPoiseuille'
   flow_domain   =  3
 
-! export_vtk    = T  ! set T for generating plot files
+! vtk_export    = T  ! set T for generating plot files
 ! char_freq     = 0  ! set frequency of control output
 /
 

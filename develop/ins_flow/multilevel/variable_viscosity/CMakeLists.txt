@@ -7,7 +7,7 @@ file( COPY test-coupled-4g.prm
            test-projection-3g.prm
            test-projection-hp.prm
            test-solver-1g.prm
-           test-solver-3g.prm
+           test-solver-4g.prm
            test-solver-hp.prm
            variable_viscosity.prm
       DESTINATION

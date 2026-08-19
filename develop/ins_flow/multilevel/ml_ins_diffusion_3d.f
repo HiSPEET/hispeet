@@ -127,7 +127,7 @@ program ML_INS_Projection_3D
   character(len=20), allocatable :: var_name(:)
   character(len=20), allocatable :: vtk_name(:)
 
-  real(RNP) :: domain_volume
+  real(RNP) :: volume
   logical   :: exists
   integer   :: io, stat
   integer   :: l_top, l_max, n_bound
@@ -252,7 +252,7 @@ program ML_INS_Projection_3D
 
   ml_ins = ML_INS_Operator_3D(ml_mesh, po, problem, ml_ins_opt)
 
-  call ml_ins % ml_op_u % Get_Volume(domain_volume)
+  call ml_ins % ml_op_u % Get_Volume(volume)
 
   ! temporal ...................................................................
 
@@ -333,14 +333,14 @@ program ML_INS_Projection_3D
   end if
 
   ! initial flow characteristics
-  call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf = .true.)
+  call ml_flow_char % Evaluate(ml_ins, t, mu, nu, u, dt, volume, leaf = .true.)
   call ml_flow_char % PrintHeader()
   call ml_flow_char % PrintValues()
 
   ! diffusion step
   call ml_ins % DiffusionStep(dt, mu, nu, bv, f, u)
 
-  call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf=.true.)
+  call ml_flow_char % Evaluate(ml_ins, t, mu, nu, u, dt, volume, leaf = .true.)
   call ml_flow_char % PrintValues()
 
   if (rank == 0) then
