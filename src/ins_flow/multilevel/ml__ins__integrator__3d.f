@@ -54,11 +54,13 @@ module ML__INS__Integrator__3D
     !---------------------------------------------------------------------------
     !> Execution of a multilevel time step
 
-    subroutine TimeStep(this, t, dt, u, first, last)
+    subroutine TimeStep(this, t, dt, mu, nu, u, first, last)
       import :: RNP, ML_MeshVariable_3D, ML_INS_Integrator_3D
       class(ML_INS_Integrator_3D), intent(inout) :: this
       real(RNP),                 intent(inout) :: t     !< time t₀ → t
       real(RNP),                 intent(in)    :: dt    !< step size ∆t = t-t₀
+      class(ML_MeshVariable_3D), intent(inout) :: mu    !< bulk viscosity μ
+      class(ML_MeshVariable_3D), intent(inout) :: nu    !< shear viscosity ν
       class(ML_MeshVariable_3D), intent(inout) :: u     !< u(x,t₀) → u(x,t)
       logical,         optional, intent(in)    :: first !< T for first step [F]
       logical,         optional, intent(in)    :: last  !< T for last  step [F]
