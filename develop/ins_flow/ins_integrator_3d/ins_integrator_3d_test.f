@@ -51,12 +51,13 @@ program INS_Integrator_3D_Test
   use INS__Problem__Test_Suite__3D
 
   use INS__Operator__3D
+  use INS__Boundary_Fluxes__3D
+  use INS__Flow_Characteristics__3D
   use INS__Time_Scales__3D
   use INS__Integrator__3D
   use INS__Integrator__Euler__3D
   use INS__Integrator__BDF__3D
   use INS__Integrator__Runge_Kutta__3D
-  use INS__Flow_Characteristics__3D
 
   use Create_Cuboid_Cartesian
   use Create_Cuboid_Diamonds
@@ -115,11 +116,12 @@ program INS_Integrator_3D_Test
   logical :: mesh_stat  = .true.   ! show mesh statistics
   logical :: eval_diss  = .false.  ! characteristics: evaluate dissipation
   integer :: char_freq  = 1        ! characteristics: output frequency
+  integer :: flux_freq  = 0        ! boundary fluxes: output frequency
   integer :: avg_rate   = 0        ! sampling rate for averaging, 0 if none
   logical :: vtk_export = .false.  ! generate VTK files
   logical :: vtk_subdiv = .true.   ! use quadratic subdivision for VTK export
 
-  namelist/control_prm/ mesh_stat, eval_diss, char_freq, avg_rate
+  namelist/control_prm/ mesh_stat, eval_diss, char_freq, flux_freq, avg_rate
   namelist/control_prm/ vtk_export, vtk_subdiv
 
   ! restart options
@@ -196,7 +198,8 @@ program INS_Integrator_3D_Test
   class(INS_Integrator_3D), allocatable, save :: ins_ti
 
   type(INS_TimeScales_3D)          :: time_scales
-  type(INS_FlowCharacteristics_3D) :: flow_char
+  type(INS_FlowCharacteristics_3D) :: ins_char
+  type(INS_BoundaryFluxes_3D)      :: ins_flux
 
   ! variables ..................................................................
 
@@ -224,9 +227,6 @@ program INS_Integrator_3D_Test
 
   real(RNP), allocatable, save :: vp(:,:,:,:,:)  ! velocity trace
   real(RNP), allocatable, save :: w(:,:,:,:,:)   ! workspace
-
-  type(BoundaryVariable_3D), allocatable, save :: bv_vn(:) ! n⋅v on Γ=∂Ω
-  real(RNP), allocatable, save :: int_vn(:,:) ! ∫n⋅v dΓ
 
   ! auxiliaries ................................................................
 
@@ -281,10 +281,9 @@ program INS_Integrator_3D_Test
       open(newunit = io, file = case_file)
       read(io, nml = control_prm)
       close(io)
-      if (char_freq < 1) then
-        ! disable intermediate control output
-        char_freq = huge(1)
-      end if
+      ! disable intermediate control output unless requested
+      if (char_freq < 1) char_freq = huge(1)
+      if (flux_freq < 1) flux_freq = huge(1)
     else
        call Error( 'INS_Integrator_3D_Test', &
                    'input file "' // trim(case_file) // '" not found' )
@@ -305,6 +304,7 @@ program INS_Integrator_3D_Test
   call XMPI_Bcast(mesh_stat      , 0, comm)
   call XMPI_Bcast(eval_diss      , 0, comm)
   call XMPI_Bcast(char_freq      , 0, comm)
+  call XMPI_Bcast(flux_freq      , 0, comm)
   call XMPI_Bcast(avg_rate       , 0, comm)
   call XMPI_Bcast(vtk_export     , 0, comm)
   call XMPI_Bcast(vtk_subdiv     , 0, comm)
@@ -602,9 +602,9 @@ program INS_Integrator_3D_Test
   !-----------------------------------------------------------------------------
   ! Time integration
 
-  call flow_char % Evaluate(ins_op, t, mu, nu, u, dt, volume, eval_diss)
-  call flow_char % PrintHeader()
-  call flow_char % PrintValues('#init#')
+  call ins_char % Evaluate(ins_op, t, mu, nu, u, dt, volume, eval_diss)
+  call ins_char % PrintHeader()
+  call ins_char % PrintValues('#init#')
 
   if (rank == 0) then
     !$omp master
@@ -619,12 +619,20 @@ program INS_Integrator_3D_Test
       call TemporalAveraging(u, q_avg, n_avg)
     end if
     if (last) then
-      call flow_char % Evaluate(ins_op, t, mu, nu, u, dt, volume, eval_diss)
-      call flow_char % PrintValues('#last#')
+      call ins_char % Evaluate(ins_op, t, mu, nu, u, dt, volume, eval_diss)
+      call ins_char % PrintValues('#last#')
+      call ins_flux % Evaluate(ins_op, t, mu, nu, u)
+      call ins_flux % PrintValues()
       exit
-    else if (mod(nt, char_freq) == 0) then
-      call flow_char % Evaluate(ins_op, t, mu, nu, u, dt, volume, eval_diss)
-      call flow_char % PrintValues()
+    else
+      if (mod(nt, char_freq) == 0) then
+        call ins_char % Evaluate(ins_op, t, mu, nu, u, dt, volume, eval_diss)
+        call ins_char % PrintValues()
+      end if
+      if (mod(nt, flux_freq) == 0) then
+        call ins_flux % Evaluate(ins_op, t, mu, nu, u)
+        call ins_flux % PrintValues()
+      end if
     end if
   end do
 
@@ -654,36 +662,6 @@ program INS_Integrator_3D_Test
     call MergeArrays(ONE, err_u, -ONE, u_ex, multi=.true.)
     call CalibrateArray(err_p, comm = ins_op % mesh % comm_parts)
 
-  end if
-
-  ! boundary fluxes ............................................................
-
-  if (ins_op % mesh % part >= 0) then
-
-    !$omp master
-    allocate(bv_vn(n_bound), int_vn(1,n_bound))
-    !$omp end master
-    !$omp barrier
-
-    do i = 1, n_bound
-      call bv_vn(i) % Init(ins_op % mesh % boundary(i), po_u, nc = 1)
-      call bv_vn(i) % ExtractNormalComponent(ins_op % sem_u, v)
-    end do
-
-    call GetSurfaceIntegrals(ins_op % sem_u, bv_vn, int_vn)
-
-  end if
-
-  if (ins_op % mesh % part == 0) then
-    !$omp master
-    write(*,'(/,A)') 'boundary fluxes'
-    do i = 1, n_bound
-       write(*,'(T3,A,I3,A,T29,ES12.5)') &
-           'boundary',i,',   int(vn)  =', int_vn(1,i)
-    end do
-    write(*,'(T3,A,T29,ES12.5)') 'total:     sum(int(vn)) =', sum(int_vn)
-    write(*,*)
-    !$omp end master
   end if
 
   !-----------------------------------------------------------------------------

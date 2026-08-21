@@ -38,7 +38,7 @@ module ML__INS__Flow_Characteristics__3D
   !> Multilevel incompressible flow statistics
 
   type ML_INS_FlowCharacteristics_3D
-    type(INS_FlowCharacteristics_3D), allocatable :: flow_char(:)
+    type(INS_FlowCharacteristics_3D), allocatable :: ins_char(:)
     integer, private :: proc = -1
     logical, private :: has_errors = .false.
     logical, private :: has_dissipation = .false.
@@ -71,14 +71,14 @@ contains
 
     l_top = size(ml_ins % ins_op)
 
-    if (allocated(this % flow_char)) then
-      if (size(this % flow_char) /= l_top) then
-        deallocate(this % flow_char)
+    if (allocated(this % ins_char)) then
+      if (size(this % ins_char) /= l_top) then
+        deallocate(this % ins_char)
       end if
     end if
 
-    if (.not. allocated(this % flow_char)) then
-      allocate(this % flow_char(l_top))
+    if (.not. allocated(this % ins_char)) then
+      allocate(this % ins_char(l_top))
     end if
 
     this % proc       = ml_ins % ins_op(1) % mesh % proc
@@ -93,7 +93,7 @@ contains
     ! evaluation ...............................................................
 
     do l = 1, l_top
-      call this % flow_char(l) &
+      call this % ins_char(l) &
                       % Evaluate( ins_op = ml_ins % ins_op(l)             &
                                 , t      = t                              &
                                 , mu     = mu % level(l) % val(:,:,:,:,1) &
@@ -114,31 +114,34 @@ contains
     class(ML_INS_FlowCharacteristics_3D), intent(in) :: this
     character(len=*), optional, intent(in) :: tag !< tag placed at end of line
 
+    character(len=*), parameter :: fmt = '(1X,A6,4X)' !! short
+  ! character(len=*), parameter :: fmt = '(2X,A6,5X)' !! long
+
     if (this % proc == 0) then
 
       !$omp master
-      write(*,'(A,2X)'   ,advance='NO') '#'
-      write(*,'(2X,A,7X)',advance='NO') 't'
-      if (this % flow_char(1) % dt >= 0) then
-        write(*,'(2X,A,6X)',advance='NO') 'dt'
+      write(*,'(A)',advance='NO') '#'
+      write(*,fmt,advance='NO') '  t   '
+      if (this % ins_char(1) % dt >= 0) then
+        write(*,fmt,advance='NO') '  dt  '
       end if
-      write(*,'(1X,A,4X)',advance='NO') 'dx_min'
-      write(*,'(1X,A,4X)',advance='NO') 'dx_max'
-      write(*,'(1X,A,5X)',advance='NO') 'v_max'
-      write(*,'(1X,A,5X)',advance='NO') 'e_kin'
-      write(*,'(1X,A,5X)',advance='NO') 'div_v'
+      write(*,fmt,advance='NO') 'dx_min'
+      write(*,fmt,advance='NO') 'dx_max'
+      write(*,fmt,advance='NO') 'v_max '
+      write(*,fmt,advance='NO') 'e_kin '
+      write(*,fmt,advance='NO') 'div_v '
 
       if (this % has_errors) then
-        write(*,'(1X,A,5X)',advance='NO') 'err_v'
-        write(*,'(1X,A,5X)',advance='NO') 'err_p'
+        write(*,fmt,advance='NO') 'err_v '
+        write(*,fmt,advance='NO') 'err_p '
       end if
 
       if (this % has_dissipation) then
-        write(*,'(2X,A,6X)',advance='NO') 'phi_c'
-        write(*,'(2X,A,6X)',advance='NO') 'phi_d'
-        write(*,'(2X,A,5X)',advance='NO') 'phi_ds'
-        write(*,'(2X,A,5X)',advance='NO') 'phi_d0'
-        write(*,'(2X,A,6X)',advance='NO') 'phi_s'
+        write(*,fmt,advance='NO') 'phi_c '
+        write(*,fmt,advance='NO') 'phi_d '
+        write(*,fmt,advance='NO') 'phi_ds'
+        write(*,fmt,advance='NO') 'phi_d0'
+        write(*,fmt,advance='NO') 'phi_s '
       end if
 
       if (present(tag)) then
@@ -159,31 +162,34 @@ contains
     class(ML_INS_FlowCharacteristics_3D), intent(in) :: this
     character(len=*), optional, intent(in) :: tag !< tag placed at end of line
 
+    character(len=*), parameter :: fmt = '(ES10.3,1X)' !! short
+  ! character(len=*), parameter :: fmt = '(ES12.5,1X)' !! long
+
     if (this % proc == 0) then
-      associate(flow_char => this % flow_char)
+      associate(ins_char => this % ins_char)
 
         !$omp master
-        write(*,'(ES10.3,1X)',advance='NO') flow_char(1) % t
-        if (flow_char(1) % dt >= 0) then
-          write(*,'(ES10.3,1X)',advance='NO') flow_char(1) % dt
+        write(*,fmt,advance='NO') ins_char(1) % t
+        if (ins_char(1) % dt >= 0) then
+          write(*,fmt,advance='NO') ins_char(1) % dt
         end if
-        write(*,'(ES10.3,1X)',advance='NO') minval(flow_char % dx_min)
-        write(*,'(ES10.3,1X)',advance='NO') maxval(flow_char % dx_max)
-        write(*,'(ES10.3,1X)',advance='NO') maxval(flow_char % v_max)
-        write(*,'(ES10.3,1X)',advance='NO') sum(flow_char % e_kin)
-        write(*,'(ES10.3,1X)',advance='NO') sqrt(sum(flow_char % div_v ** 2))
+        write(*,fmt,advance='NO') minval(ins_char % dx_min)
+        write(*,fmt,advance='NO') maxval(ins_char % dx_max)
+        write(*,fmt,advance='NO') maxval(ins_char % v_max)
+        write(*,fmt,advance='NO') sum(ins_char % e_kin)
+        write(*,fmt,advance='NO') sqrt(sum(ins_char % div_v ** 2))
 
         if (this % has_errors) then
-          write(*,'(ES10.3,1X)',advance='NO') sqrt(sum(flow_char % err_v ** 2))
-          write(*,'(ES10.3,1X)',advance='NO') sqrt(sum(flow_char % err_p ** 2))
+          write(*,fmt,advance='NO') sqrt(sum(ins_char % err_v ** 2))
+          write(*,fmt,advance='NO') sqrt(sum(ins_char % err_p ** 2))
         end if
 
         if (this % has_dissipation) then
-          write(*,'(ES12.5,1X)',advance='NO') sum(flow_char % phi_c )
-          write(*,'(ES12.5,1X)',advance='NO') sum(flow_char % phi_d )
-          write(*,'(ES12.5,1X)',advance='NO') sum(flow_char % phi_ds)
-          write(*,'(ES12.5,1X)',advance='NO') sum(flow_char % phi_d0)
-          write(*,'(ES12.5,1X)',advance='NO') sum(flow_char % phi_s )
+          write(*,fmt,advance='NO') sum(ins_char % phi_c )
+          write(*,fmt,advance='NO') sum(ins_char % phi_d )
+          write(*,fmt,advance='NO') sum(ins_char % phi_ds)
+          write(*,fmt,advance='NO') sum(ins_char % phi_d0)
+          write(*,fmt,advance='NO') sum(ins_char % phi_s )
         end if
 
         if (present(tag)) then

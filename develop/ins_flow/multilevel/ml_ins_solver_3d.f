@@ -55,6 +55,7 @@ program ML_INS_Solver_3D
   use ML__Smooth_Mesh_Variable__3D
   use ML__INS__Operator__3D
   use ML__INS__Integrator__BDF__3D
+  use ML__INS__Boundary_Fluxes__3D
   use ML__INS__Flow_Characteristics__3D
   use ML__INS__Time_Scales__3D
   use ML__INS__Time_Averaging__3D
@@ -101,10 +102,11 @@ program ML_INS_Solver_3D
   logical :: eval_diss  = .false. ! evaluate dissipation
 
   integer :: char_freq  = 1 ! characteristics output frequency
+  integer :: flux_freq  = 0 ! boundary fluxes: output frequency
   integer :: avg_rate   = 0 ! sampling rate for averaging, 0 if none
   integer :: vtk_mode   = 0 ! VTK export mode, 0/1/2/3: none/all/active/leafs
 
-  namelist/control_prm/ eval_diss, char_freq, avg_rate, vtk_mode
+  namelist/control_prm/ eval_diss, char_freq, flux_freq, avg_rate, vtk_mode
 
   ! restart options
   character(len=80) :: restart_tag_in  = ''  ! tag for restart input files
@@ -192,7 +194,8 @@ program ML_INS_Solver_3D
   type(DataExchangePlan_3D), allocatable :: x_plan(:)
 
   type(ML_INS_TimeScales_3D)          :: ml_time_scales
-  type(ML_INS_FlowCharacteristics_3D) :: ml_flow_char
+  type(ML_INS_FlowCharacteristics_3D) :: ml_ins_char
+  type(ML_INS_BoundaryFluxes_3D)      :: ml_ins_flux
 
   character(:), allocatable :: domain_name
   character(:), allocatable :: restart_file ! restart parameter file
@@ -206,7 +209,8 @@ program ML_INS_Solver_3D
   logical   :: exists, restart_in, restart_out
   logical   :: first, last
   logical   :: perform_average
-  logical   :: print_flow_char
+  logical   :: print_ins_char
+  logical   :: print_ins_flux
   integer   :: io, stat
   integer   :: l_top, l_max, n_bound
   integer   :: n_comp  ! number of solution components
@@ -255,10 +259,9 @@ program ML_INS_Solver_3D
       write(*,'(2X,A)') 'reading ' // trim(case_file)
       open(newunit = io, file = case_file)
       read(io, nml = control_prm)
-      if (char_freq < 1) then
-        ! disable intermediate control output
-        char_freq = huge(1)
-      end if
+      ! disable intermediate control output unless requested
+      if (char_freq < 1) char_freq = huge(1)
+      if (flux_freq < 1) flux_freq = huge(1)
     else
        call Error( 'ML_INS_Solver_3D', &
                    'input file "' // trim(case_file) // '" not found' )
@@ -278,6 +281,7 @@ program ML_INS_Solver_3D
   call XMPI_Bcast( raw_mesh_file       , 0, comm)
   call XMPI_Bcast( eval_diss           , 0, comm)
   call XMPI_Bcast( char_freq           , 0, comm)
+  call XMPI_Bcast( flux_freq           , 0, comm)
   call XMPI_Bcast( avg_rate            , 0, comm)
   call XMPI_Bcast( vtk_mode            , 0, comm)
   call XMPI_Bcast( restart_tag_in      , 0, comm)
@@ -589,10 +593,10 @@ program ML_INS_Solver_3D
   call ml_ins % ml_op_u % Get_Volume(volume)
 
   ! initial flow characteristics
-  call ml_flow_char % Evaluate( ml_ins, t, mu, nu, u, dt, volume &
+  call ml_ins_char % Evaluate( ml_ins, t, mu, nu, u, dt, volume &
                               , diss = eval_diss, leaf = .true.  )
-  call ml_flow_char % PrintHeader()
-  call ml_flow_char % PrintValues('#init#')
+  call ml_ins_char % PrintHeader()
+  call ml_ins_char % PrintValues('#init#')
 
   do nt = 1, nt_max
     first = nt == 1
@@ -601,9 +605,10 @@ program ML_INS_Solver_3D
     call ml_bdf % TimeStep(t, dt, mu, nu, u, first, last)
 
     perform_average = avg_rate > 0 .and. mod(nt, max(avg_rate,1)) == 0
-    print_flow_char = mod(nt, char_freq) == 0 .or. last
+    print_ins_char  = mod(nt, char_freq) == 0 .or. last
+    print_ins_flux  = mod(nt, flux_freq) == 0 .or. last
 
-    if (perform_average .or. print_flow_char) then
+    if (perform_average .or. print_ins_char) then
       call ml_ins % CalibratePressure(u)
     end if
 
@@ -611,14 +616,19 @@ program ML_INS_Solver_3D
       call ML_INS_TimeAveraging_3D(u, q_avg, n_sample)
     end if
 
-    if (print_flow_char) then
-      call ml_flow_char % Evaluate( ml_ins, t, mu, nu, u, dt, volume &
+    if (print_ins_char) then
+      call ml_ins_char % Evaluate( ml_ins, t, mu, nu, u, dt, volume &
                                   , diss = eval_diss, leaf = .true.  )
       if (last) then
-        call ml_flow_char % PrintValues('#last#')
+        call ml_ins_char % PrintValues('#last#')
       else
-        call ml_flow_char % PrintValues()
+        call ml_ins_char % PrintValues()
       end if
+    end if
+
+    if (print_ins_flux) then
+      call ml_ins_flux % Evaluate(ml_ins, t, mu, nu, u, leaf = .true.)
+      call ml_ins_flux% PrintValues()
     end if
 
     if (last) exit

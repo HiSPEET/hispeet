@@ -44,9 +44,11 @@ add_library(HiINSFlow
             integrator/ins__integrator__euler__3d.f
             integrator/ins__integrator__runge_kutta__3d.f
 
+            util/ins__boundary_fluxes__3d.f
             util/ins__flow_characteristics__3d.f
             util/ins__time_scales__3d.f
             
+            multilevel/ml__ins__boundary_fluxes.f
             multilevel/ml__ins__flow_characteristics.f
             multilevel/ml__ins__operator__3d.f
             multilevel/ml__ins__operator__3d__mp_diffusionstep.f

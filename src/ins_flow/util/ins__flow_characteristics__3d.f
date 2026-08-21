@@ -61,7 +61,7 @@ module INS__Flow_Characteristics__3D
     real(RNP) :: phi_c  !< convection
     real(RNP) :: phi_d  !< diffusion with μ and ν as given
     real(RNP) :: phi_ds !< diffusion with μ=0 and ν as given
-    real(RNP) :: phi_d0 !< diffusion with μ=0 and ν=1
+    real(RNP) :: phi_d0 !< diffusion with μ=0 and ν=ν₀
     real(RNP) :: phi_s  !< body force
 
     integer, private :: part = -1
@@ -319,19 +319,26 @@ contains
             end if
           end do
 
-          ! diffusion with μ = 0 and ν = 1 (reference) .........................
+          ! diffusion with μ = 0 and ν = ν₀ (constant part) ....................
 
-          call ins_op % GetDiffusionTerm( s0, s1, v, vp, sp, w, bv_u &
-                                        , xout = .true. )
+          if (ins_op % nu_0 > 0) then
 
-          !$omp do reduction(+:phi_d0)
-          do e = 1, na
-            if (complete .or. mesh % element(e) % IsLeaf()) then
-              phi_d0 = phi_d0 + sum(v(:,:,:,e,1) * w(:,:,:,e,1)) &
-                              + sum(v(:,:,:,e,2) * w(:,:,:,e,2)) &
-                              + sum(v(:,:,:,e,3) * w(:,:,:,e,3))
-            end if
-          end do
+            call ins_op % GetDiffusionTerm( s0, s1, v, vp, sp, w, bv_u &
+                                          , xout = .true. )
+
+            !$omp do reduction(+:phi_d0)
+            do e = 1, na
+              if (complete .or. mesh % element(e) % IsLeaf()) then
+                phi_d0 = phi_d0 + sum(v(:,:,:,e,1) * w(:,:,:,e,1)) &
+                                + sum(v(:,:,:,e,2) * w(:,:,:,e,2)) &
+                                + sum(v(:,:,:,e,3) * w(:,:,:,e,3))
+              end if
+            end do
+            !$omp master
+            phi_d0 = phi_d0 * ins_op % nu_0
+            !$omp end master
+
+          end if
 
           ! convection .........................................................
 
@@ -427,32 +434,35 @@ contains
     class(INS_FlowCharacteristics_3D), intent(in) :: this
     character(len=*), optional, intent(in) :: tag !< tag placed at end of line
 
+    character(len=*), parameter :: fmt = '(1X,A6,4X)' !! short
+  ! character(len=*), parameter :: fmt = '(2X,A6,5X)' !! long
+
     if (this % part == 0) then
 
       !$omp master
-      write(*,'(A,2X)'   ,advance='NO') '#'
-      write(*,'(3X,A,8X)',advance='NO') 't'
+      write(*,'(A)',advance='NO') '#'
+      write(*,fmt,advance='NO') '  t   '
       if (this % dt >= 0) then
-        write(*,'(3X,A,7X)',advance='NO') 'dt'
+        write(*,fmt,advance='NO') '  dt  '
       end if
-      write(*,'(2X,A,5X)',advance='NO') 'dx_min'
-      write(*,'(2X,A,5X)',advance='NO') 'dx_max'
+      write(*,fmt,advance='NO') 'dx_min'
+      write(*,fmt,advance='NO') 'dx_max'
       write(*,'(1X,A,2X)',advance='NO') 'po'
-      write(*,'(2X,A,6X)',advance='NO') 'v_max'
-      write(*,'(2X,A,6X)',advance='NO') 'e_kin'
-      write(*,'(2X,A,6X)',advance='NO') 'div_v'
+      write(*,fmt,advance='NO') 'v_max '
+      write(*,fmt,advance='NO') 'e_kin '
+      write(*,fmt,advance='NO') 'div_v '
 
       if (this % has_errors) then
-        write(*,'(2X,A,6X)',advance='NO') 'err_v'
-        write(*,'(2X,A,6X)',advance='NO') 'err_p'
+        write(*,fmt,advance='NO') 'err_v '
+        write(*,fmt,advance='NO') 'err_p '
       end if
 
       if (this % has_dissipation) then
-        write(*,'(2X,A,6X)',advance='NO') 'phi_c'
-        write(*,'(2X,A,6X)',advance='NO') 'phi_d'
-        write(*,'(2X,A,5X)',advance='NO') 'phi_ds'
-        write(*,'(2X,A,5X)',advance='NO') 'phi_d0'
-        write(*,'(2X,A,6X)',advance='NO') 'phi_s'
+        write(*,fmt,advance='NO') 'phi_c '
+        write(*,fmt,advance='NO') 'phi_d '
+        write(*,fmt,advance='NO') 'phi_ds'
+        write(*,fmt,advance='NO') 'phi_d0'
+        write(*,fmt,advance='NO') 'phi_s '
       end if
 
       if (present(tag)) then
@@ -473,31 +483,34 @@ contains
     class(INS_FlowCharacteristics_3D), intent(in) :: this
     character(len=*), optional, intent(in) :: tag !< tag placed at end of line
 
+    character(len=*), parameter :: fmt = '(ES10.3,1X)' !! short
+  ! character(len=*), parameter :: fmt = '(ES12.5,1X)' !! long
+
     if (this % part == 0) then
 
       !$omp master
-      write(*,'(ES12.5,1X)',advance='NO') this % t
+      write(*,fmt,advance='NO') this % t
       if (this % dt >= 0) then
-        write(*,'(ES12.5,1X)',advance='NO') this % dt
+        write(*,fmt,advance='NO') this % dt
       end if
-      write(*,'(ES12.5,1X)',advance='NO') this % dx_min
-      write(*,'(ES12.5,1X)',advance='NO') this % dx_max
-      write(*,'(I4    ,1X)',advance='NO') this % po
-      write(*,'(ES12.5,1X)',advance='NO') this % v_max
-      write(*,'(ES12.5,1X)',advance='NO') this % e_kin
-      write(*,'(ES12.5,1X)',advance='NO') this % div_v
+      write(*,fmt,advance='NO') this % dx_min
+      write(*,fmt,advance='NO') this % dx_max
+      write(*,'(I4,1X)',advance='NO') this % po
+      write(*,fmt,advance='NO') this % v_max
+      write(*,fmt,advance='NO') this % e_kin
+      write(*,fmt,advance='NO') this % div_v
 
       if (this % has_errors) then
-        write(*,'(ES12.5,1X)',advance='NO') this % err_v
-        write(*,'(ES12.5,1X)',advance='NO') this % err_p
+        write(*,fmt,advance='NO') this % err_v
+        write(*,fmt,advance='NO') this % err_p
       end if
 
       if (this % has_dissipation) then
-        write(*,'(ES12.5,1X)',advance='NO') this % phi_c
-        write(*,'(ES12.5,1X)',advance='NO') this % phi_d
-        write(*,'(ES12.5,1X)',advance='NO') this % phi_ds
-        write(*,'(ES12.5,1X)',advance='NO') this % phi_d0
-        write(*,'(ES12.5,1X)',advance='NO') this % phi_s
+        write(*,fmt,advance='NO') this % phi_c
+        write(*,fmt,advance='NO') this % phi_d
+        write(*,fmt,advance='NO') this % phi_ds
+        write(*,fmt,advance='NO') this % phi_d0
+        write(*,fmt,advance='NO') this % phi_s
       end if
 
       if (present(tag)) then
