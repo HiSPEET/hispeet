@@ -38,7 +38,7 @@ module ML__INS__Flow_Characteristics__3D
   !> Multilevel incompressible flow statistics
 
   type ML_INS_FlowCharacteristics_3D
-    type(INS_FlowCharacteristics_3D), allocatable :: flow_char(:)
+    type(INS_FlowCharacteristics_3D), allocatable :: ins_char(:)
     integer, private :: proc = -1
     logical, private :: has_errors = .false.
     logical, private :: has_dissipation = .false.
@@ -71,14 +71,14 @@ contains
 
     l_top = size(ml_ins % ins_op)
 
-    if (allocated(this % flow_char)) then
-      if (size(this % flow_char) /= l_top) then
-        deallocate(this % flow_char)
+    if (allocated(this % ins_char)) then
+      if (size(this % ins_char) /= l_top) then
+        deallocate(this % ins_char)
       end if
     end if
 
-    if (.not. allocated(this % flow_char)) then
-      allocate(this % flow_char(l_top))
+    if (.not. allocated(this % ins_char)) then
+      allocate(this % ins_char(l_top))
     end if
 
     this % proc       = ml_ins % ins_op(1) % mesh % proc
@@ -93,7 +93,7 @@ contains
     ! evaluation ...............................................................
 
     do l = 1, l_top
-      call this % flow_char(l) &
+      call this % ins_char(l) &
                       % Evaluate( ins_op = ml_ins % ins_op(l)             &
                                 , t      = t                              &
                                 , mu     = mu % level(l) % val(:,:,:,:,1) &
@@ -122,7 +122,7 @@ contains
       !$omp master
       write(*,'(A)',advance='NO') '#'
       write(*,fmt,advance='NO') '  t   '
-      if (this % flow_char(1) % dt >= 0) then
+      if (this % ins_char(1) % dt >= 0) then
         write(*,fmt,advance='NO') '  dt  '
       end if
       write(*,fmt,advance='NO') 'dx_min'
@@ -166,30 +166,30 @@ contains
   ! character(len=*), parameter :: fmt = '(ES12.5,1X)' !! long
 
     if (this % proc == 0) then
-      associate(flow_char => this % flow_char)
+      associate(ins_char => this % ins_char)
 
         !$omp master
-        write(*,fmt,advance='NO') flow_char(1) % t
-        if (flow_char(1) % dt >= 0) then
-          write(*,fmt,advance='NO') flow_char(1) % dt
+        write(*,fmt,advance='NO') ins_char(1) % t
+        if (ins_char(1) % dt >= 0) then
+          write(*,fmt,advance='NO') ins_char(1) % dt
         end if
-        write(*,fmt,advance='NO') minval(flow_char % dx_min)
-        write(*,fmt,advance='NO') maxval(flow_char % dx_max)
-        write(*,fmt,advance='NO') maxval(flow_char % v_max)
-        write(*,fmt,advance='NO') sum(flow_char % e_kin)
-        write(*,fmt,advance='NO') sqrt(sum(flow_char % div_v ** 2))
+        write(*,fmt,advance='NO') minval(ins_char % dx_min)
+        write(*,fmt,advance='NO') maxval(ins_char % dx_max)
+        write(*,fmt,advance='NO') maxval(ins_char % v_max)
+        write(*,fmt,advance='NO') sum(ins_char % e_kin)
+        write(*,fmt,advance='NO') sqrt(sum(ins_char % div_v ** 2))
 
         if (this % has_errors) then
-          write(*,fmt,advance='NO') sqrt(sum(flow_char % err_v ** 2))
-          write(*,fmt,advance='NO') sqrt(sum(flow_char % err_p ** 2))
+          write(*,fmt,advance='NO') sqrt(sum(ins_char % err_v ** 2))
+          write(*,fmt,advance='NO') sqrt(sum(ins_char % err_p ** 2))
         end if
 
         if (this % has_dissipation) then
-          write(*,fmt,advance='NO') sum(flow_char % phi_c )
-          write(*,fmt,advance='NO') sum(flow_char % phi_d )
-          write(*,fmt,advance='NO') sum(flow_char % phi_ds)
-          write(*,fmt,advance='NO') sum(flow_char % phi_d0)
-          write(*,fmt,advance='NO') sum(flow_char % phi_s )
+          write(*,fmt,advance='NO') sum(ins_char % phi_c )
+          write(*,fmt,advance='NO') sum(ins_char % phi_d )
+          write(*,fmt,advance='NO') sum(ins_char % phi_ds)
+          write(*,fmt,advance='NO') sum(ins_char % phi_d0)
+          write(*,fmt,advance='NO') sum(ins_char % phi_s )
         end if
 
         if (present(tag)) then
