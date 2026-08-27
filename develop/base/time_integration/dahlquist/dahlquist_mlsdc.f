@@ -62,7 +62,7 @@ program Dahlquist_MLSDC
 
   integer :: p_time  (max_n_level)  = -1 ! polynomial degree of time step
   integer :: n_time  (max_n_level)  = -1 ! number of time steps in one slice
-  integer :: n_stage_p(max_n_level) = -1 
+  integer :: n_stage_p(max_n_level) = -1
   integer :: n_stage_c(max_n_level) = -1
 
   namelist/discretization_prm/ p_time, n_time, n_stage_p, n_stage_c
@@ -78,8 +78,8 @@ program Dahlquist_MLSDC
 
   namelist/time_integration_prm/ incremental, mg_start, time_method, sdc_method
 
-  type(DQ_TimeIntegrator_Options_Euler) :: opt_pre_euler
-  type(DQ_TimeIntegrator_Options_ISD)   :: opt_pre_isd
+  type(DQ_TimeIntegrator_Options_Euler)        :: opt_pre_euler
+  type(DQ_TimeIntegrator_Options_ISD)          :: opt_pre_isd
   type(DQ_MLSDC_Corrector_Options_Euler)       :: opt_sdc_euler
   type(DQ_MLSDC_Corrector_Options_Euler_BEPar) :: opt_sdc_euler_bepar
   type(DQ_MLSDC_Corrector_Options_ISD)         :: opt_sdc_isd
@@ -166,8 +166,8 @@ program Dahlquist_MLSDC
   ! MLSDC options
   mlsdc_opt = DQ_MLSDC_Options_1D(n_level)
   do l = 1, n_level
-    mlsdc_opt % p_time  (l) = p_time(l)
-    mlsdc_opt % n_time  (l) = n_time(l)
+    mlsdc_opt % p_time  (l)   = p_time(l)
+    mlsdc_opt % n_time  (l)   = n_time(l)
     mlsdc_opt % n_stage_p (l) = n_stage_p(l)
     mlsdc_opt % n_stage_c (l) = n_stage_c(l)
   end do
@@ -322,7 +322,7 @@ program Dahlquist_MLSDC
       write(io,*)
     end do
     close(io)
-  end do 
+  end do
 
 contains
 
@@ -343,7 +343,7 @@ contains
     mt = ubound(u,1)
     nt = ubound(u,2)
     dt = (t_1 - t_0) / nt
- 
+
     allocate(t(0:mt))
 
     associate(dq_sdc => level % sdc)
