@@ -21,8 +21,6 @@
 !> summary:  Export mesh data into VTK XML file
 !> author:   Joerg Stiller
 !> date:     2014/11/27, revised 2016/12/02
-!>
-!>### Export mesh data into VTK XML file
 !===============================================================================
 
 module CART__Export_Volume_Data_To_VTK
@@ -32,7 +30,7 @@ module CART__Export_Volume_Data_To_VTK
   use C_Binding
   use VTK_Binding
   use TPO__AAA__3D
-  use CART__Structured_Mesh  ! adapt vertex numbering when switching to Mesh_Structured_Indexing__3D
+  use CART__Structured_Mesh
   implicit none
   private
 
@@ -78,19 +76,16 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
 
   ! VTK data ...................................................................
 
-  integer(C_INT) :: vtk         ! writer handle
   integer(C_INT) :: cell_type   ! cell type
-  integer(C_INT) :: success     ! success flag
 
-  integer(C_VTK_ID), allocatable :: cell(:,:)
-  real(C_DOUBLE),    allocatable :: xg(:,:)
-  real(C_DOUBLE),    allocatable :: sg(:,:)
-  real(C_DOUBLE),    allocatable :: vg(:,:,:)
+  integer(C_INT), allocatable :: cell(:,:)
+  real(C_DOUBLE), allocatable :: xg(:,:)
+  real(C_DOUBLE), allocatable :: sg(:,:)
+  real(C_DOUBLE), allocatable :: vg(:,:,:)
 
   ! auxiliary variables ........................................................
 
-  character(len=80) :: tag
-  integer :: interpolation_order, np, k
+  integer :: interpolation_order, np
   real(RNP), allocatable :: iop(:,:) ! interpolation operator
 
   ! initialization .............................................................
@@ -110,19 +105,6 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
     interpolation_order = 2
   end if
 
-  if (present(part)) then
-    write(tag, fmt='(A2,I0)') '_p', part
-  else
-    tag = ''
-  end if
-
-  ! set up VTK file ............................................................
-
-  call VTK_XMLWriter_New(vtk)
-  call VTK_XMLWriter_SetDataObjectType(vtk, VTK_UNSTRUCTURED_GRID)
-  call VTK_XMLWriter_SetDataModeType(vtk, VTK_APPENDED)
-  call VTK_XMLWriter_SetFileName(vtk, trim(file)//trim(tag)//'.vtu')
-
   ! grid points ................................................................
 
   np = ne * (interpolation_order*po + 1)**3
@@ -137,8 +119,6 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
     call BuildQuadraticPointCoords(iop, x, xg)
   end select
 
-  call VTK_XMLWriter_SetPoints(vtk, xg)
-
   ! grid cells .................................................................
 
   select case(interpolation_order)
@@ -149,8 +129,6 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
     cell_type = VTK_TRIQUADRATIC_HEXAHEDRON
     call BuildQuadraticCells(po, ne, cell)
   end select
-
-  call VTK_XMLWriter_SetCellsWithType(vtk, cell_type, cell)
 
   ! scalars ....................................................................
 
@@ -163,10 +141,6 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
     case(2)
       call BuildQuadraticScalarData(iop, s, sg)
     end select
-
-    do k = 1, ns
-      call VTK_XMLWriter_SetPointData(vtk, sname(k), sg(:,k), '')
-    end do
 
   end if
 
@@ -181,82 +155,18 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
     case(2)
       call BuildQuadraticVectorData(iop, v, vg)
     end select
-
-    do k = 1, nv
-      call VTK_XMLWriter_SetPointData(vtk, vname(k), vg(:,:,k), '')
-    end do
-
   end if
 
-  ! write ......................................................................
+  ! export .....................................................................
 
-  call VTK_XMLWriter_Write(vtk, success)
-  call VTK_XMLWriter_Delete(vtk)
-
-  ! PVTU file ..................................................................
-
-  if (present(part) .and. present(n_part)) then
-    if (part == 0) then
-      call Write_PVTU_File
-    end if
-  end if
-
-contains
-
-  !-----------------------------------------------------------------------------
-  !> Writes the PVTU file for a parallel multi-piece data set
-
-  subroutine Write_PVTU_File
-
-    integer :: pvtu
-
-    open(newunit=pvtu, file=trim(file)//'.pvtu')
-
-    ! header
-    write(pvtu,'(1A)') '<?xml version="1.0"?>'
-    write(pvtu,'(3A)') '<VTKFile type="PUnstructuredGrid" version="0.1" ', &
-                       'byte_order="LittleEndian" ',                       &
-                       'compressor="vtkZLibDataCompressor">'
-
-    write(pvtu,'(2X,A)') '<PUnstructuredGrid GhostLevel="0">'
-
-    ! start point data section
-    write(pvtu,'(4X,A)') '<PPointData>'
-
-    ! scalars
-    do k = 1, ns
-      write(pvtu,'(6X,4A)') '<PDataArray type="Float64" ', &
-                            'Name="', trim(sname(k)), '"/>'
-    end do
-
-    ! vectors
-    do k = 1, nv
-      write(pvtu,'(6X,5A)') '<PDataArray type="Float64" ', &
-                            'Name="', trim(vname(k)),'" ', &
-                            'NumberOfComponents="3"/>'
-    end do
-
-    ! close poit data section
-    write(pvtu,'(4X,A)') '</PPointData>'
-
-    ! points section
-    write(pvtu,'(4X,A)') '<PPoints>'
-    write(pvtu,'(6X,A)') '<PDataArray type="Float64" NumberOfComponents="3"/>'
-    write(pvtu,'(4X,A)') '</PPoints>'
-
-    ! piece sources
-    do k = 0, n_part-1
-      write(pvtu,'(4X,3A,I0,A)') '<Piece Source="',trim(file),'_p',k,'.vtu"/>'
-    end do
-
-    ! trailer
-    write(pvtu,'(2X,1A)') '</PUnstructuredGrid>'
-    write(pvtu,'(A)') '</VTKFile>'
-
-    ! close file
-    close(pvtu)
-
-  end subroutine Write_PVTU_File
+  call VTK_WriteXML_Unstructured( xg, cell, cell_type  &
+                                , ps       = sg        &
+                                , ps_names = sname     &
+                                , pv       = vg        &
+                                , pv_names = vname     &
+                                , file     = file      &
+                                , piece    = part      &
+                                , n_pieces = n_part    )
 
 end subroutine ExportVolumeDataToVTK
 
@@ -278,13 +188,12 @@ end subroutine BuildLinearPointCoords
 subroutine BuildLinearCells(po, ne, cell)
   integer, intent(in) :: po  !< order of elements
   integer, intent(in) :: ne  !< number of elements
-  integer(C_VTK_ID), allocatable, intent(out) :: cell(:,:) !< grid cells
+  integer(C_INT), allocatable, intent(out) :: cell(:,:) !< grid cells
 
   integer :: c, i, j, k, l, n, o
 
-  allocate(cell(0:8, ne * po**3))
+  allocate(cell(8, ne * po**3))
 
-  cell(0,:) = 8    ! grid points per cell
   n = (po + 1)**3  ! grid points per element
   o = -1           ! offset of point IDs
   c =  1           ! cell counter
@@ -403,13 +312,12 @@ end subroutine BuildQuadraticPointCoords
 subroutine BuildQuadraticCells(po, ne, cell)
   integer, intent(in) :: po  !< order of elements
   integer, intent(in) :: ne  !< number of elements
-  integer(C_VTK_ID), allocatable, intent(out) :: cell(:,:) !< grid cells
+  integer(C_INT), allocatable, intent(out) :: cell(:,:) !< grid cells
 
   integer ::  c, i, j, k, l, m, n, o
 
-  allocate(cell(0:27, ne * po**3))
+  allocate(cell(27, ne * po**3))
 
-  cell(0,:) = 27   ! grid points per cell
   m = 2*po         ! grid intervals within one element
   n = (m+1)**3     ! grid points per element
   o = -1           ! offset of point IDs

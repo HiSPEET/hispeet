@@ -47,8 +47,7 @@ program DG_Elliptic_3D_Test
   use Boundary_Variable__3D
   use DG__Schwarz_Operator__3D
   use DG__Elliptic_Operator__3D
-  use Export_VTK_Volume_Data__3D
-  use Export_VTK_Schwarz_Domain__3D
+  use VTK__Export_Mesh_Data__3D
 
   use Create_Annulus
   use Create_Cuboid_Cartesian
@@ -648,13 +647,13 @@ program DG_Elliptic_3D_Test
       elem(:,:,:,i) = i
     end do
 
-    call ExportVTK_VolumeData( sem % metrics % x         &
-                             , s       = var             &
-                             , sname   = var_names       &
-                             , file    = trim(case_name) &
-                             , part    = mesh % part     &
-                             , n_parts = mesh % n_parts  &
-                             , subdiv  = subdiv_vtk     )
+    call VTK_ExportMeshData_3D( sem % metrics % x         &
+                              , s       = var             &
+                              , sname   = var_names       &
+                              , file    = trim(case_name) &
+                              , part    = mesh % part     &
+                              , n_parts = mesh % n_parts  &
+                              , subdiv  = subdiv_vtk      )
 
   end if
 

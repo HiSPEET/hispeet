@@ -38,9 +38,6 @@ program Validate__TPO_Elliptic_DLVI
   use Element_Transfer_Buffer__3D
   use Verify_Mesh__3D
   use Assembly__3D
-  use Export_VTK_Volume_Data__3D
-
-  !use TPO__Elliptic__3D_DLVI__XSMM
 
   implicit none
 

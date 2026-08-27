@@ -10,7 +10,6 @@ set(BINDINGS bindings/c_binding.f
              bindings/hdf5_binding.f
              bindings/openmp_binding.F
              bindings/mpi_binding.F
-             bindings/vtk_wrapper.c
              bindings/vtk_binding.f
              bindings/fftw_binding.f
              bindings/parmetis_binding.F
@@ -179,7 +178,7 @@ set( UTIL_1D
      util_1d/cg__condensed_solver__1d.f
      util_1d/cg__utilities__1d.f
      util_1d/dg__utilities__1d.f
-     util_1d/export/export_vtk_spacetime_data__1d.f
+     util_1d/export/vtk__export_spacetime_data__1d.f
     )
 
 #===============================================================================
@@ -188,9 +187,9 @@ set( UTIL_1D
 set( UTIL_3D util_3d/verification/verify_mesh__3d.f )
 
 set( UTIL_3D ${UTIL_3D}
-     util_3d/export/export_vtk_mesh_sfc__3d.f
-     util_3d/export/export_vtk_volume_data__3d.f
-     util_3d/export/export_vtk_schwarz_domain__3d.f
+     util_3d/export/vtk__export_mesh_data__3d.f
+     util_3d/export/vtk__export_mesh_sfc__3d.f
+     util_3d/export/vtk__export_schwarz_domain__3d.f
     )
 
 set( UTIL_3D ${UTIL_3D}

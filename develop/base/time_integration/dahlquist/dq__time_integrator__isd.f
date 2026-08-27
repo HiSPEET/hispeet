@@ -134,7 +134,7 @@ contains
     complex(RNP), intent(inout) :: u       !< u(t) → u(t+ ∆t)
 
     complex(RNP), parameter :: i = (ZERO, ONE)
-    complex(RNP) :: u0, u1, u2, u3
+    complex(RNP) :: u0, u1, u2
     real(RNP) :: a_inv, hdt
     integer :: j
 
