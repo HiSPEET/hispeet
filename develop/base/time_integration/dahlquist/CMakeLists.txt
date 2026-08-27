@@ -57,6 +57,11 @@ target_link_libraries(dahlquist_mlsdc HiBase)
 
 configure_file(dahlquist_mlsdc.prm dahlquist_mlsdc.prm COPYONLY)
 
+file( COPY 
+           mlsdc_study 
+      DESTINATION
+           ${CMAKE_CURRENT_BINARY_DIR} )
+
 #===============================================================================
 # evaluation
 

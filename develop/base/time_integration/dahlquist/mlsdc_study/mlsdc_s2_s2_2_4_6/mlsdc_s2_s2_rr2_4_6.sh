@@ -50,7 +50,7 @@ for((C = 0; C <= C_MAX; C++)); do
         -e "s/<MG_START>/$MG_START/g" \
         -e "s/<N_COARSE>/$N_COARSE/g" \
         -e "s/<P_TIME1>/$P_TIME1/g" \
-	-e "s/<P_TIME2>/$P_TIME2/g" \
+	    -e "s/<P_TIME2>/$P_TIME2/g" \
         -e "s/<P_TIME3>/$P_TIME3/g" \
         -e "s/<CYC>/$C/g" \
         -e "s/<C_MAX>/$C_MAX_AMP/g" \
@@ -67,8 +67,8 @@ for((C = 0; C <= C_MAX; C++)); do
     mv lambda_re.dat lambda_re_amp.dat
     mv lambda_im.dat lambda_im_acc.dat
     mv lambda_re.dat lambda_re_acc.dat
-    mv amplification_level_3.dat amplification_level_3_MG${MG_START}_cyc${C}.dat
-    mv error_level_3.dat error_level_3_acc_MG${MG_START}_cyc${C}.dat
+    mv amplification_level_3.dat amplification_level_3_mg${MG_START}_cyc${C}.dat
+    mv error_level_3.dat error_level_3_acc_mg${MG_START}_cyc${C}.dat
 
 done
 

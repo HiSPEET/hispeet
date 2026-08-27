@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # test case
-CASE="mlsdc_s1_s1_rr2_4_6"
+CASE="mlsdc_eu_eu_rr2_4_6"
 
 # path to program
 PROGRAM="../../dahlquist_mlsdc"
@@ -14,10 +14,10 @@ P_TIME3="6"
 MG_START=$1
 N_COARSE=$2
 C_MAX="14"        # CYCLE_MAX = 2*N_COL2 - 2
-#PRE_METHOD="1"
+PRE_METHOD="1"
 PRE_ORDER="1"
 PRE_STAGES="1"
-#SDC_METHOD="1"
+SDC_METHOD="1"
 SDC_POINTS="'RR'"
 SDC_STAGES="1"
 
@@ -52,7 +52,7 @@ for((C = 0; C <= C_MAX; C++)); do
         -e "s/<MG_START>/$MG_START/g" \
         -e "s/<N_COARSE>/$N_COARSE/g" \
         -e "s/<P_TIME1>/$P_TIME1/g" \
-	-e "s/<P_TIME2>/$P_TIME2/g" \
+	    -e "s/<P_TIME2>/$P_TIME2/g" \
         -e "s/<P_TIME3>/$P_TIME3/g" \
         -e "s/<CYC>/$C/g" \
         -e "s/<C_MAX>/$C_MAX_AMP/g" \
@@ -69,8 +69,8 @@ for((C = 0; C <= C_MAX; C++)); do
     mv lambda_re.dat lambda_re_amp.dat
     mv lambda_im.dat lambda_im_acc.dat
     mv lambda_re.dat lambda_re_acc.dat
-    mv amplification_level_3.dat amplification_level_3_MG${MG_START}_cyc${C}.dat
-    mv error_level_3.dat error_level_3_acc_MG${MG_START}_cyc${C}.dat
+    mv amplification_level_3.dat amplification_level_3  ${MG_START}_cyc${C}.dat
+    mv error_level_3.dat error_level_3_acc_mg${MG_START}_cyc${C}.dat
 
 done
 
