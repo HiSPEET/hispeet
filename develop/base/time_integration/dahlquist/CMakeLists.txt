@@ -1,3 +1,6 @@
+#===============================================================================
+# single-level
+
 add_executable( dahlquist 
                 dahlquist.f
                 dq__time_integrator.f
@@ -18,6 +21,9 @@ add_executable( dahlquist
 target_link_libraries(dahlquist HiBase)
 
 configure_file(dahlquist.prm dahlquist.prm COPYONLY)
+
+#===============================================================================
+# multi-level
 
 add_executable( dahlquist_mlsdc
                 dahlquist_mlsdc.f
@@ -50,6 +56,9 @@ add_executable( dahlquist_mlsdc
 target_link_libraries(dahlquist_mlsdc HiBase)
 
 configure_file(dahlquist_mlsdc.prm dahlquist_mlsdc.prm COPYONLY)
+
+#===============================================================================
+# evaluation
 
 file( COPY 
            eval_stability.py
