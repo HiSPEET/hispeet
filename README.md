@@ -13,12 +13,11 @@ High-order spectral element techniques.
 
 - [Git](https://git-scm.com/)
 - [CMake](https://cmake.org)
-- Fortran and C/C++ Compilers ([GNU](https://gcc.gnu.org/) compilers recommended)
+- Fortran and C/C++ Compilers ([GNU](https://gcc.gnu.org/) recommended)
 - [BLAS](https://www.netlib.org/blas) and [LAPACK](https://www.netlib.org/lapack)
 - [MPI](https://www.mpi-forum.org)
 - [HDF5](https://www.hdfgroup.org)
 - [FFTW](https://www.fftw.org)
-- [VTK](https://vtk.org)
 
 Additionally, [LIBXSMM](https://github.com/libxsmm) is used for the fast evaluation of tensor-product operators on CPUs. This library is installed by *HiSPEET* itself. Results can be visualized using [Python](https://www.python.org) and [Matplotlib](https://matplotlib.org) as well as [ParaView](https://www.paraview.org/). [ford](https://github.com/Fortran-FOSS-Programmers/ford) is utilized for code documentation.
 

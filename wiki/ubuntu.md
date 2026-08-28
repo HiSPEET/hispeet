@@ -12,7 +12,6 @@ Installing _HiSPEET_ on Ubuntu 22 requires the packages
 - `libfftw3-dev`
 - `libmetis-dev`
 - `libparmetis-dev`
-- `libvtk7-dev`
 - `lmod`
 - `make`
 - `openmpi-bin`
@@ -21,8 +20,6 @@ Installing _HiSPEET_ on Ubuntu 22 requires the packages
 - `python3-matplotlib`
 - `python3-numpy`
 - `paraview`
-
-Note that `libvtk9-dev` is incompatible with `paraview`, although this may change in future releases.
 
 For installing a package you may use the command
 
