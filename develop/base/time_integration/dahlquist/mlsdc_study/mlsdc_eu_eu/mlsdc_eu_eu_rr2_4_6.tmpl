@@ -1,13 +1,11 @@
 &discretization_prm
 
-! dt_slab   = 1     ! thickness of one time slab
-  n_level   = 3     ! number of space-time levels
-  n_cycle   = <CYC>
-  n_coarse  = <N_COARSE>
-  n_time    = 1 1 1
-  p_time    = <P_TIME1> <P_TIME2> <P_TIME3>
-  n_stage_p = 1 1 1
-  n_stage_c = 1 1 1
+! dt_slab  = 1     ! thickness of one time slab
+  n_level  = 3     ! number of space-time levels
+  n_cycle  = <CYC>
+  n_coarse = <N_COARSE>
+  n_time   = 1 1 1
+  p_time   = <P_TIME1> <P_TIME2> <P_TIME3>
 /
 
 &time_integration_prm
@@ -15,14 +13,14 @@
   mg_start = <MG_START> ! 0 Constant
                ! 1  Predictor
                ! 2  Cascade
-               ! 3  FMG (not implemented yet)
+               ! 3  FMG
 
   ! standalone or predictor method
-  time_method = 3 ! 1  Euler
+  time_method = 1 ! 1  Euler
                   ! 3  Implicit streamline diffusion
 
   ! SDC method
-  sdc_method  = 2 ! 0  none (use standalone time integrator)
+  sdc_method  = 1 ! 0  none (use standalone time integrator)
                   ! 1  based on Euler
                   ! 2  based on ISD of order 1
 
@@ -33,7 +31,7 @@
 
   ! implicit streamline diffusion
   opt_pre_isd%order   = <PRE_ORDER>
-! opt_pre_isd%n_stage = <PRE_STAGES> ! make it a ML variable
+  opt_pre_isd%n_stage = <PRE_STAGES> ! make it a ML variable
 
   ! SDC options ................................................................
 
@@ -43,7 +41,7 @@
 
   ! 2 SDC based on ISD
   opt_sdc_isd%nodes = <SDC_POINTS>
-! opt_sdc_isd%n_stage = <SDC_STAGES> ! make it a ML variable
+  opt_sdc_isd%n_stage = <SDC_STAGES> ! make it a ML variable
 /
 
 &input

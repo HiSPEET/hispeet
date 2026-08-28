@@ -1,14 +1,11 @@
 &discretization_prm
-! n_level  =  2      ! number of space-time levels
-! n_cycle  =  5
-! n_coarse =  2
-! n_time   =  1   1
-! p_time   =  3   5
-  n_level  =  1      ! number of space-time levels
-  n_cycle  =  8
-  n_coarse =  1
-  n_time   =  1
-  p_time   =  5
+  n_level  =  3      ! number of space-time levels
+  n_cycle  =  5
+  n_coarse =  2
+  n_time   =  1  1  1
+  p_time   =  2  4  6
+  n_stage_p = 3*2
+  n_stage_c = 3*2
 /
 
 &time_integration_prm
@@ -27,7 +24,6 @@
   sdc_method  = 2 ! 0  none (use standalone time integrator)
                   ! 1  based on Euler
                   ! 2  based on ISD of order 1
-                  ! 3  based on parallel backward Euler
 
   ! standalone integrator and predictor options ................................
 
@@ -36,7 +32,6 @@
 
   ! implicit streamline diffusion
   opt_pre_isd%order   = 1  ! theoretical order of convergence {1,2} [1]
-  opt_pre_isd%n_stage = 1  ! number of stages, ignored with order 2
 
   ! SDC options ................................................................
 
@@ -44,22 +39,17 @@
   opt_sdc_euler%nodes = 'L'  ! 'E'/'L'/'RR': equidistant/Lobatto/Radau-right
   opt_sdc_euler%impl  =  2   ! 0/1/2: explicit/implicit/IMEX
 
-  ! SDC based on parallel backward Euler
-  opt_sdc_euler_bepar%nodes = 'L'
-  opt_sdc_euler_bepar%impl  =  2
-
   ! SDC based on ISD
   opt_sdc_isd%nodes   = 'RR' ! 'E'/'L'/'RR': equidistant/Lobatto/Radau-right
-  opt_sdc_isd%n_stage =  1   ! 1/2 for 1- or 2-stage corrector
 /
 
 &input
   ! test parameters ............................................................
 
   c_min =     0  ! min convective CFL number           ! for stability
-  c_max =     8  ! max convective CFL number           !
+  c_max =    20  ! max convective CFL number           !
   d_min =    -5  ! min diffusion number                !
   d_max =    10  ! max diffusion number                !
-  nc    =    80  ! num intervals along imaginary axis  !
-  nd    =    80  ! num intervals along real axis       !
+  nc    =   100  ! num intervals along imaginary axis  !
+  nd    =   100  ! num intervals along real axis       !
 /

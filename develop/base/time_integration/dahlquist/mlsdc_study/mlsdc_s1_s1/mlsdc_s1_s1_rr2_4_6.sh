@@ -32,8 +32,11 @@ D_MIN_ACC="-.50"
 D_MAX_ACC=".75"
 
 # test dimensions
-NC="2000"
-ND="2000"
+NC="500"
+ND="500"
+# original setting -- prepare for long runtime!
+#NC="2000"
+#ND="2000"
 
 date > ${CASE}.log
 

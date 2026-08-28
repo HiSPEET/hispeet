@@ -35,9 +35,6 @@ fig1.suptitle(method)
 
 diag = plt.contour( x, y, a, levels=[1], linestyles='-')
 
-#diag = plt.contourf( x, y, a, levels=[0,1], colors=['green','white'] 
-#                  , linestyles='-', linewidths= 0.75, extend='both' ) 
-
 handles, labels = diag.legend_elements()
 
 plt.axvline(0, color='grey', linewidth=0.5, linestyle='--')
@@ -45,8 +42,8 @@ plt.axvline(0, color='grey', linewidth=0.5, linestyle='--')
 labels = [r'$|R| = 1$']
 plt.legend(handles, labels, loc = 'upper left')
 
-plt.xlim(left=-10, right=2)
-plt.ylim(bottom=0, top=8)
+#plt.xlim(left=-10, right=2)
+#plt.ylim(bottom=0, top=8)
 
 plt.xlabel(r'Re($z$)')
 plt.ylabel(r'Im($z$)')
@@ -63,8 +60,10 @@ print('\nunscaled stability diagram saved to',plot_file+'.pdf','\n')
 fig2, ax = plt.subplots()
 fig2.suptitle(method)
 
-diag = plt.contour( x/nw, y/nw, a, levels=[1], colors='red' 
-                  , linestyles='-', linewidths= 0.75 ) 
+diag = plt.contour( x/nw, y/nw, a, levels=[1], linestyles='-') 
+# additional options
+# linewidths= 0.75
+# colors='red' 
 
 handles, labels = diag.legend_elements()
 
@@ -73,8 +72,8 @@ plt.axvline(0, color='grey', linewidth=0.5, linestyle='--')
 labels = [r'$|R| = 1$']
 plt.legend(handles, labels, loc = 'upper left')
 
-plt.xlim(left=-0.6, right=0.2)
-plt.ylim(bottom=0.0, top=1.6)
+#plt.xlim(left=-0.6, right=0.2)
+#plt.ylim(bottom=0.0, top=1.6)
 
 plt.xlabel(r'Re($z_{\mathrm{s}}$)')
 plt.ylabel(r'Im($z_{\mathrm{s}}$)')

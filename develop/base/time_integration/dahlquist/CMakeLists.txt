@@ -36,7 +36,6 @@ add_executable( dahlquist_mlsdc
                 dq__sdc__method__euler.f
                 dq__sdc__method__isd.f
                 dq__mlsdc__corrector__euler.f
-                dq__mlsdc__corrector__euler_bepar.f
                 dq__mlsdc__corrector__isd.f
                 dq__mlsdc__1d.f
                 dq__mlsdc__level__1d.f
@@ -66,7 +65,9 @@ file( COPY
 # evaluation
 
 file( COPY 
-           eval_stability.py
            eval_accuracy.py
+           eval_stability.py
+	       eval_stability_mlsdc.py
+	       eval_stability_series.py
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR} )

@@ -33,7 +33,6 @@ module DQ__MLSDC__Level__1D
   use DQ__Time_Integrator
   use DQ__SDC__Method
   use DQ__MLSDC__Corrector__Euler
-  use DQ__MLSDC__Corrector__Euler_BEPar
   use DQ__MLSDC__Corrector__ISD
 
   implicit none
@@ -60,7 +59,7 @@ module DQ__MLSDC__Level__1D
     ! transfer operators .......................................................
 
     type(HP_RefinementOperator_1D) :: iop_cf_t !< C-F interpolation in t
-    
+
     type(HP_CoarseningOperator_1D) :: pop_fc_t !< F-C projection in t
 
   contains
@@ -229,8 +228,6 @@ contains
     select type(sdc_opt => opt % sdc_opt)
     type is(DQ_MLSDC_Corrector_Options_Euler)
       this % sdc = DQ_MLSDC_Corrector_Euler(opt % pre_opt, sdc_opt)
-    type is(DQ_MLSDC_Corrector_Options_Euler_BEPar)
-      this % sdc = DQ_MLSDC_Corrector_Euler_BEPar(opt % pre_opt, sdc_opt)
     type is(DQ_MLSDC_Corrector_Options_ISD)
       this % sdc = DQ_MLSDC_Corrector_ISD(opt % pre_opt, sdc_opt)
     end select

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # test case
-CASE="mlsdc_eu_eu_rr2_4_6"
+CASE="mlsdc_s2_s2_rr2_4_6"
 
 # path to program
 PROGRAM="../../dahlquist_mlsdc"
@@ -14,12 +14,10 @@ P_TIME3="6"
 MG_START=$1
 N_COARSE=$2
 C_MAX="14"        # CYCLE_MAX = 2*N_COL2 - 2
-PRE_METHOD="1"
 PRE_ORDER="1"
-PRE_STAGES="1"
-SDC_METHOD="1"
+PRE_STAGES="2"
 SDC_POINTS="'RR'"
-SDC_STAGES="1"
+SDC_STAGES="2"
 
 # test range for amplification
 C_MAX_AMP="20"
@@ -32,8 +30,11 @@ D_MIN_ACC="-.50"
 D_MAX_ACC=".75"
 
 # test dimensions
-NC="2000"
-ND="2000"
+NC="500"
+ND="500"
+# original setting -- prepare for long runtime!
+#NC="2000"
+#ND="2000"
 
 date > ${CASE}.log
 
@@ -69,7 +70,7 @@ for((C = 0; C <= C_MAX; C++)); do
     cp lambda_re.dat lambda_re_amp.dat
     mv lambda_im.dat lambda_im_acc.dat
     mv lambda_re.dat lambda_re_acc.dat
-    mv amplification_level_3.dat amplification_level_3  ${MG_START}_cyc${C}.dat
+    mv amplification_level_3.dat amplification_level_3_mg${MG_START}_cyc${C}.dat
     mv error_level_3.dat error_level_3_acc_mg${MG_START}_cyc${C}.dat
 
 done

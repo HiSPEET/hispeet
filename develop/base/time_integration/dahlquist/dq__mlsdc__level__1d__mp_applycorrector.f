@@ -24,7 +24,7 @@
 !===============================================================================
 
 submodule(DQ__MLSDC__Level__1D) MP_ApplyCorrector
-  
+
   use Constants, only: ZERO
 
   implicit none
@@ -83,7 +83,7 @@ contains
 
         ! RHS for high-order quadrature
         F(0:n_sub) = lambda * u(0:n_sub,n)
-        
+
         ! RHS for corrector
         do m = 0, n_sub
           call sdc % CorrectorRHS ( lambda    &
@@ -99,14 +99,10 @@ contains
 
         ! SDC sweeps
         Sweeps: do k = 1, n_sweep
-         
+
           do m = 1, n_sub
             select type (sdc)
             type is (DQ_MLSDC_Corrector_Euler)
-              call sdc % CorrectorStepMLSDC( &
-                  lambda, m, k, t_sub, u(:,n), F, F_ex, F_im &
-                , F_ex_new, F_im_new, G(:,n), incremental    )
-            type is (DQ_MLSDC_Corrector_Euler_BEPar)
               call sdc % CorrectorStepMLSDC( &
                   lambda, m, k, t_sub, u(:,n), F, F_ex, F_im &
                 , F_ex_new, F_im_new, G(:,n), incremental    )

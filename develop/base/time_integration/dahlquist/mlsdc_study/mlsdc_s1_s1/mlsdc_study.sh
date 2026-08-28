@@ -17,13 +17,5 @@ for MG_START in ${MG_START_VALUES[@]}; do
         # Trigger the script with the current parameters and redirect output to log file
         LOG_FILE="mg_start_${MG_START}_n_coarse_${N_COARSE_VALUES}.log"
         ./$SCRIPT_FILE $MG_START $N_COARSE > $LOG_FILE
-
-        # Extract values from log file 
-        while IFS= read -r line; do
-          t_run=$(echo $line | awk '{print $1}')
-          err_2=$(echo $line | awk '{print $2}')
-          # Append the values to the CSV file
-          echo "$MG_START $N_COARSE" >> $OUTPUT_FILE
-        done < <(extract_values $LOG_FILE)
   done
 done

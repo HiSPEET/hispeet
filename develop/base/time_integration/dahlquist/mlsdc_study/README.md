@@ -1,6 +1,6 @@
 # MLSDC studies for the Dahlquist problem
 
-## Interactive shell
+- These studies reproduce selected results presented in [J. Sci. Comp. (2026) 107:6](https://doi.org/10.1007/s10915-026-03209-8)
 
 - Select example
 
@@ -27,7 +27,7 @@
   - Run in shell
 
     ```bash
-    bash -l mlsdc_study.sh
+    ./mlsdc_study.sh
     ```
 
   - Run in batch mode using `slurm` 

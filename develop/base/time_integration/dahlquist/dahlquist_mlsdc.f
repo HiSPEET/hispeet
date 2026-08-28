@@ -33,7 +33,6 @@ program Dahlquist_MLSDC
   use DQ__Time_Integrator__ISD
   use DQ__SDC__Method
   use DQ__MLSDC__Corrector__Euler
-  use DQ__MLSDC__Corrector__Euler_BEPar
   use DQ__MLSDC__Corrector__ISD
   use DQ__MLSDC__1D
   use DQ__MLSDC__Level__1D
@@ -78,15 +77,13 @@ program Dahlquist_MLSDC
 
   namelist/time_integration_prm/ incremental, mg_start, time_method, sdc_method
 
-  type(DQ_TimeIntegrator_Options_Euler)        :: opt_pre_euler
-  type(DQ_TimeIntegrator_Options_ISD)          :: opt_pre_isd
-  type(DQ_MLSDC_Corrector_Options_Euler)       :: opt_sdc_euler
-  type(DQ_MLSDC_Corrector_Options_Euler_BEPar) :: opt_sdc_euler_bepar
-  type(DQ_MLSDC_Corrector_Options_ISD)         :: opt_sdc_isd
+  type(DQ_TimeIntegrator_Options_Euler)  :: opt_pre_euler
+  type(DQ_TimeIntegrator_Options_ISD)    :: opt_pre_isd
+  type(DQ_MLSDC_Corrector_Options_Euler) :: opt_sdc_euler
+  type(DQ_MLSDC_Corrector_Options_ISD)   :: opt_sdc_isd
 
   namelist/time_integration_prm/ opt_pre_euler, opt_pre_isd &
-                               , opt_sdc_euler, opt_sdc_euler_bepar &
-                               , opt_sdc_isd
+                               , opt_sdc_euler, opt_sdc_isd
 
   real(RNP) :: c_min =   0  ! min CFL number
   real(RNP) :: c_max =  10  ! max CFL number
@@ -197,9 +194,6 @@ program Dahlquist_MLSDC
   case(2)
     allocate(DQ_MLSDC_Corrector_Options_ISD :: opt_sdc)
     opt_sdc = opt_sdc_isd
-  case(3)
-    allocate(DQ_MLSDC_Corrector_Options_Euler_BEPar :: opt_sdc)
-    opt_sdc = opt_sdc_euler_bepar
   end select
 
   ! MLSDC data structure
