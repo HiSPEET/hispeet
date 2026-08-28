@@ -9,7 +9,7 @@ import matplotlib as mpl
 mpl.rcParams["font.size"] = 12
 
 # name of the method
-method = "mlsdc_eu_eu_rr3_5_7"
+method = "mlsdc_s2_s2_rr3_5_7"
 
 # --------------------------------------------------------------------------------------
 # stability
@@ -112,7 +112,7 @@ plt.ylim(bottom=0, top=20)
 
 plt.axvline(0, color='black', linewidth=0.5, linestyle='-')
 
-fig1.suptitle(r"MLSDC-EU$_{3,5,7}^{K+1}$ stability domains level 3, predictor")
+fig1.suptitle(r"MLSDC-S2$_{3,5,7}^{K+1}$ stability domains level 3, predictor")
 fig1.tight_layout(rect=[-0.02, -0.02, 1.0, 1.05])
 fig1.savefig(method+"_amp_mg1.pdf")
 
@@ -218,7 +218,7 @@ plt.ylim(bottom=0, top=3)
 
 plt.axvline(0, color='black', linewidth=0.5, linestyle='-')
 
-fig2.suptitle(r"MLSDC-EU$_{3,5,7}^{K+1}$ error domain, level 3, predictor")
+fig2.suptitle(r"MLSDC-S2$_{3,5,7}^{K+1}$ error domain, level 3, predictor")
 fig2.tight_layout(rect=[-0.02, -0.02, 1.0, 1.05])
 fig2.savefig(method+"_acc_mg1.pdf")
 

@@ -65,8 +65,8 @@ for((C = 0; C <= C_MAX; C++)); do
 
     ${PROGRAM} ${CASE} >&1 | tee -a ${CASE}.log
     
-    mv lambda_im.dat lambda_im_amp.dat
-    mv lambda_re.dat lambda_re_amp.dat
+    cp lambda_im.dat lambda_im_amp.dat
+    cp lambda_re.dat lambda_re_amp.dat
     mv lambda_im.dat lambda_im_acc.dat
     mv lambda_re.dat lambda_re_acc.dat
     mv amplification_level_3.dat amplification_level_3_mg${MG_START}_cyc${C}.dat

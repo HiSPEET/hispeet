@@ -53,8 +53,8 @@ program Dahlquist_MLSDC
 
   integer, parameter :: max_n_level = 20 ! upper bound for number of levels
 
-  real(RNP) :: dt_slab  = 1.0   ! thickness of one time slab
-  integer   :: n_level  = 2     ! number of space-time levels
+  real(RNP) :: dt_slab  = 1    ! thickness of one time slab
+  integer   :: n_level  = 2    ! number of space-time levels
   integer   :: n_cycle  = 2    ! number of v-cycles
   integer   :: n_coarse = 2    ! number of coarse sweeps
 

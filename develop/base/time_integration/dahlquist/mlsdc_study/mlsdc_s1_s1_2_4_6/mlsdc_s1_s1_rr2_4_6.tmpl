@@ -1,11 +1,11 @@
 &discretization_prm
 
-! dt_slab  =  1     ! thickness of one time slab
-  n_level  =  3      ! number of space-time levels
-  n_cycle  =  <CYC>
-  n_coarse =  <N_COARSE>
-  n_time   =  1 1 1
-  p_time   = <P_TIME1> <P_TIME2> <P_TIME3>
+! dt_slab   = 1     ! thickness of one time slab
+  n_level   = 3     ! number of space-time levels
+  n_cycle   = <CYC>
+  n_coarse  = <N_COARSE>
+  n_time    = 1 1 1
+  p_time    = <P_TIME1> <P_TIME2> <P_TIME3>
   n_stage_p = 1 1 1
   n_stage_c = 1 1 1
 /
@@ -29,21 +29,21 @@
   ! standalone integrator and predictor options ................................
 
   ! Euler
-  opt_pre_euler%impl    = 2
+  opt_pre_euler%impl = 2
 
   ! implicit streamline diffusion
   opt_pre_isd%order   = <PRE_ORDER>
-!  opt_pre_isd%n_stage = <PRE_STAGES> ! make it a ML variable
+! opt_pre_isd%n_stage = <PRE_STAGES> ! make it a ML variable
 
   ! SDC options ................................................................
 
   ! 1 SDC based on Euler
   opt_sdc_euler%nodes = <SDC_POINTS>
-  opt_sdc_euler%impl      = 2
+  opt_sdc_euler%impl = 2
 
   ! 2 SDC based on ISD
   opt_sdc_isd%nodes = <SDC_POINTS>
-!  opt_sdc_isd%n_stage   = <SDC_STAGES> ! make it a ML variable
+! opt_sdc_isd%n_stage = <SDC_STAGES> ! make it a ML variable
 /
 
 &input
