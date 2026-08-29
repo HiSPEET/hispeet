@@ -643,7 +643,7 @@ contains
     real(RNP), contiguous,    intent(inout) :: u(0:,:,:) !< u(0:po,1:ne,1:nc)
 
     real(RNP), allocatable :: VL(:,:), VL_inv(:,:)
-    integer :: e, po
+    integer :: e
 
     if (this % regularization == 0) return
 

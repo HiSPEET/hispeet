@@ -86,12 +86,11 @@ program Conservation_Law_ML
   ! auxiliary variables
   type(CL_MLSDC_Variable_1D) :: u_h, u_x
   real(RNP)                  :: t_0, t_1, t
-  !real(RNP), allocatable     :: err_2(:), err(:)
   real(RNP)                  :: err_2, err
   real(RNP)                  :: err_max, t_run, t_run_0
   logical                    :: exists
   integer                    :: io, stat
-  integer                    :: l, nt, i, k, c
+  integer                    :: l, nt, i, k
 
   ! initialization .............................................................
 
@@ -174,7 +173,7 @@ program Conservation_Law_ML
   case(2)
     allocate(CL_TimeIntegrator_Options_ISD1_1D :: opt_pre)
     opt_pre = opt_pre_isd1
-  end select 
+  end select
 
   ! SDC options (ISD1 and Euler so far)
   select case(sdc_method)
@@ -220,27 +219,27 @@ program Conservation_Law_ML
     call CL_MLSDC_Upward_Leg_1D(mlsdc, t, dt_slab, u_h)
 
     ! check converged
-    
+
     ! enter v cycle
     call CL_MLSDC_V_Cycle_1D(mlsdc, t, dt_slab, 1, 1, n_coarse, n_cycle, u_h, u_x)
 
-  !  if (i<nt) then 
+  !  if (i<nt) then
   !    ! set new initial value for the coarse grid
   !    u_h%level(1)%val(:,:,:,0 ,1 ) = u_h%level(1)%val(:,:,:                 &
   !                                                  ,mlsdc%level(1)%m_time &
-  !                                                  ,n_time(1)             ) 
+  !                                                  ,n_time(1)             )
   !    u_h%level(1)%val(:,:,:,1:,2:) = 0
-  !  end if 
+  !  end if
 
     ! Update t
     t = t + dt_slab
-    
+
     if (10 * (t-t_0) >= k * (t_end-t_start)) then
       write(*,'(2X,I3,"%")') 10*k
       k = k + 1
     end if
 
-  end do 
+  end do
 
   call cpu_time(t_run)
 
@@ -267,13 +266,13 @@ program Conservation_Law_ML
       err_2 = err_2 + Me(i) * err**2
       !do c = 1,nc
        ! write(io,'(ES17.9E3,1X,ES17.9E3)') mlsdc%level(n_level) % cl_operator % x(i,k), u_h(i,k,nc,mt,nt)
-       write(io,'(ES17.9E3,1X,ES17.9E3)') mlsdc%level(n_level) % cl_operator % x(i,k), u_h(i,k,1,mt,nt) 
+       write(io,'(ES17.9E3,1X,ES17.9E3)') mlsdc%level(n_level) % cl_operator % x(i,k), u_h(i,k,1,mt,nt)
      !end do
     end do
     end do
     err_max = maxval(abs(u_h(:,:,:,mt,nt) - u_x(:,:,:,mt,nt)))
     close(io)
- 
+
     write(*,'(2X,A,99(ES12.5,1X))') 't_run  =', t_run  - t_run_0
     write(*,'(2X,A,I3,A,ES10.3)') 'Error on level ',n_level,': err_2 =',sqrt(err_2)
     write(*,'(2X,A,I3,A,ES10.3)') 'Error on level ',n_level,': err_max =',err_max

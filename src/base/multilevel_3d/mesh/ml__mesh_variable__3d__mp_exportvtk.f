@@ -24,7 +24,7 @@
 !===============================================================================
 
 submodule(ML__Mesh_Variable__3D) MP_EportVTK
-  use Export_VTK_Volume_Data__3D
+  use VTK__Export_Mesh_Data__3D
   implicit none
 
 contains
@@ -69,13 +69,13 @@ contains
         allocate(character(len=m) :: tag)
         write(tag,'(A,I0)') '_l', l
 
-        call ExportVTK_VolumeData( x       = sem%metrics%x     &
-                                 , s       = this%level(l)%val &
-                                 , sname   = this%name         &
-                                 , file    = trim(file)//tag   &
-                                 , part    = sem%mesh%part     &
-                                 , n_parts = sem%mesh%n_parts  &
-                                 , mask    = mask              )
+        call VTK_ExportMeshData_3D( x       = sem%metrics%x     &
+                                  , s       = this%level(l)%val &
+                                  , sname   = this%name         &
+                                  , file    = trim(file)//tag   &
+                                  , part    = sem%mesh%part     &
+                                  , n_parts = sem%mesh%n_parts  &
+                                  , mask    = mask              )
 
         deallocate(tag, mask)
 

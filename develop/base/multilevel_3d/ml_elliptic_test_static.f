@@ -51,7 +51,7 @@ program ML_Elliptic_Test_Static
   use Mesh__3D
   use Verify_Mesh__3D
   use Volume_Integrals__3D
-  use Export_VTK_Mesh_SFC__3D
+  use VTK__Export_Mesh_SFC__3D
 
   use ML__Mesh__3D
   use ML__Mesh_Operators__3D
@@ -189,9 +189,8 @@ program ML_Elliptic_Test_Static
   integer,   save :: n_i
 
   logical :: exists, passed, all_passed, singular
-  integer :: io, stat
-  integer :: dim
-  integer :: l_top, ne_max, ne_min, ne_tot
+  integer :: io, stat, dim
+  integer :: l_top
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -649,7 +648,7 @@ program ML_Elliptic_Test_Static
           do l = 1, size(mesh)
             if (mesh(l) % has_sfc) then
               write(tag,'(A,I0,A)') '_sfc_l', l
-              call ExportVTK_MeshSFC(mesh(l), file = trim(case_name)//trim(tag))
+              call VTK_ExportMeshSFC_3D(mesh(l), file = trim(case_name)//trim(tag))
             end if
           end do
         end block

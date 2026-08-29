@@ -153,7 +153,6 @@ contains
     real(RNP), allocatable :: Me_inv(:)
     real(RNP) :: t
     integer   :: e, k
-    integer   :: i_max_1, i_max_2
 
     associate( nc       => cl_problem  % nc       &
              , eop      => cl_operator % eop      &

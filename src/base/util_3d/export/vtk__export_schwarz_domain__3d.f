@@ -23,20 +23,20 @@
 !> date:     2022/03/10
 !===============================================================================
 
-module Export_VTK_Schwarz_Domain__3D
+module VTK__Export_Schwarz_Domain__3D
   use Kind_Parameters
-  use Export_VTK_Volume_Data__3D
+  use VTK__Export_Mesh_Data__3D
   implicit none
   private
 
-  public :: ExportVTK_SchwarzDomain
+  public :: VTK_ExportSchwarzDomain_3D
 
 contains
 
   !-----------------------------------------------------------------------------
   !> Export cuboidal Schwarz domain with scalar data to VTK
 
-  subroutine ExportVTK_SchwarzDomain(x_cube, xi, v_sd, file)
+  subroutine VTK_ExportSchwarzDomain_3D(x_cube, xi, v_sd, file)
     real(RNP),        intent(in) :: x_cube(0:,:) !< cuboidal core domain
     real(RNP),        intent(in) :: xi(0:)       !< standard core points
     class(*),         intent(in) :: v_sd(:,:,:)  !< subdomain variable (RSP,RDP)
@@ -127,12 +127,12 @@ contains
 
     end select
 
-    call ExportVTK_VolumeData(x, s=v, sname=['v'], file=file, subdiv = .false.)
+    call VTK_ExportMeshData_3D(x, s=v, sname=['v'], file=file, subdiv=.false.)
 
     !$omp end master
 
-  end subroutine ExportVTK_SchwarzDomain
+  end subroutine VTK_ExportSchwarzDomain_3D
 
   !=============================================================================
 
-end module Export_VTK_Schwarz_Domain__3D
+end module VTK__Export_Schwarz_Domain__3D

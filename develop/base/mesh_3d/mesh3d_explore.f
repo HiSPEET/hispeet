@@ -33,7 +33,7 @@ program Mesh3d_Explore
   use Element_Transfer_Buffer__3D
   use Verify_Mesh__3D
   use Assembly__3D
-  use Export_VTK_Mesh_SFC__3D
+  use VTK__Export_Mesh_SFC__3D
   implicit none
 
   character(len=*), parameter :: input_file = 'mesh3d_explore.prm'
@@ -166,7 +166,7 @@ program Mesh3d_Explore
   ! SFC export .................................................................
 
   if (export_sfc .and. mesh % has_sfc) then
-    call ExportVTK_MeshSFC(mesh, file = 'mesh3d_explore_sfc')
+    call VTK_ExportMeshSFC_3D(mesh, file = 'mesh3d_explore_sfc')
   end if
 
   ! interactive exploration ....................................................

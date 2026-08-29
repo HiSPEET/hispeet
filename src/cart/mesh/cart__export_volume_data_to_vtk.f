@@ -21,18 +21,15 @@
 !> summary:  Export mesh data into VTK XML file
 !> author:   Joerg Stiller
 !> date:     2014/11/27, revised 2016/12/02
-!>
-!>### Export mesh data into VTK XML file
 !===============================================================================
 
 module CART__Export_Volume_Data_To_VTK
   use Kind_Parameters, only: RNP
   use Constants,       only: HALF
   use Gauss_Jacobi,    only: LobattoPoints, LobattoPolynomial
-  use C_Binding
   use VTK_Binding
   use TPO__AAA__3D
-  use CART__Structured_Mesh  ! adapt vertex numbering when switching to Mesh_Structured_Indexing__3D
+  use CART__Structured_Mesh
   implicit none
   private
 
@@ -78,19 +75,16 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
 
   ! VTK data ...................................................................
 
-  integer(C_INT) :: vtk         ! writer handle
-  integer(C_INT) :: cell_type   ! cell type
-  integer(C_INT) :: success     ! success flag
+  integer(VTK_INT32) :: cell_type   ! cell type
 
-  integer(C_VTK_ID), allocatable :: cell(:,:)
-  real(C_DOUBLE),    allocatable :: xg(:,:)
-  real(C_DOUBLE),    allocatable :: sg(:,:)
-  real(C_DOUBLE),    allocatable :: vg(:,:,:)
+  integer(VTK_INT32), allocatable :: cell(:,:)
+  real(VTK_FLOAT64),  allocatable :: xg(:,:)
+  real(VTK_FLOAT64),  allocatable :: sg(:,:)
+  real(VTK_FLOAT64),  allocatable :: vg(:,:,:)
 
   ! auxiliary variables ........................................................
 
-  character(len=80) :: tag
-  integer :: interpolation_order, np, k
+  integer :: interpolation_order, np
   real(RNP), allocatable :: iop(:,:) ! interpolation operator
 
   ! initialization .............................................................
@@ -110,19 +104,6 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
     interpolation_order = 2
   end if
 
-  if (present(part)) then
-    write(tag, fmt='(A2,I0)') '_p', part
-  else
-    tag = ''
-  end if
-
-  ! set up VTK file ............................................................
-
-  call VTK_XMLWriter_New(vtk)
-  call VTK_XMLWriter_SetDataObjectType(vtk, VTK_UNSTRUCTURED_GRID)
-  call VTK_XMLWriter_SetDataModeType(vtk, VTK_APPENDED)
-  call VTK_XMLWriter_SetFileName(vtk, trim(file)//trim(tag)//'.vtu')
-
   ! grid points ................................................................
 
   np = ne * (interpolation_order*po + 1)**3
@@ -137,8 +118,6 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
     call BuildQuadraticPointCoords(iop, x, xg)
   end select
 
-  call VTK_XMLWriter_SetPoints(vtk, xg)
-
   ! grid cells .................................................................
 
   select case(interpolation_order)
@@ -149,8 +128,6 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
     cell_type = VTK_TRIQUADRATIC_HEXAHEDRON
     call BuildQuadraticCells(po, ne, cell)
   end select
-
-  call VTK_XMLWriter_SetCellsWithType(vtk, cell_type, cell)
 
   ! scalars ....................................................................
 
@@ -163,10 +140,6 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
     case(2)
       call BuildQuadraticScalarData(iop, s, sg)
     end select
-
-    do k = 1, ns
-      call VTK_XMLWriter_SetPointData(vtk, sname(k), sg(:,k), '')
-    end do
 
   end if
 
@@ -181,82 +154,18 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
     case(2)
       call BuildQuadraticVectorData(iop, v, vg)
     end select
-
-    do k = 1, nv
-      call VTK_XMLWriter_SetPointData(vtk, vname(k), vg(:,:,k), '')
-    end do
-
   end if
 
-  ! write ......................................................................
+  ! export .....................................................................
 
-  call VTK_XMLWriter_Write(vtk, success)
-  call VTK_XMLWriter_Delete(vtk)
-
-  ! PVTU file ..................................................................
-
-  if (present(part) .and. present(n_part)) then
-    if (part == 0) then
-      call Write_PVTU_File
-    end if
-  end if
-
-contains
-
-  !-----------------------------------------------------------------------------
-  !> Writes the PVTU file for a parallel multi-piece data set
-
-  subroutine Write_PVTU_File
-
-    integer :: pvtu
-
-    open(newunit=pvtu, file=trim(file)//'.pvtu')
-
-    ! header
-    write(pvtu,'(1A)') '<?xml version="1.0"?>'
-    write(pvtu,'(3A)') '<VTKFile type="PUnstructuredGrid" version="0.1" ', &
-                       'byte_order="LittleEndian" ',                       &
-                       'compressor="vtkZLibDataCompressor">'
-
-    write(pvtu,'(2X,A)') '<PUnstructuredGrid GhostLevel="0">'
-
-    ! start point data section
-    write(pvtu,'(4X,A)') '<PPointData>'
-
-    ! scalars
-    do k = 1, ns
-      write(pvtu,'(6X,4A)') '<PDataArray type="Float64" ', &
-                            'Name="', trim(sname(k)), '"/>'
-    end do
-
-    ! vectors
-    do k = 1, nv
-      write(pvtu,'(6X,5A)') '<PDataArray type="Float64" ', &
-                            'Name="', trim(vname(k)),'" ', &
-                            'NumberOfComponents="3"/>'
-    end do
-
-    ! close poit data section
-    write(pvtu,'(4X,A)') '</PPointData>'
-
-    ! points section
-    write(pvtu,'(4X,A)') '<PPoints>'
-    write(pvtu,'(6X,A)') '<PDataArray type="Float64" NumberOfComponents="3"/>'
-    write(pvtu,'(4X,A)') '</PPoints>'
-
-    ! piece sources
-    do k = 0, n_part-1
-      write(pvtu,'(4X,3A,I0,A)') '<Piece Source="',trim(file),'_p',k,'.vtu"/>'
-    end do
-
-    ! trailer
-    write(pvtu,'(2X,1A)') '</PUnstructuredGrid>'
-    write(pvtu,'(A)') '</VTKFile>'
-
-    ! close file
-    close(pvtu)
-
-  end subroutine Write_PVTU_File
+  call VTK_WriteXML_Unstructured( xg, cell, cell_type  &
+                                , ps       = sg        &
+                                , ps_names = sname     &
+                                , pv       = vg        &
+                                , pv_names = vname     &
+                                , file     = file      &
+                                , piece    = part      &
+                                , n_pieces = n_part    )
 
 end subroutine ExportVolumeDataToVTK
 
@@ -264,9 +173,9 @@ end subroutine ExportVolumeDataToVTK
 !> Maps element points to linear grid cells
 
 subroutine BuildLinearPointCoords(np, xc, xg)
-  integer,        intent(in)  :: np       !< number of mesh points
-  real(RNP),      intent(in)  :: xc(np,3) !< mesh element points
-  real(C_DOUBLE), intent(out) :: xg(3,np) !< VTK grid points
+  integer,           intent(in)  :: np       !< number of mesh points
+  real(RNP),         intent(in)  :: xc(np,3) !< mesh element points
+  real(VTK_FLOAT64), intent(out) :: xg(3,np) !< VTK points
 
   xg = transpose(xc)
 
@@ -278,13 +187,12 @@ end subroutine BuildLinearPointCoords
 subroutine BuildLinearCells(po, ne, cell)
   integer, intent(in) :: po  !< order of elements
   integer, intent(in) :: ne  !< number of elements
-  integer(C_VTK_ID), allocatable, intent(out) :: cell(:,:) !< grid cells
+  integer(VTK_INT32), allocatable, intent(out) :: cell(:,:) !< VTK cells
 
   integer :: c, i, j, k, l, n, o
 
-  allocate(cell(0:8, ne * po**3))
+  allocate(cell(8, ne * po**3))
 
-  cell(0,:) = 8    ! grid points per cell
   n = (po + 1)**3  ! grid points per element
   o = -1           ! offset of point IDs
   c =  1           ! cell counter
@@ -314,8 +222,8 @@ end subroutine BuildLinearCells
 !> Maps scalar element variables to linear grid cells
 
 subroutine BuildLinearScalarData(sc, sg)
-  real(RNP),      intent(in)  :: sc(:,:,:,:,:) !< scalars at collocation points
-  real(C_DOUBLE), intent(out) :: sg(:,:)       !< scalars at VTK grid points
+  real(RNP),         intent(in)  :: sc(:,:,:,:,:) !< SEM scalars
+  real(VTK_FLOAT64), intent(out) :: sg(:,:)       !< VTK scalars
 
   sg = reshape(sc, shape(sg))
 
@@ -325,10 +233,10 @@ end subroutine BuildLinearScalarData
 !> Maps vector element variables to linear grid cells
 
 subroutine BuildLinearVectorData(np, nv, vc, vg)
-  integer,        intent(in)  :: np          !< number of mesh points
-  integer,        intent(in)  :: nv          !< number of vectors
-  real(RNP),      intent(in)  :: vc(np,3,nv) !< vectors at collocation pts.
-  real(C_DOUBLE), intent(out) :: vg(3,np,nv) !< vectors at VTK grid points
+  integer,           intent(in)  :: np          !< number of mesh points
+  integer,           intent(in)  :: nv          !< number of vectors
+  real(RNP),         intent(in)  :: vc(np,3,nv) !< SEM vectors
+  real(VTK_FLOAT64), intent(out) :: vg(3,np,nv) !< VTK vectors
 
   integer :: i
 
@@ -369,9 +277,9 @@ end subroutine BuildInterpolationOperator
 !> Interpolates element points to quadratic grid cells
 
 subroutine BuildQuadraticPointCoords(iop, xc, xg)
-  real(RNP),      intent(in)  :: iop(:,:)      !< interpolation operator
-  real(RNP),      intent(in)  :: xc(:,:,:,:,:) !< mesh element points
-  real(C_DOUBLE), intent(out) :: xg(:,:)       !< VTK grid points
+  real(RNP),         intent(in)  :: iop(:,:)      !< interpolation operator
+  real(RNP),         intent(in)  :: xc(:,:,:,:,:) !< mesh element points
+  real(VTK_FLOAT64), intent(out) :: xg(:,:)       !< VTK grid points
 
   real(RNP), allocatable, save :: w(:,:,:,:)
   integer :: ne, ng, np
@@ -403,13 +311,12 @@ end subroutine BuildQuadraticPointCoords
 subroutine BuildQuadraticCells(po, ne, cell)
   integer, intent(in) :: po  !< order of elements
   integer, intent(in) :: ne  !< number of elements
-  integer(C_VTK_ID), allocatable, intent(out) :: cell(:,:) !< grid cells
+  integer(VTK_INT32), allocatable, intent(out) :: cell(:,:) !< grid cells
 
   integer ::  c, i, j, k, l, m, n, o
 
-  allocate(cell(0:27, ne * po**3))
+  allocate(cell(27, ne * po**3))
 
-  cell(0,:) = 27   ! grid points per cell
   m = 2*po         ! grid intervals within one element
   n = (m+1)**3     ! grid points per element
   o = -1           ! offset of point IDs
@@ -459,9 +366,9 @@ end subroutine BuildQuadraticCells
 !> Interpolates scalar element variables to quadratic grid cells
 
 subroutine BuildQuadraticScalarData(iop, sc, sg)
-  real(RNP),      intent(in)  :: iop(:,:)      !< interpolation operator
-  real(RNP),      intent(in)  :: sc(:,:,:,:,:) !< scalars at collocation points
-  real(C_DOUBLE), intent(out) :: sg(:,:)       !< scalars at VTK grid points
+  real(RNP),         intent(in)  :: iop(:,:)      !< interpolation operator
+  real(RNP),         intent(in)  :: sc(:,:,:,:,:) !< SEM scalars
+  real(VTK_FLOAT64), intent(out) :: sg(:,:)       !< VTK scalars
 
   real(RNP), allocatable, save :: w(:,:,:,:)
   integer :: ne, ng, np, ns
@@ -492,9 +399,9 @@ end subroutine BuildQuadraticScalarData
 !> Interpolates vector element variables to quadratic grid cells
 
 subroutine BuildQuadraticVectorData(iop, vc, vg)
-  real(RNP),      intent(in)  :: iop(:,:)        !< interpolation operator
-  real(RNP),      intent(in)  :: vc(:,:,:,:,:,:) !< vectors at collocation pts.
-  real(C_DOUBLE), intent(out) :: vg(:,:,:)       !< vectors at VTK grid points
+  real(RNP),         intent(in)  :: iop(:,:)        !< interpolation operator
+  real(RNP),         intent(in)  :: vc(:,:,:,:,:,:) !< SEM vectors
+  real(VTK_FLOAT64), intent(out) :: vg(:,:,:)       !< VTK vectors
 
   real(RNP), allocatable, save :: w(:,:,:,:)
   integer :: ne, ng, np, nv

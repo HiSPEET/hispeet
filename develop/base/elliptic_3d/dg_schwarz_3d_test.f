@@ -34,7 +34,7 @@ program DG_Schwarz_3D_Test
   use Spectral_Element_Mesh__3D
   use Boundary_Variable__3D
   use Element_Transfer_Buffer__3D
-  use Export_VTK_Volume_Data__3D
+  use VTK__Export_Mesh_Data__3D
 
   use DG__Elliptic_Operator__3D
   use DG__Schwarz_Operator__3D
@@ -392,13 +392,13 @@ program DG_Schwarz_3D_Test
 
   if (export_vtk .and. mesh%part >= 0) then
 
-    call ExportVTK_VolumeData( sem % metrics % x         &
-                             , s       = var             &
-                             , sname   = var_names       &
-                             , file    = trim(case_name) &
-                             , part    = mesh % part     &
-                             , n_parts = mesh % n_parts  &
-                             , subdiv  = subdiv_vtk      )
+    call VTK_ExportMeshData_3D( sem % metrics % x         &
+                              , s       = var             &
+                              , sname   = var_names       &
+                              , file    = trim(case_name) &
+                              , part    = mesh % part     &
+                              , n_parts = mesh % n_parts  &
+                              , subdiv  = subdiv_vtk      )
   end if
 
   !-----------------------------------------------------------------------------

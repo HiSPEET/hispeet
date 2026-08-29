@@ -9,4 +9,4 @@ setenv( "MPIRUN", MPI_HOME .. "/bin/mpirun"  )
 
 -- Metis and ParMETIS --
 
-setenv( "ParMETIS_ROOT", "/opt/parmetis/brew-gnu-15" )
+setenv( "ParMETIS_ROOT", "/opt/parmetis/brew-gnu-16" )
