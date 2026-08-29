@@ -1,7 +1,26 @@
+!------------------------------------------------------------------------------!
+! This file is part of HiSPEET: High-order Spectral Element Techniques         !
+!                                                                              !
+! Copyright (C) 2026 by the HiSPEET authors and the                            !
+! Chair of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany                 !
+!                                                                              !
+! HiSPEET is free software: you can redistribute it and/or modify              !
+! it under the terms of the GNU General Public License as published by         !
+! the Free Software Foundation, either version 3 of the License, or            !
+! (at your option) any later version.                                          !
+!                                                                              !
+! HiSPEET is distributed in the hope that it will be useful,                   !
+! but WITHOUT ANY WARRANTY; without even the implied warranty of               !
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                         !
+! See the GNU General Public License for more details.                         !
+!                                                                              !
+! You should have received a copy of the GNU General Public License            !
+! along with HiSPEET. If not, see <http://www.gnu.org/licenses/>.              !
+!------------------------------------------------------------------------------!
+
 !> summary:  Testprogram for the MLSDC Components
 !> author:   Joerg Stiller, Erik Pfister
 !> date:     2024/01/22
-!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
 program Test_Components_MLSDC
@@ -26,7 +45,7 @@ program Test_Components_MLSDC
   use CL__MLSDC__Variable__1D
   use CL__MLSDC__V_Cycle__1D
 
-  use Export_VTK_Spacetime_Data__1D
+  use VTK__Export_Spacetime_Data__1D
 
   implicit none
 
@@ -101,7 +120,7 @@ program Test_Components_MLSDC
   type(CL_MLSDC_Options_1D)  :: mlsdc_opt
 
   type(CL_MLSDC_Variable_1D)     :: u_h, u_x
-  real(RNP)                      :: t_0, t_1, dt
+  real(RNP)                      :: t_0, t_1
   real(RNP)                      :: err_max, r_max
   logical                        :: exists
   integer                        :: io, stat
@@ -235,14 +254,15 @@ program Test_Components_MLSDC
 
           allocate(t_ges(0:m_time_c, 1:n_time_c))
           call mlsdc % level(l-1) % GetTimeMesh(t_0, t_1, t_ges)
-          call Pack_SpacetimeData(u=u_hc, s=s, uname=['u_hc'], sname=sname)
-          call Pack_SpacetimeData(u=u_xc, s=s, uname=['u_xc'], sname=sname)
-          call Pack_SpacetimeData(u=u_hc-u_xc, s=s, uname=['error'], sname=sname)
+          call VTK_PackSpacetimeData_1D(u_hc,      s, ['u_hc'],  sname)
+          call VTK_PackSpacetimeData_1D(u_xc,      s, ['u_xc'],  sname)
+          call VTK_PackSpacetimeData_1D(u_hc-u_xc, s, ['error'], sname)
 
           write(filename, '(A,A,I0)') &
               trim(problem_name), '__fc_projection_to_level_',l-1
 
-          call ExportVTK_SpacetimeData( x     = mlsdc%level(l-1)%cl_operator%x &
+          call VTK_ExportSpacetimeData_1D &
+                                      ( x     = mlsdc%level(l-1)%cl_operator%x &
                                       , t     = t_ges                          &
                                       , s     = s                              &
                                       , sname = sname                          &
@@ -265,7 +285,7 @@ program Test_Components_MLSDC
     call GetExactSolution(mlsdc%level(1), t_0, t_1, u_h % level(1)%val)
 
     do l = 1, n_level-1
-      associate( u_xc     => u_x   % level(l  ) % val    &  
+      associate( u_xc     => u_x   % level(l  ) % val    &
                , u_hf     => u_h   % level(l+1) % val    &
                , u_xf     => u_x   % level(l+1) % val    &
                , m_time_f => mlsdc % level(l+1) % m_time &
@@ -280,14 +300,15 @@ program Test_Components_MLSDC
 
           allocate(t_ges(0:m_time_f, 1:n_time_f))
           call mlsdc % level(l+1) % GetTimeMesh(t_0, t_1, t_ges)
-          call Pack_SpacetimeData(u=u_hf, s=s, uname=['u_hf'], sname=sname)
-          call Pack_SpacetimeData(u=u_xf, s=s, uname=['u_xf'], sname=sname)
-          call Pack_SpacetimeData(u=u_hf-u_xf, s=s, uname=['error'], sname=sname)
+          call VTK_PackSpacetimeData_1D(u_hf,      s, ['u_hf'],  sname)
+          call VTK_PackSpacetimeData_1D(u_xf,      s, ['u_xf'],  sname)
+          call VTK_PackSpacetimeData_1D(u_hf-u_xf, s, ['error'], sname)
 
           write(filename, '(A,A,I0)') &
               trim(problem_name),'__cf_interpol_to_level_',l+1
 
-          call ExportVTK_SpacetimeData( x     = mlsdc%level(l+1)%cl_operator%x &
+          call VTK_ExportSpacetimeData_1D &
+                                      ( x     = mlsdc%level(l+1)%cl_operator%x &
                                       , t     = t_ges                          &
                                       , s     = s                              &
                                       , sname = sname                          &
@@ -323,10 +344,11 @@ program Test_Components_MLSDC
 
            allocate(t_ges(0:m_time, 1:n_time))
            call mlsdc % level(l) % GetTimeMesh(t_0, t_1, t_ges)
-           call Pack_SpacetimeData(u=r, s=s, uname=['r'], sname=sname)
+           call VTK_PackSpacetimeData_1D(r, s, ['r'], sname)
            write(filename,'(A,A,I0)') trim(problem_name),'__residual_level_',l
 
-           call ExportVTK_SpacetimeData( x     = mlsdc%level(l)%cl_operator%x &
+           call VTK_ExportSpacetimeData_1D &
+                                       ( x     = mlsdc%level(l)%cl_operator%x &
                                        , t     = t_ges                        &
                                        , s     = s                            &
                                        , sname = sname                        &
@@ -388,12 +410,13 @@ program Test_Components_MLSDC
 
            allocate(t_ges(0:m_time_c, 1:n_time_c))
            call mlsdc%level(l-1)%GetTimeMesh(t_0, t_1, t_ges)
-           call Pack_SpacetimeData(u=r_hc, s=s, uname=['r_h'], sname=sname)
+           call VTK_PackSpacetimeData_1D(r_hc, s, ['r_h'], sname)
 
            write(filename,'(A,A,I0)') &
                trim(problem_name),'__fc_restrict_to_level_',l-1
 
-           call ExportVTK_SpacetimeData( x     = mlsdc%level(l-1)%cl_operator%x &
+           call VTK_ExportSpacetimeData_1D &
+                                       ( x     = mlsdc%level(l-1)%cl_operator%x &
                                        , t     = t_ges                          &
                                        , s     = s                              &
                                        , sname = sname                          &
@@ -432,13 +455,14 @@ program Test_Components_MLSDC
 
            allocate(t_ges(0:m_time, 1:n_time))
            call mlsdc%level(l)%GetTimeMesh(t_0, t_1, t_ges)
-           call Pack_SpacetimeData(u=u_h, s=s, uname=['u_h'], sname=sname)
-           call Pack_SpacetimeData(u=u_x, s=s, uname=['u_x'], sname=sname)
-           call Pack_SpacetimeData(u=u_h-u_x, s=s, uname=['error'], sname=sname)
+           call VTK_PackSpacetimeData_1D(u_h,     s, ['u_h'],   sname)
+           call VTK_PackSpacetimeData_1D(u_x,     s, ['u_x'],   sname)
+           call VTK_PackSpacetimeData_1D(u_h-u_x, s, ['error'], sname)
 
            write(filename,'(A,A,I0)') trim(problem_name),'__predictor_level_',l
 
-           call ExportVTK_SpacetimeData( x     = mlsdc%level(l)%cl_operator%x &
+           call VTK_ExportSpacetimeData_1D &
+                                       ( x     = mlsdc%level(l)%cl_operator%x &
                                        , t     = t_ges                        &
                                        , s     = s                            &
                                        , sname = sname                        &
@@ -511,13 +535,14 @@ program Test_Components_MLSDC
 
            allocate(t_ges(0:m_time, 1:n_time))
            call mlsdc%level(l)%GetTimeMesh(t_0, t_1, t_ges)
-           call Pack_SpacetimeData(u=u_h, s=s, uname=['u_h'], sname=sname)
-           call Pack_SpacetimeData(u=u_x, s=s, uname=['u_x'], sname=sname)
-           call Pack_SpacetimeData(u=u_h-u_x, s=s, uname=['error'], sname=sname)
+           call VTK_PackSpacetimeData_1D(u_h,     s, ['u_h'],   sname)
+           call VTK_PackSpacetimeData_1D(u_x,     s, ['u_x'],   sname)
+           call VTK_PackSpacetimeData_1D(u_h-u_x, s, ['error'], sname)
 
            write(filename,'(A,A,I0)') trim(problem_name),'__corrector_level_',l
 
-           call ExportVTK_SpacetimeData( x     = mlsdc%level(l)%cl_operator%x &
+           call VTK_ExportSpacetimeData_1D &
+                                       ( x     = mlsdc%level(l)%cl_operator%x &
                                        , t     = t_ges                        &
                                        , s     = s                            &
                                        , sname = sname                        &
@@ -572,7 +597,7 @@ program Test_Components_MLSDC
       write(*,'(2X,A,I3,A,ES10.3)') 'v error on level ',l,': err_max =',err_max
     end do
 
-  end if 
+  end if
 
 contains
 

@@ -33,7 +33,7 @@ program ML_Mesh_Functionality
   use Generic_Mesh__3D
   use Mesh__3D
   use Verify_Mesh__3D
-  use Export_VTK_Mesh_SFC__3D
+  use VTK__Export_Mesh_SFC__3D
   use Child_To_Parent_Projection__3D
   use Child_To_Parent_Restriction__3D
   use Parent_To_Child_Interpolation__3D
@@ -409,7 +409,7 @@ program ML_Mesh_Functionality
       associate(mesh => ml_op % sem(l) % mesh)
         if (mesh % has_sfc) then
           write(tag,'(A,I0,A)') '_sfc_l', l
-          call ExportVTK_MeshSFC(mesh, file = trim(plot_file)//trim(tag))
+          call VTK_ExportMeshSFC_3D(mesh, file = trim(plot_file)//trim(tag))
         end if
       end associate
     end do

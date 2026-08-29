@@ -624,7 +624,7 @@ contains
     integer, intent(in) :: level !< current level
     integer, intent(in) :: stage !< 0/1/2: cascade/pre/post-smoothing
 
-    integer :: l, m, p, q
+    integer :: l, m
 
     select case(stage)
     case(0)

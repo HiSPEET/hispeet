@@ -32,8 +32,8 @@ program Mesh3d_Import_GMSH
   use Mesh__3D
   use Spectral_Element_Mesh__3D
   use Verify_Mesh__3D
-  use Export_VTK_Volume_Data__3D
-  use Export_VTK_Mesh_SFC__3D
+  use VTK__Export_Mesh_Data__3D
+  use VTK__Export_Mesh_SFC__3D
   implicit none
 
   character(len=80) :: file = '../gmsh_3d/pipe' ! mesh file base name (*.msh)
@@ -123,17 +123,16 @@ program Mesh3d_Import_GMSH
     write(*,'(/,2X,A)') 'exporting mesh to VTK ..'
   end if
 
-  call ExportVTK_VolumeData( sem%metrics%x            &
-                           , s       = var            &
-                           , sname   = var_name       &
-                           , file    = file           &
-                           , part    = mesh % part    &
-                           , n_parts = mesh % n_parts &
-                           , subdiv  = .false.        )
-
+  call VTK_ExportMeshData_3D( sem%metrics%x            &
+                            , s       = var            &
+                            , sname   = var_name       &
+                            , file    = file           &
+                            , part    = mesh % part    &
+                            , n_parts = mesh % n_parts &
+                            , subdiv  = .false.        )
 
   if (mesh % has_sfc) then
-    call ExportVTK_MeshSFC(mesh, file = trim(file)//'_sfc')
+    call VTK_ExportMeshSFC_3D(mesh, file = trim(file)//'_sfc')
   end if
 
   ! finalization ...............................................................

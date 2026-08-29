@@ -32,7 +32,7 @@ program Mesh3d_Test_Orientation
   use Mesh__3D
   use Mesh_Element__3D
   use Verify_Mesh__3D
-  use Export_VTK_Volume_Data__3D
+  use VTK__Export_Mesh_Data__3D
   implicit none
 
   character(len=*), parameter :: input_file = 'mesh3d_test_orientation.prm'
@@ -155,11 +155,11 @@ program Mesh3d_Test_Orientation
     ! export mesh and data .....................................................
 
     if (export_vtk) then
-      call ExportVTK_VolumeData( x, var                        &
-                               , sname   = ['xi1','xi2','xi3'] &
-                               , file    = 'element_mesh'      &
-                               , part    = mesh % part         &
-                               , n_parts = mesh % n_parts      )
+      call VTK_ExportMeshData_3D( x, var                        &
+                                , sname   = ['xi1','xi2','xi3'] &
+                                , file    = 'element_mesh'      &
+                                , part    = mesh % part         &
+                                , n_parts = mesh % n_parts      )
     end if
 
   end if

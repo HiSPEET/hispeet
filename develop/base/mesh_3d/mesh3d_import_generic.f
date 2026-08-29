@@ -33,8 +33,8 @@ program Mesh3d_Import_Generic
   use Element_Transfer_Buffer__3D
   use Verify_Mesh__3D
   use Assembly__3D
-  use Export_VTK_Volume_Data__3D
-  use Export_VTK_Mesh_SFC__3D
+  use VTK__Export_Mesh_Data__3D
+  use VTK__Export_Mesh_SFC__3D
   implicit none
 
   character(len=*), parameter :: input_file = 'mesh3d_import_generic.prm'
@@ -85,9 +85,6 @@ program Mesh3d_Import_Generic
   integer   :: io
   integer   :: i, j, k, l
   integer   :: i_err, j_err, k_err, l_err
-
-  type(Mesh_3D) :: new_mesh
-  integer :: n_proc
 
   call Init_MPI_Binding()
   call MPI_Comm_rank(comm, rank)
@@ -201,20 +198,20 @@ program Mesh3d_Import_Generic
     ! export mesh and data .....................................................
 
     if (export_vtk) then
-      call ExportVTK_VolumeData( x, var                   &
-                               , sname   = ['r','e']      &
-                               , file    = 'element_mesh' &
-                               , part    = mesh % part    &
-                               , n_parts = mesh % n_parts )
+      call VTK_ExportMeshData_3D( x, var                   &
+                                , sname   = ['r','e']      &
+                                , file    = 'element_mesh' &
+                                , part    = mesh % part    &
+                                , n_parts = mesh % n_parts )
 
       call mesh % GetCuboids(x)
-      call ExportVTK_VolumeData( x                        &
-                               , file    = 'cuboid_mesh'  &
-                               , part    = mesh % part    &
-                               , n_parts = mesh % n_parts )
+      call VTK_ExportMeshData_3D( x                        &
+                                , file    = 'cuboid_mesh'  &
+                                , part    = mesh % part    &
+                                , n_parts = mesh % n_parts )
 
      if (mesh % has_sfc) then
-       call ExportVTK_MeshSFC(mesh, file = 'sfc')
+       call VTK_ExportMeshSFC_3D(mesh, file = 'sfc')
      end if
 
     end if

@@ -36,8 +36,6 @@ program Validate__TPO__Grad__3D_D
   use Element_Transfer_Buffer__3D
   use Verify_Mesh__3D
   use Assembly__3D
-  use Export_VTK_Volume_Data__3D
-
 
   implicit none
 

@@ -40,7 +40,7 @@ program INS_Operator_3D_Test
   use Trace_Operators__3D
   use Spectral_Element_Mesh__3D
   use Boundary_Variable__3D
-  use Export_VTK_Volume_Data__3D
+  use VTK__Export_Mesh_Data__3D
   use DG__Elliptic_Operator__3D
   use DG__Schwarz_Operator__3D
 
@@ -442,12 +442,12 @@ program INS_Operator_3D_Test
   ! Write plot files
 
   if (export_vtk) then
-    call ExportVTK_VolumeData( x       = sem_u % metrics % x    &
-                             , s       = var                    &
-                             , sname   = var_name               &
-                             , file    = 'ins_operator_3d_test' &
-                             , part    = mesh % part            &
-                             , n_parts = mesh % n_parts         )
+    call VTK_ExportMeshData_3D( x       = sem_u % metrics % x    &
+                              , s       = var                    &
+                              , sname   = var_name               &
+                              , file    = 'ins_operator_3d_test' &
+                              , part    = mesh % part            &
+                              , n_parts = mesh % n_parts         )
   end if
 
   !-----------------------------------------------------------------------------

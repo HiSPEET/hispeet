@@ -23,7 +23,7 @@
 !> date:     2026/01/22
 !===============================================================================
 
-module Export_VTK_Mesh_SFC__3D
+module VTK__Export_Mesh_SFC__3D
   use Execution_Control
   use C_Binding
   use VTK_Binding
@@ -31,42 +31,39 @@ module Export_VTK_Mesh_SFC__3D
   implicit none
   private
 
-  public :: ExportVTK_MeshSFC
+  public :: VTK_ExportMeshSFC_3D
 
 contains
 
   !-----------------------------------------------------------------------------
   !> Export space filling curve through element centers to legacy VTK file.
 
-  subroutine ExportVTK_MeshSFC(mesh, file)
-    class(Mesh_3D),   intent(in) :: mesh !< local mesh partition
-    character(len=*), intent(in) :: file !< base name of VTK file
+  subroutine VTK_ExportMeshSFC_3D(mesh, file)
+    class(Mesh_3D),    intent(in) :: mesh    !< local mesh partition
+    character(len=*),  intent(in) :: file    !< base name of VTK file
 
     ! VTK data .................................................................
 
-    integer(C_INT) :: vtk     ! writer handle
-    integer(C_INT) :: success ! success flag
-
-    integer(C_VTK_ID), allocatable :: cell(:,:)
-    real(C_DOUBLE),    allocatable :: x(:,:)
-    integer(C_INT),    allocatable :: s(:,:)
+    integer(VTK_INT32) :: cell_type = VTK_POLY_LINE
+    integer(VTK_INT32), allocatable :: cells(:,:)
+    real(VTK_FLOAT64),  allocatable :: points(:,:)
+    integer(VTK_INT32), allocatable :: attrib(:,:)
 
     ! internal variables .......................................................
 
-    character(len=80) :: tag
-    integer, allocatable :: map(:)
-    integer :: e, k, ne, rk_min, rk_max, sfc_rank_0
-    integer :: pvtu
+    character(len=8), parameter :: attrib_names(2) = [ 'sfc_rank', 'elem_id ' ]
 
-    ! initialization ...........................................................
+    integer, allocatable :: map(:)
+    integer :: e, k, ne, ns, rk_min, rk_max, sfc_rank_0
+
+    ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
     if (mesh % part < 0 .or. .not. mesh % has_sfc) then
       return
-    else
-      write(tag, fmt='(A2,I0)') '_p', mesh % part
     end if
 
     ne = mesh % n_elem
+    ns = size(attrib_names)
 
     rk_min = minval(mesh % element % sfc_rank)
     rk_max = maxval(mesh % element % sfc_rank)
@@ -75,7 +72,7 @@ contains
         character(len = 80) :: msg
         write(msg,'(3(A,X,I0))') &
           'SFC fragmented: ne =', ne, ', rk_min/max =', rk_min, ',', rk_max
-        call Error('ExportVTK_MeshSFC', trim(msg), 'Export_VTK_Mesh_SFC__3D')
+        call Error('VTK_ExportMeshSFC_3D',trim(msg),'VTK__Export_Mesh_SFC__3D')
       end block
     end if
     sfc_rank_0 = 1 - rk_min
@@ -86,97 +83,46 @@ contains
       map(mesh%element(e)%sfc_rank + sfc_rank_0) = e
     end do
 
-    ! set up VTK file ..........................................................
-
-    call VTK_XMLWriter_New(vtk)
-    call VTK_XMLWriter_SetDataObjectType(vtk, VTK_UNSTRUCTURED_GRID)
-    call VTK_XMLWriter_SetDataModeType(vtk, VTK_APPENDED)
-    call VTK_XMLWriter_SetFileName(vtk, trim(file)//trim(tag)//'.vtu')
+    ! data :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
     ! points ...................................................................
 
-    allocate(x(3,ne))
+    allocate(points(3,ne))
 
     ! element midpoints points ordered according to their SFC rank
     do k = 1, ne
-      x(1:3,k) = mesh % element(map(k)) % geometry % x_c(0,1:3)
+      points(1:3,k) = mesh % element(map(k)) % geometry % x_c(0,1:3)
     end do
-
-    call VTK_XMLWriter_SetPoints(vtk, x)
 
     ! cells ....................................................................
 
-    allocate(cell(0:ne,1))
+    allocate(cells(ne,1))
 
-    ! number of polyline points
-    cell(0,1) = ne
-
-    ! point indices
     do k = 1, ne
-      cell(k,1) = k - 1
+      cells(k,1) = k - 1
     end do
-
-    call VTK_XMLWriter_SetCellsWithType(vtk, VTK_POLY_LINE, cell)
 
     ! scalars ..................................................................
 
-    allocate(s(ne,2))
+    allocate(attrib(ne,ns))
 
     ! point data
     do k = 1, ne
-      s(k,1) = k - sfc_rank_0  ! SFC rank
-      s(k,2) = map(k)          ! element ID
+      attrib(k,1) = k - sfc_rank_0  ! SFC rank
+      attrib(k,2) = map(k)          ! element ID
     end do
 
-    call VTK_XMLWriter_SetPointData(vtk, 'sfc_rank', s(:,1), '')
-    call VTK_XMLWriter_SetPointData(vtk, 'elem_id' , s(:,2), '')
+    ! Export :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-    ! write VTK file ...........................................................
+    call VTK_WriteXML_Unstructured( points, cells, cell_type  &
+                                  , pa       = attrib         &
+                                  , pa_names = attrib_names   &
+                                  , file     = file           &
+                                  , piece    = mesh % part    &
+                                  , n_pieces = mesh % n_parts )
 
-    call VTK_XMLWriter_Write(vtk, success)
-    call VTK_XMLWriter_Delete(vtk)
-
-    ! write PVTU file ..........................................................
-
-    if (mesh % part == 0) then
-
-      open(newunit=pvtu, file=trim(file)//'.pvtu')
-
-      ! header
-      write(pvtu,'(1A)') '<?xml version="1.0"?>'
-      write(pvtu,'(3A)') '<VTKFile type="PUnstructuredGrid" version="0.1" ', &
-                         'byte_order="LittleEndian" ',                       &
-                         'compressor="vtkZLibDataCompressor">'
-
-      write(pvtu,'(2X,A)') '<PUnstructuredGrid GhostLevel="0">'
-
-      ! point data section
-      write(pvtu,'(4X,A)')  '<PPointData>'
-      write(pvtu,'(6X,4A)') '<PDataArray type="Int32" ','Name="sfc_rank"/>'
-      write(pvtu,'(6X,4A)') '<PDataArray type="Int32" ','Name="elem_id"/>'
-      write(pvtu,'(4X,A)')  '</PPointData>'
-
-      ! points section
-      write(pvtu,'(4X,A)') '<PPoints>'
-      write(pvtu,'(6X,A)') '<PDataArray type="Float64" NumberOfComponents="3"/>'
-      write(pvtu,'(4X,A)') '</PPoints>'
-
-      ! piece sources
-      do k = 0, mesh%n_parts-1
-        write(pvtu,'(4X,3A,I0,A)') '<Piece Source="',trim(file),'_p',k,'.vtu"/>'
-      end do
-
-      ! trailer
-      write(pvtu,'(2X,1A)') '</PUnstructuredGrid>'
-      write(pvtu,'(A)') '</VTKFile>'
-
-      ! close file
-      close(pvtu)
-
-    end if
-
-  end subroutine ExportVTK_MeshSFC
+  end subroutine VTK_ExportMeshSFC_3D
 
   !=============================================================================
 
-end module Export_VTK_Mesh_SFC__3D
+end module VTK__Export_Mesh_SFC__3D

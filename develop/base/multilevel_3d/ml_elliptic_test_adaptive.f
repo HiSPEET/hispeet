@@ -51,7 +51,7 @@ program ML_Elliptic_Test_Adaptive
   use Mesh_Element__3D
   use Verify_Mesh__3D
   use Data_Exchange__3D
-  use Export_VTK_Mesh_SFC__3D
+  use VTK__Export_Mesh_SFC__3D
 
   use ML__Mesh__3D
   use ML__Mesh_Operators__3D
@@ -628,7 +628,7 @@ program ML_Elliptic_Test_Adaptive
           do l = 1, size(mesh)
             if (mesh(l) % has_sfc) then
               write(tag,'(A,I0,A)') '_sfc_l', l
-              call ExportVTK_MeshSFC(mesh(l), file = trim(case_name)//trim(tag))
+              call VTK_ExportMeshSFC_3D(mesh(l), file = trim(case_name)//trim(tag))
             end if
           end do
         end block
