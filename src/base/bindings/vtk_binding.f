@@ -31,11 +31,15 @@ module VTK_Binding
 
   public :: VTK_WriteXML_Unstructured
 
+  ! kind parameters
+  integer, parameter, public :: VTK_INT32   = C_INT32_T
+  integer, parameter, public :: VTK_FLOAT64 = C_DOUBLE
+
   ! supported cell types
-  integer(C_INT), public, parameter :: VTK_POLY_LINE               =  4
-  integer(C_INT), public, parameter :: VTK_QUAD                    =  9
-  integer(C_INT), public, parameter :: VTK_HEXAHEDRON              = 12
-  integer(C_INT), public, parameter :: VTK_TRIQUADRATIC_HEXAHEDRON = 29
+  integer(VTK_INT32), parameter, public :: VTK_POLY_LINE               =  4
+  integer(VTK_INT32), parameter, public :: VTK_QUAD                    =  9
+  integer(VTK_INT32), parameter, public :: VTK_HEXAHEDRON              = 12
+  integer(VTK_INT32), parameter, public :: VTK_TRIQUADRATIC_HEXAHEDRON = 29
 
 contains
 
@@ -53,18 +57,18 @@ contains
                                       , pv, pv_names             &
                                       , file, piece, n_pieces    )
 
-    real(C_DOUBLE),             intent(in) :: points(:,:) !< mesh points
-    integer(C_INT),             intent(in) :: cells(:,:)  !< mesh cells
-    integer(C_INT),             intent(in) :: cell_type   !< VTK cell type
-    integer(C_INT),   optional, intent(in) :: pa(:,:)     !< attributes
-    character(len=*), optional, intent(in) :: pa_names(:) !< attribute names
-    real(C_DOUBLE),   optional, intent(in) :: ps(:,:)     !< scalars
-    character(len=*), optional, intent(in) :: ps_names(:) !< scalar names
-    real(C_DOUBLE),   optional, intent(in) :: pv(:,:,:)   !< vectors
-    character(len=*), optional, intent(in) :: pv_names(:) !< vector names
-    character(len=*),           intent(in) :: file        !< VTK file base name
-    integer,          optional, intent(in) :: piece       !< piece (partition)
-    integer,          optional, intent(in) :: n_pieces    !< number of pieces
+    real(VTK_FLOAT64),            intent(in) :: points(:,:) !< mesh points
+    integer(VTK_INT32),           intent(in) :: cells(:,:)  !< mesh cells
+    integer(VTK_INT32),           intent(in) :: cell_type   !< VTK cell type
+    integer(VTK_INT32), optional, intent(in) :: pa(:,:)     !< attributes
+    character(len=*),   optional, intent(in) :: pa_names(:) !< attribute names
+    real(VTK_FLOAT64),  optional, intent(in) :: ps(:,:)     !< scalars
+    character(len=*),   optional, intent(in) :: ps_names(:) !< scalar names
+    real(VTK_FLOAT64),  optional, intent(in) :: pv(:,:,:)   !< vectors
+    character(len=*),   optional, intent(in) :: pv_names(:) !< vector names
+    character(len=*),             intent(in) :: file        !< VTK file name
+    integer,            optional, intent(in) :: piece       !< piece (partition)
+    integer,            optional, intent(in) :: n_pieces    !< number of pieces
 
     ! internal variables :::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -80,23 +84,23 @@ contains
     integer :: nps  ! number of point scalars
     integer :: npv  ! number of point vectors
 
-    integer(C_INT) :: bytes_cc  ! bytes for cell connectivity
-    integer(C_INT) :: bytes_co  ! bytes for cell offsets
-    integer(C_INT) :: bytes_ct  ! bytes for cell types
-    integer(C_INT) :: bytes_p   ! bytes for points
-    integer(C_INT) :: bytes_pa  ! bytes for point attributes
-    integer(C_INT) :: bytes_ps  ! bytes for point scalars
-    integer(C_INT) :: bytes_pv  ! bytes for point vectors
+    integer(VTK_INT32) :: bytes_cc  ! bytes for cell connectivity
+    integer(VTK_INT32) :: bytes_co  ! bytes for cell offsets
+    integer(VTK_INT32) :: bytes_ct  ! bytes for cell types
+    integer(VTK_INT32) :: bytes_p   ! bytes for points
+    integer(VTK_INT32) :: bytes_pa  ! bytes for point attributes
+    integer(VTK_INT32) :: bytes_ps  ! bytes for point scalars
+    integer(VTK_INT32) :: bytes_pv  ! bytes for point vectors
 
-    integer(C_INT) :: offset_cc ! offset of cell connectivity
-    integer(C_INT) :: offset_co ! offset of cell offsets
-    integer(C_INT) :: offset_ct ! offset of cell types
-    integer(C_INT) :: offset_p  ! offset of points
+    integer(VTK_INT32) :: offset_cc ! offset of cell connectivity
+    integer(VTK_INT32) :: offset_co ! offset of cell offsets
+    integer(VTK_INT32) :: offset_ct ! offset of cell types
+    integer(VTK_INT32) :: offset_p  ! offset of points
 
-    integer(C_INT), allocatable :: offsets_c (:) ! offsets of cells
-    integer(C_INT), allocatable :: offsets_pa(:) ! offsets of point attributes
-    integer(C_INT), allocatable :: offsets_ps(:) ! offsets of point scalars
-    integer(C_INT), allocatable :: offsets_pv(:) ! offsets of point vectors
+    integer(VTK_INT32), allocatable :: offsets_c (:) ! offsets of cells
+    integer(VTK_INT32), allocatable :: offsets_pa(:) ! offsets of point attributes
+    integer(VTK_INT32), allocatable :: offsets_ps(:) ! offsets of point scalars
+    integer(VTK_INT32), allocatable :: offsets_pv(:) ! offsets of point vectors
 
     integer :: k, o
 

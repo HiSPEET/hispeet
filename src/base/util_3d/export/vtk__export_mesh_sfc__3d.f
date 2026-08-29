@@ -44,10 +44,10 @@ contains
 
     ! VTK data .................................................................
 
-    integer(C_INT) :: cell_type = VTK_POLY_LINE
-    integer(C_INT), allocatable :: cells(:,:)
-    real(C_DOUBLE), allocatable :: points(:,:)
-    integer(C_INT), allocatable :: attrib(:,:)
+    integer(VTK_INT32) :: cell_type = VTK_POLY_LINE
+    integer(VTK_INT32), allocatable :: cells(:,:)
+    real(VTK_FLOAT64),  allocatable :: points(:,:)
+    integer(VTK_INT32), allocatable :: attrib(:,:)
 
     ! internal variables .......................................................
 

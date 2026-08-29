@@ -27,7 +27,6 @@ module VTK__Export_Mesh_Data__3D
   use Kind_Parameters, only: RNP
   use Constants,       only: HALF
   use Gauss_Jacobi,    only: LobattoPoints, LobattoPolynomial
-  use C_Binding
   use VTK_Binding
   use TPO__AAA__3D
   use Structured_Mesh_Indexing__3D
@@ -73,11 +72,11 @@ contains
 
     ! VTK data .................................................................
 
-    integer(C_INT) :: cell_type
-    integer(C_INT), allocatable :: cells(:,:)
-    real(C_DOUBLE), allocatable :: points(:,:)
-    real(C_DOUBLE), allocatable :: ps(:,:)
-    real(C_DOUBLE), allocatable :: pv(:,:,:)
+    integer(VTK_INT32) :: cell_type
+    integer(VTK_INT32), allocatable :: cells(:,:)
+    real(VTK_FLOAT64),  allocatable :: points(:,:)
+    real(VTK_FLOAT64),  allocatable :: ps(:,:)
+    real(VTK_FLOAT64),  allocatable :: pv(:,:,:)
 
     ! auxiliary variables ......................................................
 
@@ -198,12 +197,12 @@ contains
   !> Maps element points to linear grid cells
 
   subroutine BuildLinearPointCoords(ep, ne, nx, mask, xe, points)
-    integer,        intent(in)  :: ep       !< element points per direction
-    integer,        intent(in)  :: ne       !< num elements
-    integer,        intent(in)  :: nx       !< num exported elements
-    logical,        intent(in)  :: mask(ne) !< element mask
-    real(RNP),      intent(in)  :: xe(ep,ep,ep,ne,3) !< mesh points
-    real(C_DOUBLE), intent(out) :: points(3,ep,ep,ep,nx) !< VTK grid points
+    integer,   intent(in)  :: ep       !< element points per direction
+    integer,   intent(in)  :: ne       !< num elements
+    integer,   intent(in)  :: nx       !< num exported elements
+    logical,   intent(in)  :: mask(ne) !< element mask
+    real(RNP), intent(in)  :: xe(ep,ep,ep,ne,3) !< mesh points
+    real(VTK_FLOAT64), intent(out) :: points(3,ep,ep,ep,nx) !< VTK mesh points
 
     integer :: e, i, j, k, l
 
@@ -214,9 +213,9 @@ contains
         do k = 1, ep
         do j = 1, ep
         do i = 1, ep
-          points(1,i,j,k,l) = real(xe(i,j,k,e,1), C_DOUBLE)
-          points(2,i,j,k,l) = real(xe(i,j,k,e,2), C_DOUBLE)
-          points(3,i,j,k,l) = real(xe(i,j,k,e,3), C_DOUBLE)
+          points(1,i,j,k,l) = real(xe(i,j,k,e,1), VTK_FLOAT64)
+          points(2,i,j,k,l) = real(xe(i,j,k,e,2), VTK_FLOAT64)
+          points(3,i,j,k,l) = real(xe(i,j,k,e,3), VTK_FLOAT64)
         end do
         end do
         end do
@@ -231,7 +230,7 @@ contains
   subroutine BuildLinearCells(po, nx, cells)
     integer, intent(in) :: po  !< order of elements
     integer, intent(in) :: nx  !< number of exported elements
-    integer(C_INT), allocatable, intent(out) :: cells(:,:) !< grid cells
+    integer(VTK_INT32), allocatable, intent(out) :: cells(:,:) !< VTK cells
 
     integer :: c, i, j, k, l, n, o
 
@@ -266,13 +265,13 @@ contains
   !> Maps scalar element variables to linear grid cells
 
   subroutine BuildLinearScalarData(ep, ne, nx, ns, mask, se, ps)
-    integer,        intent(in)  :: ep       !< element points per direction
-    integer,        intent(in)  :: ne       !< num elements
-    integer,        intent(in)  :: nx       !< num exported elements
-    integer,        intent(in)  :: ns       !< num scalars
-    logical,        intent(in)  :: mask(ne) !< element mask
-    real(RNP),      intent(in)  :: se(ep,ep,ep,ne,ns) !< SEM scalars
-    real(C_DOUBLE), intent(out) :: ps(ep,ep,ep,nx,ns) !< VTK scalars
+    integer,   intent(in)  :: ep       !< element points per direction
+    integer,   intent(in)  :: ne       !< num elements
+    integer,   intent(in)  :: nx       !< num exported elements
+    integer,   intent(in)  :: ns       !< num scalars
+    logical,   intent(in)  :: mask(ne) !< element mask
+    real(RNP), intent(in)  :: se(ep,ep,ep,ne,ns) !< SEM scalars
+    real(VTK_FLOAT64), intent(out) :: ps(ep,ep,ep,nx,ns) !< VTK scalars
 
     integer :: e, i, j, k, l, n
 
@@ -284,7 +283,7 @@ contains
           do k = 1, ep
           do j = 1, ep
           do i = 1, ep
-            ps(i,j,k,l,n) = real(se(i,j,k,e,n), C_DOUBLE)
+            ps(i,j,k,l,n) = real(se(i,j,k,e,n), VTK_FLOAT64)
           end do
           end do
           end do
@@ -298,13 +297,13 @@ contains
   !> Maps vector element variables to linear grid cells
 
   subroutine BuildLinearVectorData(ep, ne, nx, nv, mask, ve, pv)
-    integer,        intent(in)  :: ep       !< element points per direction
-    integer,        intent(in)  :: ne       !< num elements
-    integer,        intent(in)  :: nx       !< num exported elements
-    integer,        intent(in)  :: nv       !< num vectors
-    logical,        intent(in)  :: mask(ne) !< element mask
-    real(RNP),      intent(in)  :: ve(ep,ep,ep,ne,3,nv) !< SEM vectors
-    real(C_DOUBLE), intent(out) :: pv(3,ep,ep,ep,nx,nv) !< VTK vectors
+    integer,   intent(in)  :: ep       !< element points per direction
+    integer,   intent(in)  :: ne       !< num elements
+    integer,   intent(in)  :: nx       !< num exported elements
+    integer,   intent(in)  :: nv       !< num vectors
+    logical,   intent(in)  :: mask(ne) !< element mask
+    real(RNP), intent(in)  :: ve(ep,ep,ep,ne,3,nv) !< SEM vectors
+    real(VTK_FLOAT64), intent(out) :: pv(3,ep,ep,ep,nx,nv) !< VTK vectors
 
     integer :: e, i, j, k, l, n
 
@@ -316,9 +315,9 @@ contains
           do k = 1, ep
           do j = 1, ep
           do i = 1, ep
-            pv(1,i,j,k,l,n) = real(ve(i,j,k,e,1,n), C_DOUBLE)
-            pv(2,i,j,k,l,n) = real(ve(i,j,k,e,2,n), C_DOUBLE)
-            pv(3,i,j,k,l,n) = real(ve(i,j,k,e,3,n), C_DOUBLE)
+            pv(1,i,j,k,l,n) = real(ve(i,j,k,e,1,n), VTK_FLOAT64)
+            pv(2,i,j,k,l,n) = real(ve(i,j,k,e,2,n), VTK_FLOAT64)
+            pv(3,i,j,k,l,n) = real(ve(i,j,k,e,3,n), VTK_FLOAT64)
           end do
           end do
           end do
@@ -359,14 +358,14 @@ contains
   !> Interpolates element points to quadratic grid cells
 
   subroutine BuildQuadraticPointCoords(ep, ni, ne, nx, mask, iop, xe, points)
-    integer,        intent(in)  :: ep         !< element points per direction
-    integer,        intent(in)  :: ni         !< interpolated points per direct.
-    integer,        intent(in)  :: ne         !< num elements
-    integer,        intent(in)  :: nx         !< number of exported elements
-    logical,        intent(in)  :: mask(ne)   !< element mask
-    real(RNP),      intent(in)  :: iop(ni,ep) !< interpolation operator
-    real(RNP),      intent(in)  :: xe(ep,ep,ep,ne,3) !< mesh points
-    real(C_DOUBLE), intent(out) :: points(3,ni,ni,ni,nx) !< VTK grid points
+    integer,   intent(in)  :: ep         !< element points per direction
+    integer,   intent(in)  :: ni         !< interpolated points per direction
+    integer,   intent(in)  :: ne         !< num elements
+    integer,   intent(in)  :: nx         !< number of exported elements
+    logical,   intent(in)  :: mask(ne)   !< element mask
+    real(RNP), intent(in)  :: iop(ni,ep) !< interpolation operator
+    real(RNP), intent(in)  :: xe(ep,ep,ep,ne,3) !< mesh points
+    real(VTK_FLOAT64), intent(out) :: points(3,ni,ni,ni,nx) !< VTK mesh points
 
     real(RNP), allocatable, save :: w(:,:,:,:)
     integer :: d, e, i, j, k, l
@@ -385,7 +384,7 @@ contains
           do k = 1, ni
           do j = 1, ni
           do i = 1, ni
-            points(d,i,j,k,l) = real(w(i,j,k,e), C_DOUBLE)
+            points(d,i,j,k,l) = real(w(i,j,k,e), VTK_FLOAT64)
           end do
           end do
           end do
@@ -405,18 +404,16 @@ contains
   subroutine BuildQuadraticCells(po, nx, cells)
     integer, intent(in) :: po  !< order of elements
     integer, intent(in) :: nx  !< number of exported elements
-    integer(C_INT), allocatable, intent(out) :: cells(:,:) !< grid cells
+    integer(VTK_INT32), allocatable, intent(out) :: cells(:,:) !< VTK cells
 
     integer ::  c, i, j, k, l, m, n, o
 
-!?!    allocate(cells(0:27, nx * po**3))
     allocate(cells(27, nx * po**3))
 
-!?!    cells(0,:) = 27  ! grid points per cell
-    m = 2*po         ! grid intervals within one element
-    n = (m+1)**3     ! grid points per element
-    o = -1           ! offset of point IDs
-    c =  1           ! cell counter
+    m = 2*po      ! grid intervals within one element
+    n = (m+1)**3  ! grid points per element
+    o = -1        ! offset of point IDs
+    c =  1        ! cell counter
 
     do l = 1, nx
       do k = 1, 2*po, 2
@@ -462,15 +459,15 @@ contains
   !> Interpolates scalar element variables to quadratic grid cells
 
   subroutine BuildQuadraticScalarData(ep, ni, ne, nx, ns, mask, iop, se, ps)
-    integer,        intent(in)  :: ep         !< element points per direction
-    integer,        intent(in)  :: ni         !< interpolated points per direct.
-    integer,        intent(in)  :: ne         !< num elements
-    integer,        intent(in)  :: nx         !< number of exported elements
-    integer,        intent(in)  :: ns         !< number of scalars
-    logical,        intent(in)  :: mask(ne)   !< element mask
-    real(RNP),      intent(in)  :: iop(ni,ep) !< interpolation operator
-    real(RNP),      intent(in)  :: se(ep,ep,ep,ne,ns) !< SEM scalars
-    real(C_DOUBLE), intent(out) :: ps(ni,ni,ni,nx,ns) !< VTK scalars
+    integer,  intent(in)  :: ep         !< element points per direction
+    integer,  intent(in)  :: ni         !< interpolated points per direction
+    integer,  intent(in)  :: ne         !< num elements
+    integer,  intent(in)  :: nx         !< number of exported elements
+    integer,  intent(in)  :: ns         !< number of scalars
+    logical,  intent(in)  :: mask(ne)   !< element mask
+    real(RNP),intent(in)  :: iop(ni,ep) !< interpolation operator
+    real(RNP),intent(in)  :: se(ep,ep,ep,ne,ns) !< SEM scalars
+    real(VTK_FLOAT64), intent(out) :: ps(ni,ni,ni,nx,ns) !< VTK scalars
 
     real(RNP), allocatable, save :: w(:,:,:,:)
     integer :: e, i, j, k, l, n
@@ -489,7 +486,7 @@ contains
           do k = 1, ni
           do j = 1, ni
           do i = 1, ni
-            ps(i,j,k,l,n) = real(w(i,j,k,e), C_DOUBLE)
+            ps(i,j,k,l,n) = real(w(i,j,k,e), VTK_FLOAT64)
           end do
           end do
           end do
@@ -507,15 +504,15 @@ contains
   !> Interpolates vector element variables to quadratic grid cells
 
   subroutine BuildQuadraticVectorData(ep, ni, ne, nx, nv, mask, iop, ve, pv)
-    integer,        intent(in)  :: ep         !< element points per direction
-    integer,        intent(in)  :: ni         !< interpolated points per direct.
-    integer,        intent(in)  :: ne         !< num elements
-    integer,        intent(in)  :: nx         !< number of exported elements
-    integer,        intent(in)  :: nv         !< number of vectors
-    logical,        intent(in)  :: mask(ne)   !< element mask
-    real(RNP),      intent(in)  :: iop(ni,ep) !< interpolation operator
-    real(RNP),      intent(in)  :: ve(ep,ep,ep,ne,3,nv) !< SEM scalars
-    real(C_DOUBLE), intent(out) :: pv(3,ni,ni,ni,nx,nv) !< VTK scalars
+    integer,   intent(in)  :: ep         !< element points per direction
+    integer,   intent(in)  :: ni         !< interpolated points per direction
+    integer,   intent(in)  :: ne         !< num elements
+    integer,   intent(in)  :: nx         !< number of exported elements
+    integer,   intent(in)  :: nv         !< number of vectors
+    logical,   intent(in)  :: mask(ne)   !< element mask
+    real(RNP), intent(in)  :: iop(ni,ep) !< interpolation operator
+    real(RNP), intent(in)  :: ve(ep,ep,ep,ne,3,nv) !< SEM scalars
+    real(VTK_FLOAT64), intent(out) :: pv(3,ni,ni,ni,nx,nv) !< VTK scalars
 
     real(RNP), allocatable, save :: w(:,:,:,:)
     integer :: d, e, i, j, k, l, n
@@ -535,7 +532,7 @@ contains
           do k = 1, ni
           do j = 1, ni
           do i = 1, ni
-            pv(d,i,j,k,l,n) = real(w(i,j,k,e), C_DOUBLE)
+            pv(d,i,j,k,l,n) = real(w(i,j,k,e), VTK_FLOAT64)
           end do
           end do
           end do

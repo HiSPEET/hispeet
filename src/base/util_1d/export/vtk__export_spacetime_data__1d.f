@@ -26,7 +26,6 @@
 module VTK__Export_Spacetime_Data__1D
   use Kind_Parameters, only: RNP
   use Execution_Control
-  use C_Binding
   use VTK_Binding
   use Structured_Mesh_Indexing__3D
   implicit none
@@ -123,11 +122,11 @@ contains
 
     ! VTK data .................................................................
 
-    integer(C_INT) :: cell_type = VTK_QUAD
+    integer(VTK_INT32) :: cell_type = VTK_QUAD
 
-    integer(C_INT), allocatable :: cells(:,:)
-    real(C_DOUBLE), allocatable :: points(:,:)
-    real(C_DOUBLE), allocatable :: scalars(:,:)
+    integer(VTK_INT32), allocatable :: cells(:,:)
+    real(VTK_FLOAT64),  allocatable :: points(:,:)
+    real(VTK_FLOAT64),  allocatable :: scalars(:,:)
 
     ! auxiliary variables ......................................................
 
@@ -174,29 +173,29 @@ contains
   !> Maps spacetime element points to linear grid cells
 
   subroutine BuildLinearSpacetimeCoords(np, po, ne, pt, nt, xc, tc, points)
-    integer,        intent(in)  :: np           !< number of VTK grid points
-    integer,        intent(in)  :: po           !< polynomial degree in space
-    integer,        intent(in)  :: ne           !< number of elements in space
-    integer,        intent(in)  :: pt           !< polynomial degree in time
-    integer,        intent(in)  :: nt           !< number of elements in time
-    real(RNP),      intent(in)  :: xc(0:po,ne)  !< space mesh element points
-    real(RNP),      intent(in)  :: tc(0:pt,nt)  !< time mesh element points
-    real(C_DOUBLE), intent(out) :: points(3,np) !< VTK grid points
+    integer,   intent(in)  :: np           !< number of VTK grid points
+    integer,   intent(in)  :: po           !< polynomial degree in space
+    integer,   intent(in)  :: ne           !< number of elements in space
+    integer,   intent(in)  :: pt           !< polynomial degree in time
+    integer,   intent(in)  :: nt           !< number of elements in time
+    real(RNP), intent(in)  :: xc(0:po,ne)  !< space mesh element points
+    real(RNP), intent(in)  :: tc(0:pt,nt)  !< time mesh element points
+    real(VTK_FLOAT64), intent(out) :: points(3,np) !< VTK mesh points
 
     integer :: i, j, k, l, idx
 
     idx = 1
     do l = 1, nt
-      do k = 0, pt
-        do j = 1, ne
-          do i = 0, po
-            points(1, idx) = xc(i, j)
-            points(2, idx) = tc(k, l)
-            points(3, idx) = 0
-            idx = idx + 1
-          end do
-        end do
+    do k = 0, pt
+      do j = 1, ne
+      do i = 0, po
+        points(1, idx) = xc(i, j)
+        points(2, idx) = tc(k, l)
+        points(3, idx) = 0
+        idx = idx + 1
       end do
+      end do
+    end do
     end do
 
   end subroutine BuildLinearSpacetimeCoords
@@ -209,7 +208,7 @@ contains
     integer, intent(in) :: pt !< order of temporal elements
     integer, intent(in) :: ne !< number of spatial elements
     integer, intent(in) :: nt !< number of temporal elements
-    integer(C_INT), allocatable, intent(out) :: cells(:,:) !< grid cells
+    integer(VTK_INT32), allocatable, intent(out) :: cells(:,:) !< grid cells
 
     integer :: c, o, i, j, l, m
     integer :: i0, j0, npe, npt
@@ -244,9 +243,9 @@ contains
   !> Maps scalar element variables to linear grid cells
 
   subroutine BuildLinearScalarData(np, ns, sc, scalars)
-      real(RNP),      intent(in)  :: sc(:,:,:,:,:)
-      real(C_DOUBLE), intent(out) :: scalars(:,:)
-      integer,        intent(in)  :: np, ns
+      real(RNP),         intent(in)  :: sc(:,:,:,:,:)
+      real(VTK_FLOAT64), intent(out) :: scalars(:,:)
+      integer,           intent(in)  :: np, ns
 
       scalars = reshape(sc, shape=[np, ns])
 
