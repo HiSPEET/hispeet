@@ -25,7 +25,6 @@
 
 module VTK__Export_Mesh_SFC__3D
   use Execution_Control
-  use C_Binding
   use VTK_Binding
   use Mesh__3D
   implicit none
