@@ -86,7 +86,6 @@ program Conservation_Law_ML
   ! auxiliary variables
   type(CL_MLSDC_Variable_1D) :: u_h, u_x
   real(RNP)                  :: t_0, t_1, t
-  !real(RNP), allocatable     :: err_2(:), err(:)
   real(RNP)                  :: err_2, err
   real(RNP)                  :: err_max, t_run, t_run_0
   logical                    :: exists
