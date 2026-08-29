@@ -27,7 +27,6 @@ module CART__Export_Volume_Data_To_VTK
   use Kind_Parameters, only: RNP
   use Constants,       only: HALF
   use Gauss_Jacobi,    only: LobattoPoints, LobattoPolynomial
-  use C_Binding
   use VTK_Binding
   use TPO__AAA__3D
   use CART__Structured_Mesh
@@ -76,12 +75,12 @@ subroutine ExportVolumeDataToVTK(po, ne, ns, nv, x, s, sname, v, vname, file, &
 
   ! VTK data ...................................................................
 
-  integer(C_INT) :: cell_type   ! cell type
+  integer(VTK_INT32) :: cell_type   ! cell type
 
-  integer(C_INT), allocatable :: cell(:,:)
-  real(C_DOUBLE), allocatable :: xg(:,:)
-  real(C_DOUBLE), allocatable :: sg(:,:)
-  real(C_DOUBLE), allocatable :: vg(:,:,:)
+  integer(VTK_INT32), allocatable :: cell(:,:)
+  real(VTK_FLOAT64),  allocatable :: xg(:,:)
+  real(VTK_FLOAT64),  allocatable :: sg(:,:)
+  real(VTK_FLOAT64),  allocatable :: vg(:,:,:)
 
   ! auxiliary variables ........................................................
 
@@ -174,9 +173,9 @@ end subroutine ExportVolumeDataToVTK
 !> Maps element points to linear grid cells
 
 subroutine BuildLinearPointCoords(np, xc, xg)
-  integer,        intent(in)  :: np       !< number of mesh points
-  real(RNP),      intent(in)  :: xc(np,3) !< mesh element points
-  real(C_DOUBLE), intent(out) :: xg(3,np) !< VTK grid points
+  integer,           intent(in)  :: np       !< number of mesh points
+  real(RNP),         intent(in)  :: xc(np,3) !< mesh element points
+  real(VTK_FLOAT64), intent(out) :: xg(3,np) !< VTK points
 
   xg = transpose(xc)
 
@@ -188,7 +187,7 @@ end subroutine BuildLinearPointCoords
 subroutine BuildLinearCells(po, ne, cell)
   integer, intent(in) :: po  !< order of elements
   integer, intent(in) :: ne  !< number of elements
-  integer(C_INT), allocatable, intent(out) :: cell(:,:) !< grid cells
+  integer(VTK_INT32), allocatable, intent(out) :: cell(:,:) !< VTK cells
 
   integer :: c, i, j, k, l, n, o
 
@@ -223,8 +222,8 @@ end subroutine BuildLinearCells
 !> Maps scalar element variables to linear grid cells
 
 subroutine BuildLinearScalarData(sc, sg)
-  real(RNP),      intent(in)  :: sc(:,:,:,:,:) !< scalars at collocation points
-  real(C_DOUBLE), intent(out) :: sg(:,:)       !< scalars at VTK grid points
+  real(RNP),         intent(in)  :: sc(:,:,:,:,:) !< SEM scalars
+  real(VTK_FLOAT64), intent(out) :: sg(:,:)       !< VTK scalars
 
   sg = reshape(sc, shape(sg))
 
@@ -234,10 +233,10 @@ end subroutine BuildLinearScalarData
 !> Maps vector element variables to linear grid cells
 
 subroutine BuildLinearVectorData(np, nv, vc, vg)
-  integer,        intent(in)  :: np          !< number of mesh points
-  integer,        intent(in)  :: nv          !< number of vectors
-  real(RNP),      intent(in)  :: vc(np,3,nv) !< vectors at collocation pts.
-  real(C_DOUBLE), intent(out) :: vg(3,np,nv) !< vectors at VTK grid points
+  integer,           intent(in)  :: np          !< number of mesh points
+  integer,           intent(in)  :: nv          !< number of vectors
+  real(RNP),         intent(in)  :: vc(np,3,nv) !< SEM vectors
+  real(VTK_FLOAT64), intent(out) :: vg(3,np,nv) !< VTK vectors
 
   integer :: i
 
@@ -278,9 +277,9 @@ end subroutine BuildInterpolationOperator
 !> Interpolates element points to quadratic grid cells
 
 subroutine BuildQuadraticPointCoords(iop, xc, xg)
-  real(RNP),      intent(in)  :: iop(:,:)      !< interpolation operator
-  real(RNP),      intent(in)  :: xc(:,:,:,:,:) !< mesh element points
-  real(C_DOUBLE), intent(out) :: xg(:,:)       !< VTK grid points
+  real(RNP),         intent(in)  :: iop(:,:)      !< interpolation operator
+  real(RNP),         intent(in)  :: xc(:,:,:,:,:) !< mesh element points
+  real(VTK_FLOAT64), intent(out) :: xg(:,:)       !< VTK grid points
 
   real(RNP), allocatable, save :: w(:,:,:,:)
   integer :: ne, ng, np
@@ -312,7 +311,7 @@ end subroutine BuildQuadraticPointCoords
 subroutine BuildQuadraticCells(po, ne, cell)
   integer, intent(in) :: po  !< order of elements
   integer, intent(in) :: ne  !< number of elements
-  integer(C_INT), allocatable, intent(out) :: cell(:,:) !< grid cells
+  integer(VTK_INT32), allocatable, intent(out) :: cell(:,:) !< grid cells
 
   integer ::  c, i, j, k, l, m, n, o
 
@@ -367,9 +366,9 @@ end subroutine BuildQuadraticCells
 !> Interpolates scalar element variables to quadratic grid cells
 
 subroutine BuildQuadraticScalarData(iop, sc, sg)
-  real(RNP),      intent(in)  :: iop(:,:)      !< interpolation operator
-  real(RNP),      intent(in)  :: sc(:,:,:,:,:) !< scalars at collocation points
-  real(C_DOUBLE), intent(out) :: sg(:,:)       !< scalars at VTK grid points
+  real(RNP),         intent(in)  :: iop(:,:)      !< interpolation operator
+  real(RNP),         intent(in)  :: sc(:,:,:,:,:) !< SEM scalars
+  real(VTK_FLOAT64), intent(out) :: sg(:,:)       !< VTK scalars
 
   real(RNP), allocatable, save :: w(:,:,:,:)
   integer :: ne, ng, np, ns
@@ -400,9 +399,9 @@ end subroutine BuildQuadraticScalarData
 !> Interpolates vector element variables to quadratic grid cells
 
 subroutine BuildQuadraticVectorData(iop, vc, vg)
-  real(RNP),      intent(in)  :: iop(:,:)        !< interpolation operator
-  real(RNP),      intent(in)  :: vc(:,:,:,:,:,:) !< vectors at collocation pts.
-  real(C_DOUBLE), intent(out) :: vg(:,:,:)       !< vectors at VTK grid points
+  real(RNP),         intent(in)  :: iop(:,:)        !< interpolation operator
+  real(RNP),         intent(in)  :: vc(:,:,:,:,:,:) !< SEM vectors
+  real(VTK_FLOAT64), intent(out) :: vg(:,:,:)       !< VTK vectors
 
   real(RNP), allocatable, save :: w(:,:,:,:)
   integer :: ne, ng, np, nv
