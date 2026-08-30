@@ -73,6 +73,7 @@ contains
     ! internal variables :::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
     character(len=*), parameter :: NL = new_line(' ')
+    character(len=:), allocatable :: rootname
     character(len=80) :: tag
 
     integer :: vtk  ! output unit
@@ -358,8 +359,10 @@ contains
         write(vtk,'(4X,A)') '</PPoints>'
 
         ! piece sources
+        rootname = trim(file(scan(file,'/\',back=.true.)+1:))
+
         do k = 0, n_pieces-1
-          write(vtk,'(4X,3A,I0,A)') '<Piece Source="',trim(file),'_p',k,'.vtu"/>'
+          write(vtk,'(4X,3A,I0,A)') '<Piece Source="',rootname,'_p',k,'.vtu"/>'
         end do
 
         ! trailer
