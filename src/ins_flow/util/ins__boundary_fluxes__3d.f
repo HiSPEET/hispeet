@@ -209,12 +209,12 @@ contains
       do b = 1, size(this % m)
         write(*,'(I4,2X)',advance='NO') b
         write(*,'(ES10.3,2X)',advance='NO') this % m(b)
-        write(*,'(ES10.3,2X)',advance='NO') this % f_p(b,1)
-        write(*,'(ES10.3,2X)',advance='NO') this % f_p(b,2)
-        write(*,'(ES10.3,2X)',advance='NO') this % f_p(b,3)
-        write(*,'(ES10.3,2X)',advance='NO') this % f_d(b,1)
-        write(*,'(ES10.3,2X)',advance='NO') this % f_d(b,2)
-        write(*,'(ES10.3,2X)'             ) this % f_d(b,3)
+        write(*,'(ES10.3,2X)',advance='NO') this % f_p(1,b)
+        write(*,'(ES10.3,2X)',advance='NO') this % f_p(2,b)
+        write(*,'(ES10.3,2X)',advance='NO') this % f_p(3,b)
+        write(*,'(ES10.3,2X)',advance='NO') this % f_d(1,b)
+        write(*,'(ES10.3,2X)',advance='NO') this % f_d(2,b)
+        write(*,'(ES10.3,2X)'             ) this % f_d(3,b)
       end do
 
     end if
