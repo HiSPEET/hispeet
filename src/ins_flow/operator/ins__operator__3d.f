@@ -49,6 +49,7 @@ module INS__Operator__3D
   use ML__DG__Elliptic_Solver__3D
 
   use INS__Problem__3D
+  use INS__SGS__Model__3D
 
   implicit none
   private
@@ -95,6 +96,8 @@ module INS__Operator__3D
     type(DG_EllipticOperator_3D) :: elliptic_p !< elliptic operator for p
     type(DG_SchwarzOperator_3D)  :: schwarz_u  !< Schwarz operators for u
     type(ML_DG_EllipticSolver_3D), pointer :: ml_solver_p ! ML pessure solver
+
+    type(INS_SGS_Model_3D) :: sgs_model !< subgrid-scale model
 
     ! iterative solver settings
     integer   :: i_max_p   !< max num p-iterations in projection solver
@@ -180,6 +183,7 @@ module INS__Operator__3D
 
     type(DG_SchwarzOptions_3D) :: schwarz_u !< Schwarz options for u-solver
     type(DG_SchwarzOptions_3D) :: schwarz_p !< Schwarz options for p-solver
+    type(INS_SGS_Options_3D)   :: sgs_model !< subgrid-scale model
 
   contains
     procedure :: Bcast => Bcast_INS_OperatorOptions_3D
@@ -608,6 +612,9 @@ contains
       this % ml_solver_p => null()
     end if
 
+    ! subgrid-scale model
+    this % sgs_model = INS_SGS_Model_3D(opt % sgs_model)
+
     ! iterative solver settings
     this % i_max_p = opt % i_max_p
     this % i_max_v = opt % i_max_v
@@ -631,7 +638,8 @@ contains
     ! problem dependent shear viscosity
     hvv = hvv .or. this % problem % HasVariableProperties()
 
-    ! TBD: variation due to SGS model
+    ! variation due to SGS model
+    hvv = hvv .or. this % sgs_model % model > 0
 
   end function HasVariableViscosity
 
@@ -938,6 +946,7 @@ contains
 
     call this % schwarz_p % Bcast(root, comm)
     call this % schwarz_u % Bcast(root, comm)
+    call this % sgs_model % Bcast(root, comm)
 
   end subroutine Bcast_INS_OperatorOptions_3D
 

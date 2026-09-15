@@ -3,6 +3,22 @@
 
 add_library(HiINSFlow
 
+            problem/ins__problem__3d.f
+            problem/ins__problem__channel__3d.f
+            problem/ins__problem__cylinder_2d__3d.f
+            problem/ins__problem__hagen_poiseuille__3d.f
+            problem/ins__problem__linear_cascade__3d.f
+            problem/ins__problem__no_flow__3d.f
+            problem/ins__problem__poiseuille__3d.f
+            problem/ins__problem__stokes_dkm__3d.f
+            problem/ins__problem__stokes_linke__3d.f
+            problem/ins__problem__transition_tg__3d.f
+            problem/ins__problem__vortex_tg__3d.f
+            problem/ins__problem__variable_viscosity__3d.f
+            problem/ins__problem__test_suite__3d.f
+
+            sgs_model/ins__sgs__model__3d.f
+
             operator/ins__operator__3d.f
             operator/ins__operator__3d__mp_applydiffusionoperator_c.f
             operator/ins__operator__3d__mp_applydiffusionoperator_v.f
@@ -23,20 +39,6 @@ add_library(HiINSFlow
             operator/ins__operator__3d__mp_pressuresolver.f
             operator/ins__operator__3d__mp_stokesfgmres.f
             operator/ins__operator__3d__mp_stokesprojection.f
-
-            problem/ins__problem__3d.f
-            problem/ins__problem__channel__3d.f
-            problem/ins__problem__cylinder_2d__3d.f
-            problem/ins__problem__hagen_poiseuille__3d.f
-            problem/ins__problem__linear_cascade__3d.f
-            problem/ins__problem__no_flow__3d.f
-            problem/ins__problem__poiseuille__3d.f
-            problem/ins__problem__stokes_dkm__3d.f
-            problem/ins__problem__stokes_linke__3d.f
-            problem/ins__problem__transition_tg__3d.f
-            problem/ins__problem__vortex_tg__3d.f
-            problem/ins__problem__variable_viscosity__3d.f
-            problem/ins__problem__test_suite__3d.f
 
             integrator/ins__integrator__3d.f
             integrator/ins__integrator__bdf__prepstep__3d.f

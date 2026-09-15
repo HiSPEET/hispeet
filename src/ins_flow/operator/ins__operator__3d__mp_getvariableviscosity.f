@@ -48,9 +48,12 @@ contains
         call SetArray(nu, this % nu_0)
       end if
 
-      ! subgrid scale viscosity ................................................
+      ! subgrid scale viscosity - using mu as workspace ........................
 
-      ! TBD
+      if (this % sgs_model % model > 0) then
+        call this % sgs_model % Get_SGS_Viscosity(this % sem_u, u, mu)
+        call MergeArrays(ONE, nu, ONE, mu)
+      end if
 
       ! artificial bulk viscosity ..............................................
 
