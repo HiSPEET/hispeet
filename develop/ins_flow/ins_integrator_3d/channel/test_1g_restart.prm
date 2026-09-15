@@ -6,19 +6,20 @@
 
 &control_prm
 
-! log_level                 = 1  ! activate/increase
-! log_level_inner_iteration = 1  ! for higher
-! log_level_outer_iteration = 1  ! verbosity
+! log_level                 =  1  ! activate/increase
+! log_level_inner_iteration =  1  ! for higher
+! log_level_outer_iteration =  1  ! verbosity
 
-  problem_file = 'channel'
-  flow_problem = 'Channel'
-  flow_domain  = 1
+  problem_file =  'channel'
+  flow_problem =  'Channel'
+  flow_domain  =  1
 
-! vtk_export   = T  ! set T for generating plot files
-! char_freq    = 0  ! set frequency of control output
+  eval_diss    =  T
+! vtk_export   =  T  ! set T for generating plot files
+  char_freq    = 10  ! set frequency of control output
 
   restart_tag_in  = 'run1'
-  restart_tag_out = 'run1'
+  restart_tag_out = 'run2'
 /
 
 !-------------------------------------------------------------------------------
@@ -30,19 +31,16 @@
   po_p = 7
 
   ins_op_opt%dealiasing = T
-  ins_op_opt%mu_0       = 100
+  ins_op_opt%c_mu       = 1
+  ins_op_opt%penalty_u  = 10
 
-! segregated projection-diffusion solver - cheaper, less robust
   ins_op_opt%i_max_p  = 50000
-  ins_op_opt%i_max_v  = 5
+  ins_op_opt%i_max_v  = 50
 
-! coupled projection-diffusion solver - more expensive, more robust
-! ins_op_opt%i_max_p  = 50000  ! increase: better robustness, more cost
-! ins_op_opt%i_max_v  = 5      ! increase: smaller divergence, more cost
-! ins_op_opt%k_max    = 3      ! num Krylov iterations
-! ins_op_opt%k_pre_p  = 10     ! num MG cycles for pressure preconditioning
-! ins_op_opt%k_pre_v  = 5      ! num iterations for diffusion preconditioning
-
+  ins_op_opt%sgs_model%model    = 2      ! [0]
+! ins_op_opt%sgs_model%smooth   = 0      ! [2]
+! ins_op_opt%sgs_model%dynamic  = F      ! [T]
+! ins_op_opt%sgs_model%c_static = 1.35   ! [1.35]
 /
 
 !-------------------------------------------------------------------------------
@@ -51,11 +49,8 @@
 &temporal_prm
 
   t_end  = 0.25
-  dt     = 2e-4
-  nt_max = 100
-  smooth_initial_data = T
-! smooth_filter = 3  ! 1/2/3: cut-off/erfc-log/exponential
-! smooth_order  = 0  ! filter order (0: auto)
+  dt     = 1e-4
+  nt_max = 900
 
   time_method = 2  ! 1/2/3: Euler/BDF/Runge-Kutta
 /
@@ -65,9 +60,9 @@
 
 &cuboid_cartesian_prm
   xo    =  3*0.0
-  lx(1) =  12.56637061435917295376d+0  ! 4π
-  lx(2) =  6.28318530717958647688d+0   ! 2π
-  lx(3) =  2.0
+  lx(1) =  6.28318530717958647688d+0   ! 2πδ
+  lx(2) =  3.14159265358979323844d+0   ! πδ
+  lx(3) =  2.0                         ! 2δ
 
   np =  1,1,1  ! num partitions per direction             ! small mesh for
   ep =  8,8,8  ! num elements per direction and partition ! for playing around

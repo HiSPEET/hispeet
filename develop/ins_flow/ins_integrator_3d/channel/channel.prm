@@ -1,4 +1,4 @@
 &parameters
-! re_t  = 590  ! friction Reynolds number, e.g. 180, 390, 590  [180]
-  alpha = 0.1
+! re_t  = 395  ! friction Reynolds number, e.g. 180, 395, 590  [395]
+! alpha = 1.0  ! alpha
 /

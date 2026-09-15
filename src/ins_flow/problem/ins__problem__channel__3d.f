@@ -93,11 +93,11 @@ contains
     ! local variables ..........................................................
 
     ! problem parameters according to Kim et al. (1987)
-    real(RNP) :: re_t  = 180  ! friction Reynolds number, Re_τ = u_τ δ / ν
+    real(RNP) :: re_t  = 395  ! friction Reynolds number, Re_τ = u_τ δ / ν
     real(RNP) :: alpha = 1    ! max relative perturbation of velocity components
-    real(RNP) :: l     = 4*PI ! channel length
+    real(RNP) :: l     = 2*PI ! channel length
     real(RNP) :: h     = 2    ! channel height, h = 2δ
-    real(RNP) :: w     = 2*PI ! channel width
+    real(RNP) :: w     = PI   ! channel width
     character, allocatable :: bc_v(:)
 
     namelist /parameters/ re_t, alpha, l, h, w
