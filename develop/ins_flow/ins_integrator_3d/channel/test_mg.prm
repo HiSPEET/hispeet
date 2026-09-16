@@ -1,0 +1,86 @@
+!-------------------------------------------------------------------------------
+! Control
+
+&control_prm
+
+! log_level                 = 1  ! activate/increase
+! log_level_inner_iteration = 1  ! for
+! log_level_outer_iteration = 1  ! higher
+! log_level_multigrid_cycle = 1  ! verbosity
+
+  problem_file = 'channel'
+  flow_problem = 'Channel'
+  flow_domain  = 1
+
+  eval_diss    =  T  ! set T for evaluating dissipation
+! vtk_export   =  T  ! set T for generating plot files
+  char_freq    = 10  ! set frequency of control output
+
+! restart_tag_in  = 'run1' ! activate to read restart data
+! restart_tag_out = 'run1' ! activate to write restart data
+/
+
+!-------------------------------------------------------------------------------
+! Spatial
+
+&spatial_prm
+
+  po_u = 12             ! polynomial degree of velocity
+  po_p = 2 4 7 11 11 11 ! polynomial degrees of pressure in multigrid hierarchy
+
+  ins_op_opt%pressure_solver = 'MGCG' ! select MG-CG solver for pressure
+  ins_op_opt%dealiasing = T           ! set T for consistent integration
+
+  ins_op_opt%c_mu       =  1  ! increase: smaller divergence, more iterations
+  ins_op_opt%penalty_u  = 10  ! increase: smaller jumps, higher stiffness  [5]
+  ins_op_opt%i_max_p    = 10  ! increase: better robustness, more cost
+  ins_op_opt%i_max_v    = 50  ! increase: smaller divergence, more cost
+
+  ml_solver_p_opt%i_crs = 1000
+  ml_solver_p_opt%r_red = 1e-08
+  ml_solver_p_opt%r_max = 1e-12
+
+  ins_op_opt%sgs_model%model    = 2     ! 0/1/2 none/Smagorinsky/sigma ! [0]
+! ins_op_opt%sgs_model%dynamic  = F     ! set F for static model       ! [T]
+! ins_op_opt%sgs_model%c_static = 1.35  ! static model constant        ! [1.35]
+/
+
+&ml_mesh_options_3d__static
+  l_top =  6  ! initial top level
+  l_max =  6  ! maximum top level
+/
+
+&ml_mesh_options_3d__dynamic
+  refinement = 3*'c', 2*'s' ! (1:l_max-1)  refinement type {'c','s'}
+  n_parts    = 8 8 8 8 8 64
+/
+
+!-------------------------------------------------------------------------------
+! Temporal
+
+&temporal_prm
+
+  t_end  = 0.25
+  dt     = 2e-5
+  nt_max = 5000
+  smooth_initial_data = T
+
+  time_method = 2  ! 1/2/3: Euler/BDF/Runge-Kutta
+/
+
+!-------------------------------------------------------------------------------
+! Domains
+
+&cuboid_cartesian_prm
+  xo = 3*0.0
+
+  ! domain extensions for Re_τ = 395         ! Δxᵢ⁺ =  Δξ/2 lᵢ/neᵢ Re_τ
+  lx(1) = 6.28318530717958647688d+0   ! 2πδ  ! Δx₁⁺ =  7.2 ... 38.7
+  lx(2) = 3.14159265358979323844d+0   ! πδ   ! Δx₂⁺ =  3.6 ... 19.3
+  lx(3) = 2.0                         ! 2δ   ! Δx₃⁺ =  2.3 ... 12.3
+
+  np = 1,1,1  ! num partitions per direction
+  ep = 2,2,2  ! num elements per direction and partition
+
+  periodic = T,T,F
+/

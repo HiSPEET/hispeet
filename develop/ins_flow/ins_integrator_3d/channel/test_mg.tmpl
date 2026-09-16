@@ -1,3 +1,6 @@
+!===============================================================================
+! Template based on test_mg.prm
+
 !-------------------------------------------------------------------------------
 ! Control
 
@@ -15,9 +18,10 @@
   eval_diss    =  T  ! set T for evaluating dissipation
 ! vtk_export   =  T  ! set T for generating plot files
   char_freq    = 10  ! set frequency of control output
+  avg_rate     = <avg_rate>
 
-! restart_tag_in  = 'run1' ! activate to read restart data
-! restart_tag_out = 'run1' ! activate to write restart data
+  restart_tag_in  = '<restart_tag_in>'
+  restart_tag_out = '<restart_tag_out>'
 /
 
 !-------------------------------------------------------------------------------
@@ -33,10 +37,10 @@
 
   ! the following parameters needs further consideration
 
-  ins_op_opt%c_mu       =  1  ! increase: smaller divergence, more iterations
-  ins_op_opt%penalty_u  = 10  ! increase: smaller jumps, higher stiffness  [5]
-  ins_op_opt%i_max_p    = 10  ! increase: better robustness, more cost
-  ins_op_opt%i_max_v    = 50  ! increase: smaller divergence, more cost
+  ins_op_opt%c_mu       =  1
+  ins_op_opt%penalty_u  = 10
+  ins_op_opt%i_max_p    = 10
+  ins_op_opt%i_max_v    = <i_max_v>
 
   ml_solver_p_opt%i_crs = 1000
   ml_solver_p_opt%r_red = 1e-08
@@ -62,12 +66,12 @@
 
 &temporal_prm
 
-  t_end  = 0.25
-  dt     = 2e-5
-  nt_max = 1!5000
+  t_end  = 10
+  dt     = <dt>
+  nt_max = <nt_max>
   smooth_initial_data = T
 
-  time_method = 2  ! 1/2/3: Euler/BDF/Runge-Kutta
+  time_method = 2  ! 1/2/3: Euler/BDF2/Runge-Kutta
 /
 
 !-------------------------------------------------------------------------------
