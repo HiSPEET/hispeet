@@ -40,11 +40,19 @@ module INS__SGS__Model__3D
 
   !-----------------------------------------------------------------------------
   !> SGS options
+  !>
+  !> The smoothing of SGS viscosity is controlled by the value of the `smooth`
+  !> component:
+  !>
+  !>   - `-1`: no smoothing
+  !>   - ` 0`: remove jumps
+  !>   - ` 1`: remove jumps and then cut degrees p > 1
+  !>   - ` r`: remove jumps and then cut degrees p > ⎡P/r⎤
 
   type INS_SGS_Options_3D
     integer   :: model     = 0      !< SGS model, 0/1/2: none/Smagorinsky/Sigma
     integer   :: length    = 1      !< element length scale, 1/2/3: mean/max/min
-    integer   :: smooth    = 2      !< smoothing, -1/0/1/2: none/avg/linear/half
+    integer   :: smooth    = 2      !< smoothing, -1/0/1/r: see above
     logical   :: dynamic   = .true. !< switch to dynamic model
     real(RNP) :: c_static  = 1.35   !< coefficient of static model
   contains
@@ -227,9 +235,9 @@ contains
         case(1)
           filter = 1
           order  = 1
-        case(2)
+        case(2:)
           filter = 1
-          order  = ceiling(HALF * eop%po)
+          order  = ceiling(eop%po / real(this%smooth, RNP))
         end select
 
         if (this % smooth >= 0) then
