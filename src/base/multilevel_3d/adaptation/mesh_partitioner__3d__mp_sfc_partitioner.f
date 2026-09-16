@@ -176,18 +176,20 @@ contains
 
       ! number of parts, avoiding empty partitions
       if (.not. opt%child) then
-        n_parts = min(opt%n_parts, nn)
+        n_parts = min( opt%n_parts, nn )
       else if (mesh%refinement == 'c') then
-        n_parts = min(opt%n_parts, nn, wgt_sum/(c_active + c_frozen))
+        n_parts = min( opt%n_parts, nn &
+                     , nint(real(wgt_sum,RNP) / (c_active + c_frozen)) )
       else
-        n_parts = min(opt%n_parts, nn, wgt_sum/(8*(c_active + c_frozen)))
+        n_parts = min( opt%n_parts, nn &
+                     , nint(real(wgt_sum,RNP) / (8 * (c_active + c_frozen))) )
       end if
 
       ! distribution of accumulated weights
       allocate(wgt_dist(0:n_parts-1))
       wgt_avg = wgt_sum / real(n_parts,RNP)
       do p = 0, n_parts-2
-        wgt_dist(p) = floor(wgt_avg * (p+1))
+        wgt_dist(p) = nint(wgt_avg * (p+1))
       end do
       wgt_dist(n_parts-1) = wgt_sum
 
