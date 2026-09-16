@@ -62,7 +62,7 @@ program OperatorSpectrum
 
   ! max |Λ|
 
-  print '(/,A)', 'po, max|Λ(L)|, max|Λ(A)|'
+  print '(/,A)', 'po, min(Δξ), max(Δξ), max|Λ(L)|, max|Λ(A)|'
   do po = 2, 32
     nd = po - 1
     nc = po
@@ -73,9 +73,11 @@ program OperatorSpectrum
       A(i,:) = eop % D(i,1:)
     end do
     call SolveNonsymmetricEigenproblem(A, Lambda_A)
-    print '(I5,3(3X,ES21.14))', &
-        po,                     &
-        maxval(abs(Lambda_L)),  &
+    print '(I5,2(3X,ES12.5),2(3X,ES21.14))', &
+        po,                                  &
+        eop%x(1) - eop%x(0),                 &
+        maxval(eop%x(1:) - eop%x(0:po-1)),   &
+        maxval(abs(Lambda_L)),               &
         maxval(abs(Lambda_A))
     deallocate(eop, A, S, Lambda_L, Lambda_A)
   end do
