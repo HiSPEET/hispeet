@@ -112,6 +112,8 @@ contains
 
     ! initialization ...........................................................
 
+    if (mesh % part < 0) return
+
     po = ubound(u,1)
 
     !$omp master
