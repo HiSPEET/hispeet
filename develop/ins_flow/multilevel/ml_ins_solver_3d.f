@@ -555,7 +555,7 @@ program ML_INS_Solver_3D
 
   ! temporal operators .........................................................
 
-  ml_bdf = ML_INS_Integrator_BDF_3D(problem, ml_ins, ml_bdf_opt)
+  ml_bdf = ML_INS_Integrator_BDF_3D(ml_ins, ml_bdf_opt)
 
   !-----------------------------------------------------------------------------
   ! Print info

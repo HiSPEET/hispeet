@@ -30,7 +30,6 @@ module ML__INS__Integrator__BDF__3D
   use XMPI
   use Array_Assignments
   use Boundary_Variable__3D
-  use INS__Problem__3D
   use INS__Integrator__BDF__PrepStep__3D
   use Parent_To_Child_Interpolation__3D
   use ML__Mesh_Variable__3D
@@ -79,27 +78,25 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor for objects of type ML_INS_Integrator_BDF_3D
 
-  function New_ML_INS_Integrator_BDF_3D(problem, ml_ins, opt) result(this)
-    class(INS_Problem_3D),                   intent(in) :: problem
+  function New_ML_INS_Integrator_BDF_3D(ml_ins, opt) result(this)
     class(ML_INS_Operator_3D),               intent(in) :: ml_ins
     class(ML_INS_Integrator_BDF_Options_3D), intent(in) :: opt
     type(ML_INS_Integrator_BDF_3D) :: this
 
-    call Init_ML_INS_Integrator_BDF_3D(this, problem, ml_ins, opt)
+    call Init_ML_INS_Integrator_BDF_3D(this, ml_ins, opt)
 
   end function New_ML_INS_Integrator_BDF_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of a ML_INS_Integrator_BDF_3D object
 
-  subroutine Init_ML_INS_Integrator_BDF_3D(this, problem, ml_ins, opt)
+  subroutine Init_ML_INS_Integrator_BDF_3D(this, ml_ins, opt)
     class(ML_INS_Integrator_BDF_3D),      intent(inout) :: this
-    class(INS_Problem_3D),           target, intent(in) :: problem
     class(ML_INS_Operator_3D),       target, intent(in) :: ml_ins
     class(ML_INS_Integrator_BDF_Options_3D), intent(in) :: opt
 
     ! intialize parent type
-    call this % Init_ML_INS_Integrator_3D(problem, ml_ins, opt)
+    call this % Init_ML_INS_Integrator_3D(ml_ins, opt)
 
     this % coupled = opt % coupled
     this % n_fmg   = opt % n_fmg
