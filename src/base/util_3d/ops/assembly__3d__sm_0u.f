@@ -50,6 +50,8 @@ contains
 
     ! initialization ...........................................................
 
+    if (mesh % part < 0) return
+
     !$omp master
     ni = size(u,1) - 2
     allocate(m_face(mesh%n_face), source = -1)
@@ -76,7 +78,9 @@ contains
 
     ! extract contributions data of ghost elements .............................
 
-    call ExtractTraces(mesh % ghost, u, u_face, u_edge, u_vert)
+    if (mesh % n_ghost > 0) then
+      call ExtractTraces(mesh % ghost, u, u_face, u_edge, u_vert)
+    end if
 
     ! add and, optionally, average contributions ...............................
 
