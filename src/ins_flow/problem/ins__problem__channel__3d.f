@@ -212,8 +212,8 @@ contains
     real(RNP), intent(in)  :: t              !< time
     real(RNP), intent(out) :: F_s(:,:,:,:,:) !< external sources
 
-    ! f₁ = (u_τ)² / δ
-    call SetArray(F_s(:,:,:,:,1 ), ONE / problem % delta ** 3)
+    ! f₁ = ϱ(u_τ)² / δ
+    call SetArray(F_s(:,:,:,:,1 ), ONE / problem % delta)
     call SetArray(F_s(:,:,:,:,2:), ZERO, multi=.true.)
 
     ! silence the compiler ;)
