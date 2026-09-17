@@ -36,8 +36,8 @@ AVG_RATE=${AVG_RATE:-"0"}
 # max number of iterations in diffusion solver
 I_MAX_V=${I_MAX_V:-"50"}
 
-# step size
-DT=${DT:-"2e-5"}
+# step size, may be increased in sucessive runs
+DT=${DT:-"1e-5"}
 
 # max number of steps
 NT_MAX=${NT_MAX:-"1000"}
