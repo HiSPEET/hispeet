@@ -37,7 +37,6 @@ module INS__Integrator__Euler__3D
   use Boundary_Variable__3D
 
   use INS__Integrator__3D
-  use INS__Problem__3D
   use INS__Operator__3D
 
   implicit none
@@ -78,27 +77,25 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor for objects of type INS_Integrator_Euler_3D
 
-  function New_INS_Integrator_Euler_3D(problem, ins_op, opt) result(this)
-    class(INS_Problem_3D),                  intent(in) :: problem
+  function New_INS_Integrator_Euler_3D(ins_op, opt) result(this)
     class(INS_Operator_3D),                 intent(in) :: ins_op
     class(INS_Integrator_Euler_Options_3D), intent(in) :: opt
     type(INS_Integrator_Euler_3D) :: this
 
-    call Init_INS_Integrator_Euler_3D(this, problem, ins_op, opt)
+    call Init_INS_Integrator_Euler_3D(this, ins_op, opt)
 
   end function New_INS_Integrator_Euler_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of a INS_Integrator_Euler_3D object
 
-  subroutine Init_INS_Integrator_Euler_3D(this, problem, ins_op, opt)
+  subroutine Init_INS_Integrator_Euler_3D(this, ins_op, opt)
     class(INS_Integrator_Euler_3D),         intent(inout) :: this
-    class(INS_Problem_3D),                  intent(in)    :: problem
     class(INS_Operator_3D),                 intent(in)    :: ins_op
     class(INS_Integrator_Euler_Options_3D), intent(in)    :: opt
 
     ! intialize parent type
-    call this % Init_INS_Integrator_3D(problem, ins_op, opt)
+    call this % Init_INS_Integrator_3D(ins_op, opt)
 
     this % name = 'Euler method'
 

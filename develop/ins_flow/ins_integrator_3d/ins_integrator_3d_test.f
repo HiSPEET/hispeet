@@ -461,11 +461,11 @@ program INS_Integrator_3D_Test
   ! time integrator
   select case(time_method)
   case(1)
-    ins_ti = INS_Integrator_Euler_3D(problem, ins_op, ins_ti_euler_opt)
+    ins_ti = INS_Integrator_Euler_3D(ins_op, ins_ti_euler_opt)
   case(2)
-    ins_ti = INS_Integrator_BDF_3D(problem, ins_op, ins_ti_bdf_opt)
+    ins_ti = INS_Integrator_BDF_3D(ins_op, ins_ti_bdf_opt)
   case(3)
-    ins_ti = INS_Integrator_RungeKutta_3D(problem, ins_op, ins_ti_rk_opt)
+    ins_ti = INS_Integrator_RungeKutta_3D(ins_op, ins_ti_rk_opt)
   end select
 
   ! variables ..................................................................
