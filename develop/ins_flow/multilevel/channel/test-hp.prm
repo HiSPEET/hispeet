@@ -7,15 +7,16 @@
 ! log_level                 = 0
 ! log_level_inner_iteration = 1
 ! log_level_outer_iteration = 1
-  log_level_multigrid_cycle = 1
+! log_level_multigrid_cycle = 1
 
   problem_file = 'channel'
   flow_problem = 'Channel'
   flow_domain  = 1
 
-! char_freq  = 0 ! set frequency of control output
-! avg_rate   = 1 ! sampling rate for averaging, 0 if none
-! vtk_mode   = 3 ! VTK export mode, 0/1/2/3: none/all/active/leafs
+  eval_diss    =  T  ! set T for evaluating dissipation
+  char_freq    = 10 ! set frequency of control output
+! avg_rate     = 10 ! sampling rate for averaging, 0 if none
+! vtk_mode     =  3 ! VTK export mode, 0/1/2/3: none/all/active/leafs
 
 ! restart_tag_in  = 'run1'
 ! restart_tag_out = 'run1'
@@ -25,15 +26,15 @@
 ! Mesh
 
 &ml_mesh_options_3d__static
-  l_top          =  5  ! initial top level
-  l_max          =  5  ! initial top level
-  l_adapt        =  3  ! first level to be adapted > 1
+  l_top          =  6  ! initial top level
+  l_max          =  6  ! initial top level
+  l_adapt        =  5  ! first level to be adapted > 1
   n_bnd          =  2  ! number of boundaries to be adapted
 /
 
 &ml_mesh_options_3d__dynamic
-  n_parts    = 5*8
-  refinement = 2*'c',2*'s'
+  refinement = 3*'c', 2*'s' ! (1:l_max-1)  refinement type {'c','s'}
+  n_parts    = 8 8 8 8 8 64
   adapt_bnd  = 5, 6
 /
 
@@ -42,11 +43,37 @@
 
 &spatial_prm
 
-  po = 2, 4, 3*8
+  po = 2, 4, 7, 3*12
 
-! ml_ins_opt%ins%stokes_corrector = 'X2PD'
-! ml_ins_opt%ml_solver_p
-  ml_ins_opt%ins%c_mu = 1
+  ml_ins_opt%mixed = T
+
+  ml_ins_opt%pressure%smooth_method = 3
+  ml_ins_opt%pressure%i_crs =  1000 ! max num coarse iterations          [ 1]
+  ml_ins_opt%pressure%i_max =    20 ! max num cycles                     [ 1]
+  ml_ins_opt%pressure%ns_1  =     6 ! num pre-smoothing steps            [ 1]
+  ml_ins_opt%pressure%ns_2  =     2 ! num post-smoothing steps           [ 1]
+  ml_ins_opt%pressure%ns_c  =     4 ! num continuation smoothing steps   [ 1]
+  ml_ins_opt%pressure%r_red = 1e-08 ! min residual reduction,  if > 0    [-1]
+  ml_ins_opt%pressure%r_max = 1e-12 ! max admissible residual, if > 0    [-1]
+
+  ml_ins_opt%diffusion%i_max =   10 ! max num cycles                     [ 1]
+  ml_ins_opt%diffusion%ns_1  =    6 ! num pre-smoothing steps            [ 1]
+  ml_ins_opt%diffusion%ns_2  =    2 ! num post-smoothing steps           [ 1]
+  ml_ins_opt%diffusion%ns_c  =    4 ! num continuation smoothing steps   [ 1]
+
+  ml_ins_opt%ins_op%diffusion_solver = 'SPCG'
+
+  ml_ins_opt%ins_op%c_mu        = 1
+  ml_ins_opt%ins_op%dealiasing  = T
+! ml_ins_opt%ins_op%penalty_u   = 10
+! ml_ins_opt%ins_op%penalty_p   = 10
+  ml_ins_opt%ins_op%i_max_v     = 100
+  ml_ins_opt%ins_op%r_red       = 1e-08
+  ml_ins_opt%ins_op%r_max       = 1e-12
+
+  ml_ins_opt%ins_op%sgs_model%model    = 2    ! 0/1/2 none/Smagorinsky/sigma ! [0]
+! ml_ins_opt%ins_op%sgs_model%dynamic  = F    ! set F for static model       ! [T]
+! ml_ins_opt%ins_op%sgs_model%c_static = 1.35 ! static model constant        ! [1.35]
 /
 
 !-------------------------------------------------------------------------------
@@ -54,22 +81,29 @@
 
 &temporal_prm
 
-! ml_bdf2_opt%n_fmg = 0
-  ml_bdf2_opt%n_cyc = 1
+! ml_bdf2_opt%coupled = T
+! ml_bdf2_opt%n_fmg   = 0
+! ml_bdf2_opt%n_cyc   = 1
 
 ! t_end  = 0.25
-  dt     = 0.001
-  nt_max = 10!1000000
+  dt     = 2e-6
+  nt_max = 1000
+  smooth_initial_data = T
 /
 
 !-------------------------------------------------------------------------------
 ! Domain
 
 &cuboid_cartesian_prm
-  lx(1) = 12.56637061435917295376   ! streamwise:   4π  
-  lx(2) = 4.18879020478639098458    ! spanwise:     4π/3
-  lx(3) = 2                         ! wall-normal:  2δ,   δ = 1
-  np = 3*1
-  ep = 3*4
+  xo = 3*0.0
+
+  ! domain extensions for Re_τ = 395         ! Δxᵢ⁺ =  Δξ/2 lᵢ/neᵢ Re_τ
+  lx(1) = 6.28318530717958647688d+0   ! 2πδ  ! Δx₁⁺ =  7.2 ... 38.7
+  lx(2) = 3.14159265358979323844d+0   ! πδ   ! Δx₂⁺ =  3.6 ... 19.3
+  lx(3) = 2.0                         ! 2δ   ! Δx₃⁺ =  2.3 ... 12.3
+
+  np = 1,1,1  ! num partitions per direction
+  ep = 2,2,2  ! num elements per direction and partition
+
   periodic = T,T,F
 /
