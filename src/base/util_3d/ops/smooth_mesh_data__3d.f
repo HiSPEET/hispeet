@@ -159,7 +159,7 @@ contains
       call Assembly_3D(mesh, s, buf_s, avg=.true.)
       ! step 2: filter
       if (allocated(A)) then
-        call TPO_AAA(A, s(:,:,:,1::mesh%n_elem), u(:,:,:,:,c))
+        call TPO_AAA(A, s(:,:,:,1:mesh%n_elem), u(:,:,:,:,c))
       else
         call SetArray(u(:,:,:,:,c), s(:,:,:,1:mesh%n_elem))
       end if

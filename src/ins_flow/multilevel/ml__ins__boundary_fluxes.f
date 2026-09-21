@@ -129,8 +129,8 @@ contains
 
           do l = 1, l_top
             m   = m   + ins_flux(l) % m(b)
-            f_p = f_p + ins_flux(l) % f_p(b,1:3)
-            f_d = f_d + ins_flux(l) % f_d(b,1:3)
+            f_p = f_p + ins_flux(l) % f_p(1:3,b)
+            f_d = f_d + ins_flux(l) % f_d(1:3,b)
           end do
 
           write(*,'(I4,2X,7(ES10.3,2X))') b, m, f_p, f_d
