@@ -241,8 +241,12 @@ contains
               if (mesh_p % element(e) % adaptation % refinement >= 1000) then
                 ! residual contribution to FAS-RHS in parent twigs
                 g_p(:,:,:,e) = r_p(:,:,:,e)
+                if (this % fc_reset_twigs) then
+                  ! reset twigs to projected child solution
+                  u_p(:,:,:,e) = v_p(:,:,:,e)
+                end if
               else
-              ! set v_p to solution in leaves
+                ! set v_p to solution in leaves
                 v_p(:,:,:,e) = u_p(:,:,:,e)
               end if
             end do
