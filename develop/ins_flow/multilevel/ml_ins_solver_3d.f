@@ -594,7 +594,7 @@ program ML_INS_Solver_3D
 
   ! initial flow characteristics
   call ml_ins_char % Evaluate( ml_ins, t, mu, nu, u, dt, volume &
-                              , diss = eval_diss, leaf = .true.  )
+                             , diss = eval_diss, leaf = .true.  )
   call ml_ins_char % PrintHeader()
   call ml_ins_char % PrintValues('#init#')
 
