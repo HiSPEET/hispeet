@@ -26,8 +26,8 @@
 ! Mesh
 
 &ml_mesh_options_3d__static
-  l_top          =  6  ! initial top level
-  l_max          =  6  ! initial top level
+  l_top          =  5  ! initial top level
+  l_max          =  6  ! final top level
   l_adapt        =  5  ! first level to be adapted > 1
   n_bnd          =  2  ! number of boundaries to be adapted
 /
