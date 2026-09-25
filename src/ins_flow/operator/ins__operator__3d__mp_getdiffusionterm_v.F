@@ -88,9 +88,9 @@ contains
 
     integer, optional, intent(in) :: form
     !< switch form of the approximated diffusion term `∇⋅τ`
-    !!   - `0` :  `∇⋅ν[∇v + (∇v)ᵀ] + ∇[(μ-2/3ν)∇⋅v]`               (default)
-    !!   - `1` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[      ν ∇⋅v] =  ν∇²v`       (diffusion)
-    !!   - `2` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[     2ν ∇⋅v] = -ν∇×(∇×v)`   (rotation)
+    !!   - `0` :  `∇⋅ν[∇v + (∇v)ᵀ] + ∇[(μ-2/3ν)∇⋅v]`   (stress: default)
+    !!   - `1` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[      ν ∇⋅v]`   (laplacian)
+    !!   - `2` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[     2ν ∇⋅v]`   (rotation)
 
     ! local variables ..........................................................
 
@@ -100,11 +100,13 @@ contains
     type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_tr
     ! trace transfer buffers operators
 
-    real(RNP), allocatable, save :: tr(:,:,:,:,:)   ! traces of v and n⋅τ
+    real(RNP), allocatable, save :: tr(:,:,:,:,:)   ! inner traces of v, s, μ, ν
     real(RNP), allocatable, save :: mu_mod(:,:,:,:) ! modified μ
+    real(RNP), allocatable, save :: mu_max(:,:,:,:) ! max(μ⁻,μ⁺)
+    real(RNP), allocatable, save :: nu_max(:,:,:,:) ! max(ν⁻,ν⁺)
 
-    integer :: n_bound, n_elem, n_ghost, po
-    integer :: b
+    integer :: n_bound, n_elem, n_ghost, po, form_
+    integer :: b, e
 
     ! initialization ...........................................................
 
@@ -114,29 +116,37 @@ contains
     po      = this % eop_u % po
 
     !$omp master
-    allocate(bv_s(n_bound), tr(0:po,0:po,6,n_elem + n_ghost,6))
-    buf_tr = ElementFaceTransferBuffer_3D(this%mesh, tr)
+    allocate(bv_s(n_bound))
+    allocate(tr(0:po,0:po,6,n_elem + n_ghost,8))
+    ! transfer buffer, required only for v⁻ and s⁻
+    buf_tr = ElementFaceTransferBuffer_3D(this%mesh, tr(:,:,:,:,1:6))
     do b = 1, n_bound
       if (scan(this % problem % bc_v(b),'O') > 0) then
         call bv_s(b) % Init(this%mesh%boundary(b), po, nc = 3)
       end if
     end do
     allocate(mu_mod(0:po,0:po,0:po,n_elem))
+    allocate(mu_max(0:po,0:po,6,n_elem))
+    allocate(nu_max(0:po,0:po,6,n_elem))
     !$omp end master
     !$omp barrier
 
+    ! form of the diffusion term: 0/1/2: stress/laplacian/rotational
     if (present(form)) then
-      select case(form)
-      case(1)
-        call MergeArrays(ZERO, mu_mod, -THIRD, nu)
-      case(2)
-        call MergeArrays(ZERO, mu_mod, -4*THIRD, nu)
-      case default
-        call SetArray(mu_mod, mu)
-      end select
+      form_ = max(min(form, 2), 0)
     else
-      call SetArray(mu_mod, mu)
+      form_ = 0
     end if
+
+    ! modify bulk viscosity to fit requested form of the diffusion term
+    select case(form_)
+    case(1)
+      call MergeArrays(ZERO, mu_mod, -THIRD, nu)
+    case(2)
+      call MergeArrays(ZERO, mu_mod, -4*THIRD, nu)
+    case default
+      call SetArray(mu_mod, mu)
+    end select
 
     associate( mesh   => this % sem_u % mesh         &
              , Jd     => this % sem_u % metrics % Jd &
@@ -144,18 +154,21 @@ contains
              , a      => this % sem_u % metrics % a  &
              , n      => this % sem_u % metrics % n  &
              , eop    => this % eop_u                &
+             , tr_vs  => tr(:,:,:,:,1:6)             &
              , vm     => tr(:,:,:,:,1:3)             &
-             , sm     => tr(:,:,:,:,4:6)             )
+             , sm     => tr(:,:,:,:,4:6)             &
+             , mu_m   => tr(:,:,:,:,7)               &
+             , nu_m   => tr(:,:,:,:,8)               )
 
       ! element volume contributions ...........................................
 
       ! element integrals and local contributions to inner traces v⁻ and s⁻
       call TPO_Stress(eop%w, eop%D, Jd, Ji, n, mu_mod, nu, v, f_d, vm, sm)
 
-      ! transfer traces ........................................................
+      ! transfer velocity and stress traces ....................................
 
-      call buf_tr % Transfer(mesh, tr, tag=1000) ! masters send inner traces
-      call buf_tr % Merge(tr)                    ! ghosts  recv inner traces
+      call buf_tr % Transfer(mesh, tr_vs, tag=1000)
+      call buf_tr % Merge(tr_vs)
 
       ! outer traces with BC ...................................................
 
@@ -175,14 +188,46 @@ contains
       call ConvertInnerToOuterVectorTraces_3D(mesh, sm, sp)
       call this % ApplyNaturalBC(bv_s, sm, sp)         ! s⁺ = s(s⁻,sᵇ)  ∂Ω
 
+      ! max(μ⁻,μ⁺) and max(ν⁻,ν⁺) ..............................................
+
+      call GetInnerTraces_3D(mesh, nu, nu_m)                  ! ν⁻
+      call ConvertInnerToOuterTraces_3D(mesh, nu_m, nu_max)   ! ν⁺
+
+      !$omp do
+      do e = 1, n_elem
+        nu_max(:,:,:,e) = max(nu_max(:,:,:,e), nu_m(:,:,:,e))
+      end do
+
+      select case (form_)
+
+      case(1)
+        ! laplacian form
+        call MergeArrays(ZERO, mu_max, -THIRD, nu_max)
+
+      case(2)
+        ! rotational form
+        call MergeArrays(ZERO, mu_max, -4*THIRD, nu_max)
+
+      case default
+        ! stress form
+        call GetInnerTraces_3D(mesh, mu_mod, mu_m)            ! μ⁻
+        call ConvertInnerToOuterTraces_3D(mesh, mu_m, mu_max) ! μ⁺
+        !$omp do
+        do e = 1, n_elem
+          mu_max(:,:,:,e) = max(mu_max(:,:,:,e), mu_m(:,:,:,e))
+        end do
+
+      end select
+
       ! fluxes .................................................................
 
-      call AddViscousFluxes(mesh, eop, a, n, Ji, mu_mod, nu, vm, sm, vp, sp, f_d)
+      call AddViscousFluxes( mesh, eop, a, n, Ji, mu_max, nu_max &
+                           , vm, sm, vp, sp, f_d )
 
       ! cleanup ................................................................
 
       !$omp master
-      deallocate(bv_s, tr, buf_tr, mu_mod)
+      deallocate(bv_s, tr, buf_tr, mu_mod, mu_max, nu_max)
       !$omp end master
 
     end associate
@@ -209,11 +254,11 @@ contains
     real(RNP), contiguous, intent(in) :: Ji(0:,0:,0:,:,:,:)
     !< inverse Jacobian of element mapping (0:po,0:po,0:po,ne,3,3)
 
-    real(RNP), contiguous, intent(in) :: mu(0:,0:,0:,:)
-    !< kinematic bulk viscosity
+    real(RNP), contiguous, intent(in) :: mu(0:,0:,:,:)
+    !< max kinematic bulk viscosity on element faces (0:po,0:po,6,ne)
 
-    real(RNP), contiguous, intent(in) :: nu(0:,0:,0:,:)
-    !< kinematic shear viscosity
+    real(RNP), contiguous, intent(in) :: nu(0:,0:,:,:)
+    !< kinematic shear viscosity on element faces (0:po,0:po,6,ne)
 
     real(RNP), contiguous, intent(in) :: vm(0:,0:,:,:,:)
     !< v⁻ at element faces, including ghosts (0:po,0:po,6,ne+ng,3)
@@ -296,16 +341,16 @@ contains
               dv2 = vm(j,k,f,e,2) - vp(j,k,f,e,2)
               dv3 = vm(j,k,f,e,3) - vp(j,k,f,e,3)
 
-              chi = mu(i,j,k,e) - 2 * THIRD * nu(i,j,k,e)
+              chi = mu(j,k,f,e) - 2 * THIRD * nu(j,k,f,e)
               tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3)
 
-              tau(1,1) = nu(i,j,k,e) * 2 * n1 * dv1 + tmp
-              tau(2,2) = nu(i,j,k,e) * 2 * n2 * dv2 + tmp
-              tau(3,3) = nu(i,j,k,e) * 2 * n3 * dv3 + tmp
+              tau(1,1) = nu(j,k,f,e) * 2 * n1 * dv1 + tmp
+              tau(2,2) = nu(j,k,f,e) * 2 * n2 * dv2 + tmp
+              tau(3,3) = nu(j,k,f,e) * 2 * n3 * dv3 + tmp
 
-              tau(1,2) = nu(i,j,k,e) * (n1 * dv2 + n2 * dv1)
-              tau(2,3) = nu(i,j,k,e) * (n2 * dv3 + n3 * dv2)
-              tau(3,1) = nu(i,j,k,e) * (n3 * dv1 + n1 * dv3)
+              tau(1,2) = nu(j,k,f,e) * (n1 * dv2 + n2 * dv1)
+              tau(2,3) = nu(j,k,f,e) * (n2 * dv3 + n3 * dv2)
+              tau(3,1) = nu(j,k,f,e) * (n3 * dv1 + n1 * dv3)
 
               tau(2,1) = tau(1,2)
               tau(1,3) = tau(3,1)
@@ -386,16 +431,16 @@ contains
               dv2 = vm(i,k,f,e,2) - vp(i,k,f,e,2)
               dv3 = vm(i,k,f,e,3) - vp(i,k,f,e,3)
 
-              chi = mu(i,j,k,e) - 2 * THIRD * nu(i,j,k,e)
+              chi = mu(i,k,f,e) - 2 * THIRD * nu(i,k,f,e)
               tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3)
 
-              tau(1,1) = nu(i,j,k,e) * 2 * n1 * dv1 + tmp
-              tau(2,2) = nu(i,j,k,e) * 2 * n2 * dv2 + tmp
-              tau(3,3) = nu(i,j,k,e) * 2 * n3 * dv3 + tmp
+              tau(1,1) = nu(i,k,f,e) * 2 * n1 * dv1 + tmp
+              tau(2,2) = nu(i,k,f,e) * 2 * n2 * dv2 + tmp
+              tau(3,3) = nu(i,k,f,e) * 2 * n3 * dv3 + tmp
 
-              tau(1,2) = nu(i,j,k,e) * (n1 * dv2 + n2 * dv1)
-              tau(2,3) = nu(i,j,k,e) * (n2 * dv3 + n3 * dv2)
-              tau(3,1) = nu(i,j,k,e) * (n3 * dv1 + n1 * dv3)
+              tau(1,2) = nu(i,k,f,e) * (n1 * dv2 + n2 * dv1)
+              tau(2,3) = nu(i,k,f,e) * (n2 * dv3 + n3 * dv2)
+              tau(3,1) = nu(i,k,f,e) * (n3 * dv1 + n1 * dv3)
 
               tau(2,1) = tau(1,2)
               tau(1,3) = tau(3,1)
@@ -475,16 +520,16 @@ contains
               dv2 = vm(i,j,f,e,2) - vp(i,j,f,e,2)
               dv3 = vm(i,j,f,e,3) - vp(i,j,f,e,3)
 
-              chi = mu(i,j,k,e) - 2 * THIRD * nu(i,j,k,e)
+              chi = mu(i,j,f,e) - 2 * THIRD * nu(i,j,f,e)
               tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3 )
 
-              tau(1,1) = nu(i,j,k,e) * 2 * n1 * dv1 + tmp
-              tau(2,2) = nu(i,j,k,e) * 2 * n2 * dv2 + tmp
-              tau(3,3) = nu(i,j,k,e) * 2 * n3 * dv3 + tmp
+              tau(1,1) = nu(i,j,f,e) * 2 * n1 * dv1 + tmp
+              tau(2,2) = nu(i,j,f,e) * 2 * n2 * dv2 + tmp
+              tau(3,3) = nu(i,j,f,e) * 2 * n3 * dv3 + tmp
 
-              tau(1,2) = nu(i,j,k,e) * (n1 * dv2 + n2 * dv1)
-              tau(2,3) = nu(i,j,k,e) * (n2 * dv3 + n3 * dv2)
-              tau(3,1) = nu(i,j,k,e) * (n3 * dv1 + n1 * dv3)
+              tau(1,2) = nu(i,j,f,e) * (n1 * dv2 + n2 * dv1)
+              tau(2,3) = nu(i,j,f,e) * (n2 * dv3 + n3 * dv2)
+              tau(3,1) = nu(i,j,f,e) * (n3 * dv1 + n1 * dv3)
 
               tau(2,1) = tau(1,2)
               tau(1,3) = tau(3,1)
