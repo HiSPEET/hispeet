@@ -77,7 +77,7 @@ contains
   !> where
   !>
   !>      ν = max νᵉ
-  !>      v = max|vᵉ|
+  !>      v = avg|vᵉ|
   !>      h = ∆xᵉ / P
 
   subroutine GetVariableBulkViscosity(this, u, nu, mu)
@@ -86,16 +86,19 @@ contains
     real(RNP),  contiguous, intent(in)  :: nu(:,:,:,:)
     real(RNP),  contiguous, intent(out) :: mu(:,:,:,:)
 
-    real(RNP) :: dx(3), hh, nn, vv
+    real(RNP) :: c, dx(3), h_e, nu_e, v_e
     integer :: e
+
+    ! normalization factor
+    c = ONE / size(u,1)**3
 
     !$omp do
     do e = 1, size(mu,4)
       call this % mesh % element(e) % GetCuboidDimensions(dx)
-      hh = (product(dx)**THIRD / this%eop_u%po)**2                     ! hh = h²
-      vv = maxval(u(:,:,:,e,1)**2 + u(:,:,:,e,2)**2 + u(:,:,:,e,3)**2) ! vv = v²
-      nn = maxval(nu(:,:,:,e))**2                                      ! nn = ν²
-      mu(:,:,:,e) = this%c_mu * sqrt(nn + vv * hh)
+      h_e  = product(dx)**THIRD / this%eop_u%po
+      v_e  = c * sum(sqrt(u(:,:,:,e,1)**2 + u(:,:,:,e,2)**2 + u(:,:,:,e,3)**2))
+      nu_e = c * sum(nu(:,:,:,e))
+      mu(:,:,:,e) = this%c_mu * max(nu_e, v_e * h_e)
     end do
 
   end subroutine GetVariableBulkViscosity
