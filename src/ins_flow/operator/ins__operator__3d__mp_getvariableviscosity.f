@@ -24,6 +24,7 @@
 !===============================================================================
 
 submodule(INS__Operator__3D) MP_GetVariableViscosity
+  use Smooth_Mesh_Data__3D
   implicit none
 
 contains
@@ -57,7 +58,7 @@ contains
 
       ! artificial bulk viscosity ..............................................
 
-      if (this % c_mu > 0) then
+      if (this % div_stab > 1) then
         call GetVariableBulkViscosity(this, u, nu, mu)
       else
         call SetArray(mu, this % mu_0)
@@ -72,13 +73,10 @@ contains
   !>
   !> Element by element computation of the stabilizing bulk viscosity defined by
   !>
-  !>      μᵉ = c_μ sqrt(ν² + (vh)²)
+  !>      μᵉ = c_μ max(ν, vh)
   !>
-  !> where
-  !>
-  !>      ν = max νᵉ
-  !>      v = avg|vᵉ|
-  !>      h = ∆xᵉ / P
+  !> where ν is the kinematic shear viscosity, v the characteristic velocity and
+  !> h = ∆xᵉ/P the mean element node spacing.
 
   subroutine GetVariableBulkViscosity(this, u, nu, mu)
     class(INS_Operator_3D), intent(in)  :: this
@@ -87,19 +85,41 @@ contains
     real(RNP),  contiguous, intent(out) :: mu(:,:,:,:)
 
     real(RNP) :: c, dx(3), h_e, nu_e, v_e
-    integer :: e
+    logical   :: local
+    integer   :: e
 
-    ! normalization factor
-    c = ONE / size(u,1)**3
+    local = any(this%div_stab == [3,5])
+
+    if (local) then
+      ! normalization factor
+      c = ONE / size(u,1)**3
+    else
+      ! use reference values
+      nu_e = this % problem % nu_ref
+      v_e  = this % problem % v_ref
+    end if
 
     !$omp do
     do e = 1, size(mu,4)
       call this % mesh % element(e) % GetCuboidDimensions(dx)
-      h_e  = product(dx)**THIRD / this%eop_u%po
-      v_e  = c * sum(sqrt(u(:,:,:,e,1)**2 + u(:,:,:,e,2)**2 + u(:,:,:,e,3)**2))
-      nu_e = c * sum(nu(:,:,:,e))
-      mu(:,:,:,e) = this%c_mu * max(nu_e, v_e * h_e)
+      h_e = product(dx)**THIRD / this%eop_u%po
+      if (local) then
+        nu_e = c * sum(nu(:,:,:,e))
+        v_e  = c * sum( sqrt( u(:,:,:,e,1)**2   &
+                            + u(:,:,:,e,2)**2   &
+                            + u(:,:,:,e,3)**2 ) )
+      end if
+      mu(:,:,:,e) = this%mu_0 * max(nu_e, v_e * h_e)
     end do
+
+    ! optional filtering
+    if (any(this%div_stab == [4,5])) then
+      call SmoothMeshData_3D( mesh   = this % mesh  &
+                            , eop    = this % eop_u &
+                            , u      = mu           &
+                            , filter = 1            & ! bubble cut-off
+                            , order  = 1            ) ! retain multilinear part
+    end if
 
   end subroutine GetVariableBulkViscosity
 

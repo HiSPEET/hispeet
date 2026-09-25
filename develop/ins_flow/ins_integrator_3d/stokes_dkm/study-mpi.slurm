@@ -26,8 +26,6 @@
 export EXEC="srun"
 export HPC="1"
 export PO_U="4" 
-export MU_REF="1"
-export MU_METHOD="1"
 
 # ------------------------------------------------------------------------------
 # Execution

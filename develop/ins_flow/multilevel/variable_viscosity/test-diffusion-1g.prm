@@ -43,7 +43,7 @@
   ml_ins_opt%diffusion%ns_c  =     2 ! num continuation smoothing steps   [ 1] 
 
 ! ml_ins_opt%ins_op%diffusion_solver = 'SPCG'
-  ml_ins_opt%ins_op%c_mu  = 0
+  ml_ins_opt%ins_op%mu_0  = 0
 /
 
 !-------------------------------------------------------------------------------

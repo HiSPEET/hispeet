@@ -71,9 +71,9 @@ module INS__Operator__3D
     character(len=4) :: diffusion_solver !< diffusion solver
     character(len=1) :: interior_bc      !< coupling to frozen elements
 
-    real(RNP) :: c_mu      !< variable bulk viscosity coefficient
-    real(RNP) :: mu_0      !< const/average bulk viscosity, μ = ζ/ρ
-    real(RNP) :: nu_0      !< const shear viscosity, ν = η/ρ
+    integer   :: div_stab  !< grad-div stabilization method
+    real(RNP) :: mu_0      !< bulk viscosity,  μ = ζ/ρ (if const)
+    real(RNP) :: nu_0      !< shear viscosity, ν = η/ρ (if const)
     real(RNP) :: delta_out !< δ parameter of outflow conditions
 
     ! element operators
@@ -167,20 +167,25 @@ module INS__Operator__3D
 
     logical   :: dealiasing = .false. !< F: no dealiasing, T: 3/2 rule
 
-    real(RNP) :: penalty_u  =      -1 !< penalty for u-solver, -1: auto
-    real(RNP) :: penalty_p  =      -1 !< penalty for p-solver, -1: auto
+    real(RNP) :: penalty_u = -1 !< penalty for u-solver, -1: auto
+    real(RNP) :: penalty_p = -1 !< penalty for p-solver, -1: auto
+    integer   :: div_stab  =  1 !< grad-div stabilization method
+      !!  - `1`  constant, μ₁ = μ₀
+      !!  - `2`  constant, μ₂ = μ₀ max(ν, vh), using reference values for ν and v
+      !!  - `3`  variable, μ₃ = μ₀ max(ν, vh), using element averages for ν and v
+      !!  - `4`  variable, μ₄ = μ₂ averaged across faces
+      !!  - `5`  variable, μ₅ = μ₃ averaged across faces
 
-    real(RNP) :: c_mu       =       0 !< variable bulk viscosity coefficient
-    real(RNP) :: mu_0       =       0 !< constant bulk viscosity, if c_mu = 0
-    real(RNP) :: delta_out  =    0.01 !< outflow parameter
+    real(RNP) :: mu_0      =     0 !< bulk viscosity coefficient μ₀
+    real(RNP) :: delta_out = 1e-02 !< outflow parameter
 
-    integer   :: i_max_p    =    1000 !< max num p-iterations in projection
-    integer   :: i_max_v    =     200 !< max num v-iterations in projection
-    integer   :: k_max      =       0 !< max num Krylov iterations
-    integer   :: k_pre_p    =      10 !< max num p-iterations in Krylov precon
-    integer   :: k_pre_v    =      10 !< max num v-iterations in Krylov precon
-    real(RNP) :: r_red      =   1e-08 !< min residual reduction, if > 0
-    real(RNP) :: r_max      =   1e-12 !< max residual to reach,  if > 0
+    integer   :: i_max_p   =  1000 !< max num p-iterations in projection
+    integer   :: i_max_v   =   200 !< max num v-iterations in projection
+    integer   :: k_max     =     0 !< max num Krylov iterations
+    integer   :: k_pre_p   =    10 !< max num p-iterations in Krylov precon
+    integer   :: k_pre_v   =    10 !< max num v-iterations in Krylov precon
+    real(RNP) :: r_red     = 1e-08 !< min residual reduction, if > 0
+    real(RNP) :: r_max     = 1e-12 !< max residual to reach,  if > 0
 
     type(DG_SchwarzOptions_3D) :: schwarz_u !< Schwarz options for u-solver
     type(DG_SchwarzOptions_3D) :: schwarz_p !< Schwarz options for p-solver
@@ -544,7 +549,7 @@ contains
                 , 'INS__Operator__3D'                                          )
     end select
 
-    this % c_mu      = opt % c_mu
+    this % div_stab  = opt % div_stab
     this % mu_0      = opt % mu_0
     this % nu_0      = problem % nu_ref
     this % delta_out = opt % delta_out
@@ -634,7 +639,7 @@ contains
     class(INS_Operator_3D), intent(in) :: this
 
     ! variable bulk viscosity
-    hvv = this % c_mu > 0
+    hvv = this % div_stab > 1
 
     ! problem dependent shear viscosity
     hvv = hvv .or. this % problem % HasVariableProperties()
@@ -934,7 +939,7 @@ contains
     call XMPI_Bcast(this % dealiasing      , root, comm)
     call XMPI_Bcast(this % penalty_u       , root, comm)
     call XMPI_Bcast(this % penalty_p       , root, comm)
-    call XMPI_Bcast(this % c_mu            , root, comm)
+    call XMPI_Bcast(this % div_stab        , root, comm)
     call XMPI_Bcast(this % mu_0            , root, comm)
     call XMPI_Bcast(this % delta_out       , root, comm)
     call XMPI_Bcast(this % i_max_p         , root, comm)
