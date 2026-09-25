@@ -69,6 +69,7 @@ module INS__Operator__3D
     character(len=4) :: convection_term  !< form of the convection term
     character(len=4) :: pressure_solver  !< pressure solver
     character(len=4) :: diffusion_solver !< diffusion solver
+    character(len=1) :: interior_bc      !< coupling to frozen elements
 
     real(RNP) :: c_mu      !< variable bulk viscosity coefficient
     real(RNP) :: mu_0      !< const/average bulk viscosity, μ = ζ/ρ
@@ -159,15 +160,15 @@ module INS__Operator__3D
 
   type INS_OperatorOptions_3D
 
-    character(4) :: convection_term  = 'flux'  !< {'flux','skew','conv'}
-    character(4) :: pressure_solver  = 'SPCG'  !< {'AS','CG','SPCG','MG','MGCG'}
-    character(4) :: diffusion_solver = 'DPCG'  !< {'DPCG','SPCG'}
+    character(4) :: convection_term  = 'flux' !< {'flux','skew','conv'}
+    character(4) :: pressure_solver  = 'SPCG' !< {'AS','CG','SPCG','MG','MGCG'}
+    character(4) :: diffusion_solver = 'DPCG' !< {'DPCG','SPCG'}
+    character(1) :: interior_bc      = ' '    !< {' ','D','M'}
 
     logical   :: dealiasing = .false. !< F: no dealiasing, T: 3/2 rule
 
     real(RNP) :: penalty_u  =      -1 !< penalty for u-solver, -1: auto
     real(RNP) :: penalty_p  =      -1 !< penalty for p-solver, -1: auto
-    character :: interior_p =     ' ' !< interior pressure BC {' ','D'}
 
     real(RNP) :: c_mu       =       0 !< variable bulk viscosity coefficient
     real(RNP) :: mu_0       =       0 !< constant bulk viscosity, if c_mu = 0
@@ -234,10 +235,10 @@ module INS__Operator__3D
     !> Application of natural boundary conditions to velocity trace variables
 
     module subroutine ApplyNaturalBC(this, bv_s, sm, sp)
-      class(INS_Operator_3D),     intent(in)    :: this
-      class(BoundaryVariable_3D), intent(in)    :: bv_s(:)
-      real(RNP), contiguous,      intent(in)    :: sm(:,:,:,:,:)
-      real(RNP), contiguous,      intent(inout) :: sp(:,:,:,:,:)
+      class(INS_Operator_3D),               intent(in)    :: this
+      class(BoundaryVariable_3D), optional, intent(in)    :: bv_s(:)
+      real(RNP), contiguous,                intent(in)    :: sm(:,:,:,:,:)
+      real(RNP), contiguous,                intent(inout) :: sp(:,:,:,:,:)
     end subroutine ApplyNaturalBC
 
     !---------------------------------------------------------------------------
@@ -595,10 +596,10 @@ contains
     ! operators and solvers for elliptic subsystems ............................
 
     ! elliptic operator for pressure
-    this % elliptic_p = DG_EllipticOperator_3D( sem_p            &
-                                              , opt % schwarz_p  &
-                                              , opt % penalty_p  &
-                                              , opt % interior_p )
+    this % elliptic_p = DG_EllipticOperator_3D( sem_p             &
+                                              , opt % schwarz_p   &
+                                              , opt % penalty_p   &
+                                              , opt % interior_bc )
 
     ! Schwarz operators for viscous diffusion
     this % schwarz_u = DG_SchwarzOperator_3D( opt  % schwarz_u &
@@ -929,10 +930,10 @@ contains
     call XMPI_Bcast(this % convection_term , root, comm)
     call XMPI_Bcast(this % pressure_solver , root, comm)
     call XMPI_Bcast(this % diffusion_solver, root, comm)
+    call XMPI_Bcast(this % interior_bc     , root, comm)
     call XMPI_Bcast(this % dealiasing      , root, comm)
     call XMPI_Bcast(this % penalty_u       , root, comm)
     call XMPI_Bcast(this % penalty_p       , root, comm)
-    call XMPI_Bcast(this % interior_p      , root, comm)
     call XMPI_Bcast(this % c_mu            , root, comm)
     call XMPI_Bcast(this % mu_0            , root, comm)
     call XMPI_Bcast(this % delta_out       , root, comm)

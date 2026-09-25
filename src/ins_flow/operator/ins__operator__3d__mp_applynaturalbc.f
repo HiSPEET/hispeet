@@ -38,17 +38,18 @@ contains
   module subroutine ApplyNaturalBC(this, bv_s, sm, sp)
     class(INS_Operator_3D), intent(in) :: this
     !< Navier-Stokes operator
-    class(BoundaryVariable_3D), intent(in) :: bv_s(:)
+    class(BoundaryVariable_3D), optional, intent(in) :: bv_s(:)
     !< viscous boundary fluxes depending on BC type
     !!   - Γᴰ :  not used
     !!   - Γᴼ :  [ s₁, s₂, s₃ ]   viscous fluxes
     real(RNP), contiguous, intent(in) :: sm(:,:,:,:,:)
     !< inner viscous flux vector, `sm(np,np,6,ne,3) = s⁻ = n⁻⋅τ⁻`
     real(RNP), contiguous, intent(inout) :: sp(:,:,:,:,:)
-    !< outer viscous flux vector, `sp(np,np,6,ne,3) = s⁺ = n⁺⋅τ⁺` on boundary
-    !! faces, values on interior faces remain unchanged
+    !< outer viscous flux vector, `sp(np,np,6,ne,3) = s⁺ = n⁺⋅τ⁺`
 
     integer :: b, e, f, m
+
+    ! exterior boundaries ......................................................
 
     do b = 1, this % mesh % n_bound
       associate(boundary => this % mesh % boundary(b))
@@ -66,19 +67,43 @@ contains
 
         case('O') ! Outflow: s⁺ = s⁻ - 2sᵇ
 
-          associate(sb => bv_s(b) % val)
+          if (present(bv_s)) then
+            associate(sb => bv_s(b) % val)
+              !$omp do
+              do f = 1, boundary % n_face
+                e = boundary % face(f) % element_id
+                m = boundary % face(f) % element_face
+                sp(:,:,m,e,1:3) = sm(:,:,m,e,1:3) - 2 * sb(:,:,f,1:3)
+              end do
+            end associate
+
+          else
             !$omp do
             do f = 1, boundary % n_face
               e = boundary % face(f) % element_id
               m = boundary % face(f) % element_face
-              sp(:,:,m,e,1:3) = sm(:,:,m,e,1:3) - 2 * sb(:,:,f,1:3)
+              sp(:,:,m,e,1:3) = sm(:,:,m,e,1:3)
             end do
-          end associate
+
+          end if
 
         end select
-
       end associate
     end do
+
+    ! interior boundaries ......................................................
+
+    select case(this % interior_bc)
+    case('D')
+      associate(mesh => this % mesh)
+        do e = 1, mesh % n_elem_active
+        do m = 1, 6
+          if (mesh % element(e) % face(m) % boundary /= 0) cycle
+          sp(:,:,m,e,1:3) = -sm(:,:,m,e,1:3)
+        end do
+        end do
+      end associate
+    end select
 
   end subroutine ApplyNaturalBC
 

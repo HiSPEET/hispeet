@@ -44,9 +44,10 @@ contains
     !< inner velocity traces, `vm(np,np,6,ne,3) = v⁻`
     real(RNP), contiguous, intent(inout) :: vp(:,:,:,:,:)
     !< outer velocity traces, `vp(np,np,6,ne,3) = v⁺` on boundary faces,
-    !! values on interior faces remain unchanged
 
     integer :: b, e, f, m
+
+    ! exterior boundaries ......................................................
 
     do b = 1, this % mesh % n_bound
       associate(boundary => this % mesh % boundary(b))
@@ -55,18 +56,26 @@ contains
 
         case('D') ! Dirichlet: v⁺ = 2vᵇ - v⁻
 
-          !$omp do
-          do f = 1, boundary % n_face
-            e = boundary % face(f) % element_id
-            m = boundary % face(f) % element_face
-            if (present(bv_u)) then
-              associate(vb => bv_u(b) % val)
+          if (present(bv_u)) then
+
+            associate(vb => bv_u(b) % val)
+              !$omp do
+              do f = 1, boundary % n_face
+                e = boundary % face(f) % element_id
+                m = boundary % face(f) % element_face
                 vp(:,:,m,e,1:3) = 2 * vb(:,:,f,1:3) - vm(:,:,m,e,1:3)
-              end associate
-            else
+              end do
+            end associate
+
+          else
+            !$omp do
+            do f = 1, boundary % n_face
+              e = boundary % face(f) % element_id
+              m = boundary % face(f) % element_face
               vp(:,:,m,e,1:3) = -vm(:,:,m,e,1:3)
-            end if
-          end do
+            end do
+
+          end if
 
         case('O') ! Outflow: v⁺ = v⁻
 
@@ -81,6 +90,38 @@ contains
 
       end associate
     end do
+
+    ! interior boundaries ......................................................
+
+    associate(mesh => this % mesh)
+      select case(this % interior_bc)
+      case('D','M')
+
+        if (present(bv_u)) then
+          ! inhomogeneous operator: vb = v⁺
+
+          !$omp do
+          do e = 1, mesh % n_elem_active
+          do m = 1, 6
+            if (mesh % element(e) % face(m) % boundary /= 0) cycle
+            vp(:,:,m,e,1:3) = 2 * vp(:,:,m,e,1:3) - vm(:,:,m,e,1:3)
+          end do
+          end do
+
+        else
+          ! homogeneous operator: vb = 0
+
+          !$omp do
+          do e = 1, mesh % n_elem_active
+          do m = 1, 6
+            if (mesh % element(e) % face(m) % boundary /= 0) cycle
+            vp(:,:,m,e,1:3) = -vm(:,:,m,e,1:3)
+          end do
+          end do
+
+        end if
+      end select
+    end associate
 
   end subroutine ApplyEssentialBC
 
