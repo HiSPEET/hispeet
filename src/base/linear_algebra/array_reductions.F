@@ -34,6 +34,7 @@ module Array_Reductions
   public :: WeightedScalarProduct
 
   interface SumOfElements
+    module procedure SumOfElements_1
     module procedure SumOfElements_2
     module procedure SumOfElements_3
     module procedure SumOfElements_4
@@ -41,6 +42,7 @@ module Array_Reductions
   end interface
 
   interface ScalarProduct
+    module procedure ScalarProduct_1
     module procedure ScalarProduct_2
     module procedure ScalarProduct_3
     module procedure ScalarProduct_4
@@ -48,6 +50,7 @@ module Array_Reductions
   end interface
 
   interface WeightedScalarProduct
+    module procedure WeightedScalarProduct_1
     module procedure WeightedScalarProduct_2
     module procedure WeightedScalarProduct_3
     module procedure WeightedScalarProduct_4
@@ -58,6 +61,20 @@ contains
 
   !=============================================================================
   ! SumOfElements
+
+  !-----------------------------------------------------------------------------
+  !> Sum over all array elements (1D)
+  !>
+  !> If the MPI communicator comm is passed, the sum will be evaluated over all
+  !> processes. Otherwise, only the local contribution is returned.
+
+  real(RNP) function SumOfElements_1(a, comm) result(r)
+    real(RNP),                intent(in) :: a(:) !< array
+    type(MPI_Comm), optional, intent(in) :: comm   !< MPI communicator
+
+    r = SumOfElements_X(size(a), a, comm)
+
+  end function SumOfElements_1
 
   !-----------------------------------------------------------------------------
   !> Sum over all array elements (2D)
@@ -163,6 +180,21 @@ contains
   ! ScalarProduct
 
   !-----------------------------------------------------------------------------
+  !> Scalar product of vectors a and b (1D)
+  !>
+  !> With the MPI communicator comm passed, the scalar product is be evaluated
+  !> over all processes. Otherwise, only the local contribution is returned.
+
+  real(RNP) function ScalarProduct_1(a, b, comm) result(r)
+    real(RNP),                intent(in) :: a(:) !< left operand
+    real(RNP),                intent(in) :: b(:) !< right operand
+    type(MPI_Comm), optional, intent(in) :: comm   !< MPI communicator
+
+    r = ScalarProduct_X(size(a), a, b, comm)
+
+  end function ScalarProduct_1
+
+  !-----------------------------------------------------------------------------
   !> Scalar product of vectors a and b (2D)
   !>
   !> With the MPI communicator comm passed, the scalar product is be evaluated
@@ -228,40 +260,7 @@ contains
   !> With the MPI communicator comm passed, the scalar product is be evaluated
   !> over all processes. Otherwise, only the local contribution is returned.
 
-#if defined(OMP_REDUCTION_SERIAL)
-
-  ! omp serial version
-  real(RNP) function ScalarProduct_X(n, a, b, comm) result(r)
-    integer,                  intent(in) :: n    !< array size
-    real(RNP),                intent(in) :: a(n) !< left operand
-    real(RNP),                intent(in) :: b(n) !< right operand
-    type(MPI_Comm), optional, intent(in) :: comm !< MPI communicator
-
-    real(RNP), save :: r_glob
-    real(RNP) :: r_loc
-    integer :: i
-
-    !$omp master
-
-    r_loc = 0
-    do i = 1, n
-      r_loc = r_loc + a(i) * b(i)
-    end do
-
-    if (present(comm)) then
-      call MPI_Allreduce(r_loc, r_glob, 1, MPI_REAL_RNP, MPI_SUM, comm)
-    else
-      r_glob = r_loc
-    end if
-
-    !$omp end master
-    !$omp barrier
-
-    r = r_glob
-
-  end function ScalarProduct_X
-
-#elif defined(OMP_REDUCTION_ATOMIC)
+#if defined(OMP_REDUCTION_ATOMIC)
 
   ! omp atomic version
   real(RNP) function ScalarProduct_X(n, a, b, comm) result(r)
@@ -356,6 +355,22 @@ contains
   !> With the MPI communicator comm passed, the scalar product is be evaluated
   !> over all processes. Otherwise, only the local contribution is returned.
 
+  real(RNP) function WeightedScalarProduct_1(w, a, b, comm) result(r)
+    real(RNP),                intent(in) :: w(:) !< weights
+    real(RNP),                intent(in) :: a(:) !< left operand
+    real(RNP),                intent(in) :: b(:) !< right operand
+    type(MPI_Comm), optional, intent(in) :: comm !< MPI communicator
+
+    r = WeightedScalarProduct_X(size(w), w, a, b, comm)
+
+  end function WeightedScalarProduct_1
+
+  !-----------------------------------------------------------------------------
+  !> Weighted scalar product of vectors a and b (2D)
+  !>
+  !> With the MPI communicator comm passed, the scalar product is be evaluated
+  !> over all processes. Otherwise, only the local contribution is returned.
+
   real(RNP) function WeightedScalarProduct_2(w, a, b, comm) result(r)
     real(RNP),                intent(in) :: w(:,:) !< weights
     real(RNP),                intent(in) :: a(:,:) !< left operand
@@ -420,43 +435,7 @@ contains
   !> With the MPI communicator comm passed, the scalar product is be evaluated
   !> over all processes. Otherwise, only the local contribution is returned.
 
-#if defined(OMP_REDUCTION_SERIAL)
-
-  ! omp serial version
-
-  real(RNP) function WeightedScalarProduct_X(n, w, a, b, comm) result(r)
-    integer,                  intent(in) :: n    !< array size
-    real(RNP),                intent(in) :: w(n) !< weights
-    real(RNP),                intent(in) :: a(n) !< left operand
-    real(RNP),                intent(in) :: b(n) !< right operand
-    type(MPI_Comm), optional, intent(in) :: comm !< MPI communicator
-
-    ! local variables declared save to become shared with OpenMP
-    real(RNP), save :: r_glob
-    real(RNP) :: r_loc
-    integer  :: i
-
-    !$omp master
-
-    r_loc = 0
-    do i = 1, n
-      r_loc = r_loc + w(i) * a(i) * b(i)
-    end do
-
-    if (present(comm)) then
-      call MPI_Allreduce(r_loc, r_glob, 1, MPI_REAL_RNP, MPI_SUM, comm)
-    else
-      r_glob = r_loc
-    end if
-
-    !$omp end master
-    !$omp barrier
-
-    r = r_glob
-
-  end function WeightedScalarProduct_X
-
-#elif defined(OMP_REDUCTION_ATOMIC)
+#if defined(OMP_REDUCTION_ATOMIC)
 
   ! omp atomic version
   real(RNP) function WeightedScalarProduct_X(n, w, a, b, comm) result(r)
