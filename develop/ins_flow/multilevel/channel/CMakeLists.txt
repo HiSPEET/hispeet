@@ -1,4 +1,4 @@
-file( COPY test-hp.prm
-           channel.prm
+file( COPY channel.prm
+           test_hp.prm
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR} )
