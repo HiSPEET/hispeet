@@ -50,15 +50,16 @@ module DG__Elliptic_Operator__3D
   !>
   !> When applied with local refinement, the component `interior_bc` defines the
   !> conditions at interior boundaries: a blank space yields a direct coupling
-  !> to adjacent frozen elements, whereas `D` results in Dirichlet boundary
-  !> conditions.
+  !> to adjacent frozen elements, `D` results in Dirichlet boundary conditions,
+  !> and 'M' in a mixed version with fluxes based on direct coupling and jumps
+  !> based on Dirichlet conditions.
 
   type DG_EllipticOperator_3D
 
     class(SpectralElementMesh_3D), pointer :: sem => null()
     type(DG_ElementOperators_1D) :: eop
     type(DG_SchwarzOperator_3D)  :: schwarz
-    character :: interior_bc = ' ' !< coupling with frozen elements {' ','D'}
+    character :: interior_bc = ' ' !< coupling with frozen elements {' ','D','M'}
 
   contains
 
@@ -237,9 +238,7 @@ contains
   !> Skipping `penalty` or passing a negative value yields the default specified
   !> in DG_ElementOptions_1D.
   !>
-  !> Skipping `interior_bc` or passing a space results in a direct coupling to
-  !> frozen elements. Specicyfing 'D' enforces Dirichlet conditions at interior
-  !> boundaries
+  !> Skipping `interior_bc` yields the default coupling conditions.
 
   function New_DG_EllipticOperator_3D &
         (sem, schwarz_opt, penalty, interior_bc) result(this)
@@ -280,7 +279,7 @@ contains
       this % interior_bc = interior_bc
     end if
 
-    if (scan(' D', this%interior_bc) == 0) then
+    if (scan(' DM', this%interior_bc) == 0) then
       call Error( 'Init_DG_EllipticOperator_3D'                       &
                 , 'interior_bc"'//this%interior_bc//'" not supported' &
                 , 'DG__Elliptic_Operator__3D'                         )
@@ -650,8 +649,9 @@ contains
   !-----------------------------------------------------------------------------
   !> Compose element-boundary fluxes from flux traces -- constant diffusivity
 
-  subroutine GetElementBoundaryFluxes_C( this, element, struct, hom_bc &
-                                       , e, f, tr, jmp_u, avg_q        )
+
+  pure subroutine GetElementBoundaryFluxes_C( this, element, struct, hom_bc &
+                                            , e, f, tr, jmp_u, avg_q        )
 
     class(DG_EllipticOperator_3D), intent(in) :: this
     class(MeshElement_3D), intent(in) :: element
@@ -665,49 +665,75 @@ contains
 
     integer :: i, l, m
 
-    if (element % face(f) % boundary == 0 .and. this % interior_bc == 'D') then
-      ! interface to frozen element treated as Dirichlet boundary
-      if (hom_bc) then
-        jmp_u = 2 * tr(:,:,f,e,1)
-      else
-        i = element % face(f) % i_neighbor
+    associate(face => element%face(f), interior_bc => this%interior_bc)
+
+      if (face % boundary == 0 .and. interior_bc == 'D') then
+
+        ! interface to frozen element treated as Dirichlet boundary
+        if (hom_bc) then
+          jmp_u = 2 * tr(:,:,f,e,1)
+        else
+          i = face % i_neighbor
+          l = element % neighbor(i) % id
+          m = element % neighbor(i) % component
+          call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), jmp_u)
+          jmp_u = 2 * (tr(:,:,f,e,1) - jmp_u)
+        end if
+        avg_q = tr(:,:,f,e,2)
+
+      else if (face % boundary == 0 .and. interior_bc == 'M') then
+
+        ! mixed coupling to frozen neighbor
+        if (hom_bc) then
+          jmp_u = tr(:,:,f,e,1) * 2
+          avg_q = tr(:,:,f,e,2) * HALF
+        else
+          i = face % i_neighbor
+          l = element % neighbor(i) % id
+          m = element % neighbor(i) % component
+          if (struct) then
+            jmp_u = (tr(:,:,f,e,1) - tr(:,:,m,l,1)) * 2
+            avg_q = (tr(:,:,f,e,2) - tr(:,:,m,l,2)) * HALF
+          else
+            call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), jmp_u)
+            call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), avg_q)
+            jmp_u = (tr(:,:,f,e,1) - jmp_u) * 2
+            avg_q = (tr(:,:,f,e,2) - avg_q) * HALF
+          end if
+        end if
+
+      else if (face % i_neighbor > 0) then
+
+        ! direct coupling to active or frozen neighbor
+        i = face % i_neighbor
         l = element % neighbor(i) % id
         m = element % neighbor(i) % component
-        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), jmp_u)
-        jmp_u = 2 * (tr(:,:,f,e,1) - jmp_u)
-      end if
-      avg_q = tr(:,:,f,e,2)
+        if (struct) then
+          jmp_u = (tr(:,:,f,e,1) - tr(:,:,m,l,1))
+          avg_q = (tr(:,:,f,e,2) - tr(:,:,m,l,2)) * HALF
+        else
+          call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), jmp_u)
+          call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), avg_q)
+          jmp_u = (tr(:,:,f,e,1) - jmp_u)
+          avg_q = (tr(:,:,f,e,2) - avg_q) * HALF
+        end if
 
-    else if (element % face(f) % i_neighbor > 0) then
-      ! active or frozen neighbor
-      i = element % face(f) % i_neighbor
-      l = element % neighbor(i) % id
-      m = element % neighbor(i) % component
-      if (struct) then
-        jmp_u = (tr(:,:,f,e,1) - tr(:,:,m,l,1))
-        avg_q = (tr(:,:,f,e,2) - tr(:,:,m,l,2)) * HALF
       else
-        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), jmp_u)
-        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), avg_q)
-        jmp_u = (tr(:,:,f,e,1) - jmp_u)
-        avg_q = (tr(:,:,f,e,2) - avg_q) * HALF
+
+        ! domain boundary: treated by EnforceBoundaryConditions
+        jmp_u = tr(:,:,f,e,1)
+        avg_q = tr(:,:,f,e,2)
+
       end if
-
-    else
-      ! domain boundary: treated by EnforceBoundaryConditions
-      jmp_u = tr(:,:,f,e,1)
-      avg_q = tr(:,:,f,e,2)
-
-   end if
+    end associate
 
   end subroutine GetElementBoundaryFluxes_C
-
 
   !-----------------------------------------------------------------------------
   !> Compose element-boundary fluxes from flux traces -- variable diffusivity
 
-  subroutine GetElementBoundaryFluxes_V( this, element, struct, hom_bc  &
-                                       , e, f, tr, nu_max, jmp_u, avg_q )
+  pure subroutine GetElementBoundaryFluxes_V( this, element, struct, hom_bc  &
+                                            , e, f, tr, nu_max, jmp_u, avg_q )
 
     class(DG_EllipticOperator_3D), intent(in) :: this
     class(MeshElement_3D), intent(in) :: element
@@ -722,45 +748,77 @@ contains
 
     integer :: i, l, m
 
-    if (element % face(f) % boundary == 0 .and. this % interior_bc == 'D') then
-      ! interface to frozen element treated as Dirichlet boundary
-      nu_max = tr(:,:,f,e,1)
-      if (hom_bc) then
-        jmp_u = 2 * tr(:,:,f,e,2)
-      else
-        i = element % face(f) % i_neighbor
+    associate(face => element%face(f), interior_bc => this%interior_bc)
+
+      if (face % boundary == 0 .and. interior_bc == 'D') then
+
+        ! interface to frozen element treated as Dirichlet boundary
+        nu_max = tr(:,:,f,e,1)
+        if (hom_bc) then
+          jmp_u = 2 * tr(:,:,f,e,2)
+        else
+          i = face % i_neighbor
+          l = element % neighbor(i) % id
+          m = element % neighbor(i) % component
+          call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), jmp_u)
+          jmp_u = 2 * (tr(:,:,f,e,2) - jmp_u)
+        end if
+        avg_q = tr(:,:,f,e,3)
+
+      else if (face % boundary == 0 .and. interior_bc == 'M') then
+
+        ! mixed coupling to frozen neighbor
+        if (hom_bc) then
+          call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), nu_max)
+          nu_max = max(tr(:,:,f,e,1), nu_max)
+          jmp_u  = tr(:,:,f,e,1) * 2
+          avg_q  = tr(:,:,f,e,2) * HALF
+        else
+          i = face % i_neighbor
+          l = element % neighbor(i) % id
+          m = element % neighbor(i) % component
+          if (struct) then
+            nu_max = max(tr(:,:,f,e,1), tr(:,:,m,l,1))
+            jmp_u  = (tr(:,:,f,e,2) - tr(:,:,m,l,2)) * 2
+            avg_q  = (tr(:,:,f,e,3) - tr(:,:,m,l,3)) * HALF
+          else
+            call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), nu_max)
+            call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), jmp_u)
+            call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,3), avg_q)
+            nu_max = max(tr(:,:,f,e,1), nu_max)
+            jmp_u  = (tr(:,:,f,e,2) - jmp_u) * 2
+            avg_q  = (tr(:,:,f,e,3) - avg_q) * HALF
+          end if
+        end if
+
+      else if (face % i_neighbor > 0) then
+
+        ! direct coupling to active or frozen neighbor
+        i = face % i_neighbor
         l = element % neighbor(i) % id
         m = element % neighbor(i) % component
-        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), jmp_u)
-        jmp_u = 2 * (tr(:,:,f,e,2) - jmp_u)
-      end if
-      avg_q = tr(:,:,f,e,3)
+        if (struct) then
+          nu_max = max(tr(:,:,f,e,1), tr(:,:,m,l,1))
+          jmp_u  = (tr(:,:,f,e,2) - tr(:,:,m,l,2))
+          avg_q  = (tr(:,:,f,e,3) - tr(:,:,m,l,3)) * HALF
+        else
+          call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), nu_max)
+          call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), jmp_u)
+          call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,3), avg_q)
+          nu_max = max(tr(:,:,f,e,1), nu_max)
+          jmp_u  = (tr(:,:,f,e,2) - jmp_u)
+          avg_q  = (tr(:,:,f,e,3) - avg_q) * HALF
+        end if
 
-    else if (element % face(f) % i_neighbor > 0) then
-      ! active or frozen neighbor
-      i = element % face(f) % i_neighbor
-      l = element % neighbor(i) % id
-      m = element % neighbor(i) % component
-      if (struct) then
-        nu_max = max(tr(:,:,f,e,1), tr(:,:,m,l,1))
-        jmp_u  = (tr(:,:,f,e,2) - tr(:,:,m,l,2))
-        avg_q  = (tr(:,:,f,e,3) - tr(:,:,m,l,3)) * HALF
       else
-        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), nu_max)
-        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), jmp_u)
-        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,3), avg_q)
-        nu_max = max(tr(:,:,f,e,1), nu_max)
-        jmp_u  = (tr(:,:,f,e,2) - jmp_u)
-        avg_q  = (tr(:,:,f,e,3) - avg_q) * HALF
+
+        ! domain boundary: treated by EnforceBoundaryConditions
+        nu_max = tr(:,:,f,e,1)
+        jmp_u  = tr(:,:,f,e,2)
+        avg_q  = tr(:,:,f,e,3)
+
       end if
-
-    else
-      ! domain boundary: treated by EnforceBoundaryConditions
-      nu_max = tr(:,:,f,e,1)
-      jmp_u  = tr(:,:,f,e,2)
-      avg_q  = tr(:,:,f,e,3)
-
-   end if
+    end associate
 
   end subroutine GetElementBoundaryFluxes_V
 
