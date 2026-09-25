@@ -50,7 +50,8 @@ module ML__INS__Operator__3D
   !> Multilevel INS diffusion settings
 
   type ML_INS_DiffusionOptions_3D
-    character :: fc_projection = 'I' !< fine-to-coarse projection method {I,P}
+    character :: fc_projection  = 'I' !< fine-to-coarse projection method {I,P}
+    logical   :: fc_reset_twigs = .false. !< reinitialize coarse solution
     integer   :: i_max = 1 !< max number of multigrid iterations (cycles)
     integer   :: ns_1  = 1 !< num pre-smoothing steps
     integer   :: ns_2  = 1 !< num post-smoothing steps
@@ -282,11 +283,12 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    call XMPI_Bcast(this % fc_projection, root, comm)
-    call XMPI_Bcast(this % i_max        , root, comm)
-    call XMPI_Bcast(this % ns_1         , root, comm)
-    call XMPI_Bcast(this % ns_2         , root, comm)
-    call XMPI_Bcast(this % ns_c         , root, comm)
+    call XMPI_Bcast(this % fc_projection , root, comm)
+    call XMPI_Bcast(this % fc_reset_twigs, root, comm)
+    call XMPI_Bcast(this % i_max         , root, comm)
+    call XMPI_Bcast(this % ns_1          , root, comm)
+    call XMPI_Bcast(this % ns_2          , root, comm)
+    call XMPI_Bcast(this % ns_c          , root, comm)
 
   end subroutine Bcast_ML_INS_DiffusionOptions_3D
 
