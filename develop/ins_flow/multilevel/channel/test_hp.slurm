@@ -7,8 +7,8 @@
 #SBATCH --account=p_hispeet
 #SBATCH --nodes=1
 #SBATCH --ntasks=64                          # max number of MPI-processes
-#SBATCH --time=00-02:00:00                   # dd-hh:mm:ss
-#SBATCH --job-name=channel_mg                # sensible job name
+#SBATCH --time=00-05:00:00                   # dd-hh:mm:ss
+#SBATCH --job-name=channel_ml                # sensible job name
 
 # ------------------------------------------------------------------------------
 
@@ -21,7 +21,7 @@ then
   echo ""
 fi
 
-PROG=${PROG:-"../ml_ins_solver"}
+PROG=${PROG:-"../ml_ins_solver_3d"}
 CASE=${CASE:-"test_hp"}
 
 
@@ -47,7 +47,7 @@ MU_0=${MU_0:-"1"}
 
 # SGS model
 SGS_MODEL=${SGS_MODEL:-"0"}
-SGS_DYNAMIC${SGS_DYNAMIC:-"F"}
+SGS_DYNAMIC=${SGS_DYNAMIC:-"F"}
 
 # step size, may be increased in sucessive runs
 DT=${DT:-"1e-5"}
@@ -101,7 +101,7 @@ for ((k = 1; k <= ${N_RESTART}; k++)); do
     echo "restarting, k =" $k "=================================================================="
     # renaming + saving restart files
     mkdir -p save
-    for outfile in *${RESTART_TAG_OUT}*.h5; do
+    for outfile in *${RESTART_TAG_OUT}*.*; do
         infile=${outfile/$RESTART_TAG_OUT/$RESTART_TAG_IN}
         cp $outfile $infile
 	    mv $outfile save/

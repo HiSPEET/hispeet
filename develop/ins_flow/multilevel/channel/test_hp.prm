@@ -64,7 +64,7 @@
   ml_ins_opt%ins_op%diffusion_solver = 'SPCG'
 
   ml_ins_opt%ins_op%dealiasing  = T
-  ins_op_opt%ins_op%div_stab    = 1
+  ml_ins_opt%ins_op%div_stab    = 1
   ml_ins_opt%ins_op%mu_0        = 1
 ! ml_ins_opt%ins_op%penalty_u   = 10
 ! ml_ins_opt%ins_op%penalty_p   = 10
