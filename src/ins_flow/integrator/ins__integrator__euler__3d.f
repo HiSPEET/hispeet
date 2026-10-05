@@ -218,7 +218,7 @@ contains
       end if
 
       ! rotational diffusion term F_d0 with extrapolation: s⁺ = s⁻ at ∂Ωᴼ
-      call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_u &
+      call ins_op % GetDiffusionTerm( mu, nu, bv_u, f_d, v, vp, sp &
                                     , xout = .true., form = 2      )
 
       ! convection term F_c
@@ -256,7 +256,7 @@ contains
 
       ! extrapolation-projection-diffusion step ................................
 
-      call ins_op % StokesSolver(dt, f, bv_u, mu, nu, u, f_d0 = f_d)
+      call ins_op % StokesSolver(dt, mu, nu, bv_u, f_d, f, u)
 
       ! cleanup ................................................................
 

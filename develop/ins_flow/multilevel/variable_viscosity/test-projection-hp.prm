@@ -41,13 +41,13 @@
 
 ! ml_ins_opt%mixed = F
 
-  ml_ins_opt%pressure%i_crs =  1000 ! max num coarse iterations          [ 1]
-  ml_ins_opt%pressure%i_max =    10 ! max num cycles                     [ 1]
-  ml_ins_opt%pressure%ns_1  =     3 ! num pre-smoothing steps            [ 1] 
-  ml_ins_opt%pressure%ns_2  =     1 ! num post-smoothing steps           [ 1] 
-  ml_ins_opt%pressure%ns_c  =     2 ! num continuation smoothing steps   [ 1] 
-  ml_ins_opt%pressure%r_red = 1e-10 ! min residual reduction,  if > 0    [-1] 
-  ml_ins_opt%pressure%r_max = 1e-12 ! max admissible residual, if > 0    [-1] 
+  ml_proj_opt%p_solver%i_crs =  1000 ! max num coarse iterations          [ 1]
+  ml_proj_opt%p_solver%i_max =    10 ! max num cycles                     [ 1]
+  ml_proj_opt%p_solver%ns_1  =     3 ! num pre-smoothing steps            [ 1] 
+  ml_proj_opt%p_solver%ns_2  =     1 ! num post-smoothing steps           [ 1] 
+  ml_proj_opt%p_solver%ns_c  =     2 ! num continuation smoothing steps   [ 1] 
+  ml_proj_opt%p_solver%r_red = 1e-10 ! min residual reduction,  if > 0    [-1] 
+  ml_proj_opt%p_solver%r_max = 1e-12 ! max admissible residual, if > 0    [-1] 
 /
 
 !-------------------------------------------------------------------------------

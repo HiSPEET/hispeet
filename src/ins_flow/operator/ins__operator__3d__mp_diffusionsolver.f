@@ -39,8 +39,9 @@ contains
   !-----------------------------------------------------------------------------
   !>  IPCG Diffusion solver with Schwarz preconditioner
 
-  module subroutine DiffusionSolver( this, tau, mu, nu, f, bv, v, i_max &
-                                   , precon, ni )
+  module subroutine DiffusionSolver( this, tau, mu, nu, bv, f, v &
+                                   , i_max, r_red, r_max, precon &
+                                   , ni )
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -54,20 +55,22 @@ contains
     real(RNP), contiguous, optional, intent(in) :: nu(:,:,:,:)
     !< kinematic shear viscosity, ν(np,np,np,ne,3)
 
-    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
-    !< sources, f(np,np,np,ne,3)
-
     class(BoundaryVariable_3D), intent(in) :: bv(:)
     !< boundary values at final time t
     !!   - Γᴰ :  vᵇ    in components 1:3
     !!   - Γᴼ :  τ_nn  in component    4
 
+    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
+    !< sources, f(np,np,np,ne,3)
+
     real(RNP), contiguous, intent(inout) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
 
-    integer, optional, intent(in)  :: i_max  !< overrides max iteration count
-    logical, optional, intent(in)  :: precon !< switch preconditioner mode
-    integer, optional, intent(out) :: ni     !< executed num iterations
+    integer,   optional, intent(in)  :: i_max  !< overrides max iteration count
+    real(RNP), optional, intent(in)  :: r_red  !< overrides min residual reduction
+    real(RNP), optional, intent(in)  :: r_max  !< overrides max admissible residual
+    logical,   optional, intent(in)  :: precon !< switch preconditioner mode
+    integer  , optional, intent(out) :: ni     !< executed num iterations
 
     ! internal variables .......................................................
 
@@ -76,9 +79,8 @@ contains
     real(RNP), save :: rr_term
     logical  , save :: converged
 
-    real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
     real(RNP) :: alpha, beta, delta, pq, rr
-    real(RNP) :: r_max, r_red
+    real(RNP) :: r_max_, r_red_
     integer   :: d, i, i_max_, na
     logical   :: check_convergence
 
@@ -99,13 +101,22 @@ contains
         return
       end if
 
+      if (present(r_red)) then
+        r_red_ = r_red
+      else
+        r_red_ = this % r_red
+      end if
+
+      if (present(r_max)) then
+        r_max_ = r_max
+      else
+        r_max_ = this % r_max
+      end if
+
       na = mesh % n_elem_active
 
-      r_red = this % r_red
-      r_max = this % r_max
-
-      check_convergence = r_red > 0 .or. &
-                          r_max > 0 .or. &
+      check_convergence = r_red_ > 0 .or. &
+                          r_max_ > 0 .or. &
                           log_level_inner_iteration > 0
 
       !$omp master
@@ -119,13 +130,13 @@ contains
       !$omp barrier
 
       ! initial residual
-      call this % GetDiffusionResidual(tau, mu, nu, f, bv, v, r)
+      call this % GetDiffusionResidual(tau, mu, nu, bv, f, v, r)
 
       ! termination conditions
       if (check_convergence) then
         rr = ScalarProduct(r, r, mesh%comm_parts)
         !$omp master
-        rr_term  = max(ZERO, sqrt(rr) * r_red, r_max)**2
+        rr_term  = max(ZERO, sqrt(rr) * r_red_, r_max_)**2
         converged = rr <= rr_term
         call XMPI_Bcast(converged, root=0, comm=mesh%comm_parts)
         if (log_level_inner_iteration > 1 .and. mesh%part == 0) then
@@ -200,7 +211,7 @@ contains
 
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
-          call this % GetDiffusionResidual(tau, mu, nu, f, bv, v, r)
+          call this % GetDiffusionResidual(tau, mu, nu, bv, f, v, r)
         else
           call MergeArrays(ONE, r, -alpha, q, multi = .true.)
         end if

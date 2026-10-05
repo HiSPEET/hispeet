@@ -42,7 +42,7 @@ contains
   !> the sources, which comprise the remaining coefficients of the momentum
   !> equation.
 
-  module subroutine GetDiffusionResidual_C(this, tau, f, bv, v, r, form)
+  module subroutine GetDiffusionResidual_C(this, tau, bv, f, v, r, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -50,13 +50,13 @@ contains
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
 
-    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
-    !< sources, f(np,np,np,ne,3)
-
     class(BoundaryVariable_3D), intent(in) :: bv(:)
     !< boundary values
     !!   - Γᴰ :  [ v₁, v₂, v₃, - ]
     !!   - Γᴼ :  [ - , - , ∆p, p ]
+
+    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
+    !< sources, f(np,np,np,ne,3)
 
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
@@ -98,7 +98,7 @@ contains
 
       ! compute residual .......................................................
 
-      call this % GetDiffusionTerm_C(v, vp, sp, r, bv, form=form)
+      call this % GetDiffusionTerm_C(bv, r, v, vp, sp, form=form)
 
       !$omp do collapse(2)
       do e = 1, na

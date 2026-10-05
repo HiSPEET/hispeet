@@ -355,9 +355,9 @@ program INS_Operator_3D_Test
   ! viscous term: F_d = ∇·τ ....................................................
 
   if (problem % HasVariableProperties()) then
-    call ins_op % GetDiffusionTerm_V(mu, nu, v, vp, sp, w, bv_u)
+    call ins_op % GetDiffusionTerm_V(mu, nu, bv_u, w, v, vp, sp)
   else
-    call ins_op % GetDiffusionTerm_C(v, vp, sp, w, bv_u)
+    call ins_op % GetDiffusionTerm_C(bv_u, w, v, vp, sp)
   end if
 
   do i = 1, 3

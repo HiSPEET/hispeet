@@ -42,7 +42,7 @@ contains
   !> step, based on the extrapolated velocity `v = τ(f + f_d0)`.
   !> If `f_d0` is absent, the projection is used to correct the given values.
 
-  module subroutine StokesFGMRES(this, tau, f, bv, mu, nu, u, f_d0)
+  module subroutine StokesFGMRES(this, tau, mu, nu, bv, f_d0, f, u)
 
     ! arguments ................................................................
 
@@ -50,20 +50,20 @@ contains
     !< incompressible Navier-Stokes time integrator
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
-    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
-    !< RHS: f = v₀/τ + F_c + f_s + ...
-    class(BoundaryVariable_3D), intent(in) :: bv(:)
-    !< boundary values
-    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]
-    !!   - Γᴼ :  [ - , - , ∆p, p ]
     real(RNP), contiguous, optional, intent(in) :: mu(:,:,:,:)
     !< μ, kinematic bulk viscosity
     real(RNP), contiguous, optional, intent(in) :: nu(:,:,:,:)
     !< ν, kinematic shear viscosity
-    real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
-    !< u = [v, p], velocity and pressure
+    class(BoundaryVariable_3D), intent(in) :: bv(:)
+    !< boundary values
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]
+    !!   - Γᴼ :  [ - , - , ∆p, p ]
     real(RNP), contiguous, optional, intent(in) :: f_d0(:,:,:,:,:)
     !< approximate diffusion term
+    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
+    !< RHS: f = v₀/τ + F_c + f_s + ...
+    real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
+    !< u = [v, p], velocity and pressure
 
     ! internal variables .......................................................
 
@@ -146,11 +146,11 @@ contains
 
         ! initial approximation ................................................
 
-        call StokesProjection(this, tau, f, bv, mu, nu, u, f_d0)
+        call StokesProjection(this, tau, mu, nu, bv, f_d0, f, u)
 
         ! initial residual, v₁ = f - Au ........................................
 
-        call this % GetStokesResidual(tau, f, bv, mu, nu, u, v1)
+        call this % GetStokesResidual(tau, mu, nu, bv, f, u, v1)
 
         beta = sqrt(ScalarProduct(v1, v1, mesh%comm_parts))
         b(1) = beta
@@ -202,11 +202,11 @@ contains
           end do
 
           ! projection with homogeneous BC and frozen viscosity: z(j) = K⁻¹v(j)
-          call StokesProjection( this, tau, g, bv_z, mu, nu, zj &
-                               , f_d0 = O, precon = .true.      )
+          call StokesProjection( this, tau, mu, nu, bv_z, O, g, zj &
+                               , precon = .true.                   )
 
           ! application of homogeneous operator: w = A v(j)
-          call this % GetStokesResidual(tau, O, bv_z, mu, nu, zj, w)
+          call this % GetStokesResidual(tau, mu, nu, bv_z, O, zj, w)
           call ScaleArray(w, -ONE, multi=.true.)
 
           ! computation of new Krylov vector ...................................

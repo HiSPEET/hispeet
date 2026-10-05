@@ -293,7 +293,7 @@ contains
 
           ! diffusion with μ and ν as given ....................................
 
-          call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp, w, bv_u &
+          call ins_op % GetDiffusionTerm( mu, nu, bv_u, w, v, vp, sp &
                                         , xout = .true. )
 
           !$omp do reduction(+:phi_d)
@@ -307,7 +307,7 @@ contains
 
           ! diffusion with μ = 0 and ν as given (shear only) ...................
 
-          call ins_op % GetDiffusionTerm( s0, nu, v, vp, sp, w, bv_u &
+          call ins_op % GetDiffusionTerm( s0, nu, bv_u, w, v, vp, sp &
                                         , xout = .true. )
 
           !$omp do reduction(+:phi_ds)
@@ -323,7 +323,7 @@ contains
 
           if (ins_op % nu_0 > 0) then
 
-            call ins_op % GetDiffusionTerm( s0, s1, v, vp, sp, w, bv_u &
+            call ins_op % GetDiffusionTerm( s0, s1, bv_u, w, v, vp, sp &
                                           , xout = .true. )
 
             !$omp do reduction(+:phi_d0)
