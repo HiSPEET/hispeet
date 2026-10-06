@@ -97,7 +97,7 @@ contains
       ! contributions ..........................................................
 
       ! diffusion
-      call this % GetDiffusionTerm(mu, nu, bv, r_m, v, vp, sp)
+      call this % GetDiffusionTerm(mu, nu, bv, v, vp, sp, r_m)
 
       ! pressure gradient and velocity divergence
       call GetOuterTraces_3D(this % mesh, p, pp)

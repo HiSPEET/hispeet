@@ -274,14 +274,14 @@ contains
 
           ! diffusion term using standard form with extrapolation at ∂Ωᴼ
           call ins_op % GetDiffusionTerm( mu, nu, bv_u      &
-                                        , f_d(:,:,:,:,:,1)  &
                                         , v, vp, sp         &
+                                        , f_d(:,:,:,:,:,1)  &
                                         , xout = .true.     )
 
           ! diffusion term using rotational form with extrapolation at ∂Ωᴼ
           call ins_op % GetDiffusionTerm( mu, nu, bv_u         &
-                                        , f_d_rot(:,:,:,:,:,1) &
                                         , v, vp, sp            &
+                                        , f_d_rot(:,:,:,:,:,1) &
                                         , xout = .true.        &
                                         , form = 2             )
 
@@ -406,14 +406,14 @@ contains
 
           ! diffusion term using standard form with extrapolation at ∂Ωᴼ
           call ins_op % GetDiffusionTerm( mu, nu, bv_u      &
-                                        , f_d(:,:,:,:,:,i)  &
                                         , v, vp, sp         &
+                                        , f_d(:,:,:,:,:,i)  &
                                         , xout = .true.     )
 
           ! diffusion term using rotational form with extrapolation at ∂Ωᴼ
           call ins_op % GetDiffusionTerm( mu, nu, bv_u         &
-                                        , f_d_rot(:,:,:,:,:,i) &
                                         , v, vp, sp            &
+                                        , f_d_rot(:,:,:,:,:,i) &
                                         , xout = .true.        &
                                         , form = 2             )
 

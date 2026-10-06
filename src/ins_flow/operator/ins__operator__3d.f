@@ -249,12 +249,12 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Application of the Stokes operator
 
-    module subroutine ApplyStokesOperator(this, tau, bv, mu, nu, u, r)
+    module subroutine ApplyStokesOperator(this, tau, mu, nu, bv, u, r)
       class(INS_Operator_3D),               intent(in)  :: this
       real(RNP),                            intent(in)  :: tau
-      class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
       real(RNP), contiguous,      optional, intent(in)  :: mu(:,:,:,:)
       real(RNP), contiguous,      optional, intent(in)  :: nu(:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
       real(RNP), contiguous,                intent(in)  :: u(:,:,:,:,:)
       real(RNP), contiguous,                intent(out) :: r(:,:,:,:,:)
     end subroutine ApplyStokesOperator
@@ -322,13 +322,13 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion term with constant viscosity on irregular (deformed) mesh
 
-    module subroutine GetDiffusionTerm_C(this, bv_v, f_d, v, vp, sp, xout, form)
+    module subroutine GetDiffusionTerm_C(this, bv_v, v, vp, sp, f_d, xout, form)
       class(INS_Operator_3D),               intent(in)  :: this
       class(BoundaryVariable_3D), optional, intent(in)  :: bv_v(:)
-      real(RNP),                contiguous, intent(out) :: f_d(:,:,:,:,:)
       real(RNP),                contiguous, intent(in)  :: v(:,:,:,:,:)
       real(RNP),                contiguous, intent(out) :: vp(:,:,:,:,:)
       real(RNP),                contiguous, intent(out) :: sp(:,:,:,:,:)
+      real(RNP),                contiguous, intent(out) :: f_d(:,:,:,:,:)
       logical,                    optional, intent(in)  :: xout
       integer,                    optional, intent(in)  :: form
     end subroutine GetDiffusionTerm_C
@@ -337,15 +337,15 @@ module INS__Operator__3D
     !> Diffusion term with variable viscosity on irregular (deformed) mesh
 
     module subroutine GetDiffusionTerm_V &
-        (this, mu, nu, bv_v, f_d, v, vp, sp, xout, form)
+        (this, mu, nu, bv_v, v, vp, sp, f_d, xout, form)
       class(INS_Operator_3D),               intent(in)  :: this
       real(RNP), contiguous,                intent(in)  :: mu(:,:,:,:)
       real(RNP), contiguous,                intent(in)  :: nu(:,:,:,:)
       class(BoundaryVariable_3D), optional, intent(in)  :: bv_v(:)
-      real(RNP), contiguous,                intent(out) :: f_d(:,:,:,:,:)
       real(RNP), contiguous,                intent(in)  :: v(:,:,:,:,:)
       real(RNP), contiguous,                intent(out) :: vp(:,:,:,:,:)
       real(RNP), contiguous,                intent(out) :: sp(:,:,:,:,:)
+      real(RNP), contiguous,                intent(out) :: f_d(:,:,:,:,:)
       logical,                    optional, intent(in)  :: xout
       integer,                    optional, intent(in)  :: form
     end subroutine GetDiffusionTerm_V
@@ -820,23 +820,23 @@ contains
   !-----------------------------------------------------------------------------
   !> Diffusion term with constant or variable viscosity
 
-  subroutine GetDiffusionTerm(this, mu, nu, bv, f_d, v, vp, sp, xout, form)
+  subroutine GetDiffusionTerm(this, mu, nu, bv, v, vp, sp, f_d, xout, form)
     class(INS_Operator_3D),               intent(in)  :: this
     real(RNP), contiguous,      optional, intent(in)  :: mu(:,:,:,:)
     real(RNP), contiguous,      optional, intent(in)  :: nu(:,:,:,:)
     class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
-    real(RNP), contiguous,                intent(out) :: f_d(:,:,:,:,:)
     real(RNP), contiguous,                intent(in)  :: v(:,:,:,:,:)
     real(RNP), contiguous,                intent(out) :: vp(:,:,:,:,:)
     real(RNP), contiguous,                intent(out) :: sp(:,:,:,:,:)
+    real(RNP), contiguous,                intent(out) :: f_d(:,:,:,:,:)
     logical,                    optional, intent(in)  :: xout
     integer,                    optional, intent(in)  :: form
 
     if (.not. this % HasVariableViscosity()) then
-      call this % GetDiffusionTerm_C(bv, f_d, v, vp, sp, xout, form)
+      call this % GetDiffusionTerm_C(bv, v, vp, sp, f_d, xout, form)
 
     else if (present(mu) .and. present(nu)) then
-      call this % GetDiffusionTerm_V(mu, nu, bv, f_d, v, vp, sp, xout, form)
+      call this % GetDiffusionTerm_V(mu, nu, bv, v, vp, sp, f_d, xout, form)
 
     else
       call Error( 'GetDiffusionTerm'                           &

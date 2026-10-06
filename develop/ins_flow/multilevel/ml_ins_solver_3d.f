@@ -51,6 +51,7 @@ program ML_INS_Solver_3D
   use INS__Problem__Test_Suite__3D
 
   use ML__Mesh__3D
+  use ML__Mesh_Operators__3D
   use ML__Mesh_Variable__3D
   use ML__Smooth_Mesh_Variable__3D
   use ML__INS__Operator__3D
@@ -149,9 +150,11 @@ program ML_INS_Solver_3D
 
   integer, allocatable, save :: po(:)
   type(ML_INS_OperatorOptions_3D), save :: ml_ins_opt
-  type(ML_INS_Operator_3D), save :: ml_ins
 
   namelist/spatial_prm/ po, ml_ins_opt
+
+  type(ML_MeshOperators_3D), save :: ml_op
+  type(ML_INS_Operator_3D) , save :: ml_ins
 
   ! time integration ...........................................................
 
@@ -427,7 +430,8 @@ program ML_INS_Solver_3D
 
   ! multilevel Navier-Stokes operator ..........................................
 
-  ml_ins = ML_INS_Operator_3D(ml_mesh, po, problem, ml_ins_opt)
+  ml_op  = ML_MeshOperators_3D(ml_mesh, po)
+  ml_ins = ML_INS_Operator_3D(ml_ins_opt, problem, ml_mesh, ml_op)
 
   ! variables ..................................................................
 
@@ -504,7 +508,8 @@ program ML_INS_Solver_3D
     if (restart_adjust) then
       call ml_mesh % MarkByOptions(ml_mesh_opt)
       call ml_mesh % Adapt(ml_mesh_opt%partition, x_plan)
-      ml_ins = ML_INS_Operator_3D(ml_mesh, po, problem, ml_ins_opt)
+      ml_op  = ML_MeshOperators_3D(ml_mesh, po)
+      ml_ins = ML_INS_Operator_3D(ml_ins_opt, problem, ml_mesh, ml_op)
       call var % FitAdapt(ml_ins % ml_op_u, x_plan)
       k = n_comp
       call var % GetSlice(u , first =     1, last = k)

@@ -80,7 +80,7 @@ module ML__INS__Stokes__3D
   end interface
 
   !-----------------------------------------------------------------------------
-  !> Multilevel diffusion options
+  !> Multilevel Stokes options
 
   type ML_INS_StokesOptions_3D
 
@@ -120,7 +120,7 @@ module ML__INS__Stokes__3D
     end subroutine StokesCycle
 
     !---------------------------------------------------------------------------
-    !> FAS residual of the implicit viscous subproblem
+    !> FAS MG Stokes residual
 
     module subroutine StokesResidual(this, tau, mu, nu, bv, f, u, r, l_top)
       class(ML_INS_Stokes_3D),       intent(in)    :: this
@@ -148,8 +148,8 @@ module ML__INS__Stokes__3D
       class(ML_MeshVariable_3D),     intent(inout) :: u
     end subroutine StokesStart
 
-  !-----------------------------------------------------------------------------
-  !> Solution of the implicit viscous subproblem
+    !---------------------------------------------------------------------------
+    !> Solution of the implicit viscous subproblem
 
     module subroutine StokesStep(this, tau, mu, nu, bv, f_d0, f, u)
       class(ML_INS_Stokes_3D),       intent(in)    :: this

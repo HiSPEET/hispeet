@@ -62,8 +62,8 @@ add_library(HiINSFlow
             multilevel/ml__ins__stokes__3d__mp_stokesresidual.f
             multilevel/ml__ins__stokes__3d__mp_stokesstart.f
             multilevel/ml__ins__stokes__3d__mp_stokesstep.f
-#           multilevel/ml__ins__integrator__3d.f
-#           multilevel/ml__ins__integrator__bdf__3d.f
+            multilevel/ml__ins__integrator__3d.f
+            multilevel/ml__ins__integrator__bdf__3d.f
             multilevel/ml__ins__time_scales__3d.f
 
             )

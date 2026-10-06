@@ -83,13 +83,14 @@ contains
       end if
       if (l_top_ < 1) return
 
-      if (log_level > 0) then
+      logging = .false.
+      if (log_level_multigrid_cycle > 0) then
+        !$omp master
         associate(proc => sem(1) % mesh % proc)
-          logging = proc == 0 .or. log_level_multigrid_cycle > 0
+          logging = proc == 0
           prefix  = LoggingPrefix('StokesCycle', proc)
         end associate
-      else
-        logging = .false.
+        !$omp master
       end if
 
       !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -98,6 +99,7 @@ contains
       call r      % Init(ml_ins%ml_op_u, nc = problem%nc, l_top = l_top_)
       call w      % Init(ml_ins%ml_op_u, nc = problem%nc, l_top = l_top_)
       !$omp end master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !$omp barrier
 
       ! termination condition
       if (check_convergence) then
@@ -113,7 +115,7 @@ contains
         converged = r_old < r_max
         call XMPI_Bcast(converged, root = 0, comm = sem(1)%mesh%comm_world)
         if (logging) then
-          write(*,'(2A,I0,A,ES12.5)') prefix, ': r_2(',0,') = ',r_old
+          write(*,'(2A,I0,A,ES12.5)') prefix, 'r_2(',0,') = ',r_old
         end if
         !$omp end master
       else
@@ -168,7 +170,7 @@ contains
                    , mm_inv_p => mm_inv % level(l-1) % val(:,:,:,:,1) )
 
             if (logging) then
-              write(*,'(A,2(A,I0))') prefix, ': m = ',m,' down l =',l
+              write(*,'(A,2(A,I0))') prefix, 'm = ',m,' down l =',l
             end if
 
             ! pre-smoothing and residual computation ...........................
@@ -215,7 +217,7 @@ contains
             !$omp end do nowait
 
             ! Stokes operator
-            call ins_p % ApplyStokesOperator(tau, bv_p, mu_p, nu_p, w_p, r_p)
+            call ins_p % ApplyStokesOperator(tau, mu_p, nu_p, bv_p, w_p, r_p)
 
             !$omp do
             do e = 1, mesh_p % n_elem
@@ -235,7 +237,7 @@ contains
         ! coarse grid solver ...................................................
 
         if (logging) then
-          write(*,'(A,2(A,I0))') prefix, ': m = ',m,' coarse'
+          write(*,'(A,2(A,I0))') prefix, 'm = ',m,' coarse'
         end if
 
         call ml_ins % ins_op(1) % StokesSolver( tau                            &
@@ -260,7 +262,7 @@ contains
                    , w_p    => w  % level(l-1) % val            )
 
             if (logging) then
-              write(*,'(A,2(A,I0))') prefix, ': m = ',m,' up l =',l
+              write(*,'(A,2(A,I0))') prefix, 'm = ',m,' up l =',l
             end if
 
             ! prolongation .....................................................
@@ -312,7 +314,7 @@ contains
           rr = ML_ScalarProduct_3D(r, r, l_top = l_top_)
           r_new = sqrt(rr)
           if (logging) then
-            write(*,'(2A,I0,A,ES12.5)') prefix, ': r_2(',m,') = ',r_new
+            write(*,'(2A,I0,A,ES12.5)') prefix, 'r_2(',m,') = ',r_new
           end if
 
           !$omp master

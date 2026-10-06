@@ -218,7 +218,7 @@ contains
       end if
 
       ! rotational diffusion term F_d0 with extrapolation: s⁺ = s⁻ at ∂Ωᴼ
-      call ins_op % GetDiffusionTerm( mu, nu, bv_u, f_d, v, vp, sp &
+      call ins_op % GetDiffusionTerm( mu, nu, bv_u, v, vp, sp, f_d &
                                     , xout = .true., form = 2      )
 
       ! convection term F_c

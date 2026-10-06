@@ -29,9 +29,9 @@ submodule (ML__INS__Stokes__3D) MP_StokesResidual
 contains
 
   !-----------------------------------------------------------------------------
-  !> Coupled solution of the projection and viscous diffusion subproblems
+  !> FAS MG Stokes residual
 
-  subroutine StokesResidual(this, tau, mu, nu, bv, f, u, r, l_top)
+  module subroutine StokesResidual(this, tau, mu, nu, bv, f, u, r, l_top)
 
     class(ML_INS_Stokes_3D),       intent(in)    :: this
     real(RNP),                     intent(in)    :: tau   !< step size
@@ -71,6 +71,7 @@ contains
       call g      % Init(ml_ins%ml_op_u, nc = problem%nc, l_top = l_top_)
       call w      % Init(ml_ins%ml_op_u, nc = problem%nc, l_top = l_top_)
       !$omp end master
+      !$omp barrier
 
       ! inverse mass matrix
       do l = 1, l_top_
@@ -83,7 +84,8 @@ contains
           !$omp end do nowait
         end associate
       end do
-      !$omp barrier !? needed ???
+      ! no barrier needed: mm_inv is first used after GetStokesResidual,
+      ! which synchronizes all threads
 
       ! FAS residual :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -153,7 +155,7 @@ contains
             end do
             !$omp end do nowait
 
-            call ins_p % ApplyStokesOperator(tau, bv_p, mu_p, nu_p, w_p, r_p)
+            call ins_p % ApplyStokesOperator(tau, mu_p, nu_p, bv_p, w_p, r_p)
 
             !$omp do
             do e = 1, mesh_p % n_elem
@@ -173,6 +175,7 @@ contains
 
       ! finalization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
+      !$omp barrier
       !$omp master
       deallocate(mm_inv, g, w)
       !$omp end master

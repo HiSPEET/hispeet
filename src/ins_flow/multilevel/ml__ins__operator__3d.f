@@ -113,7 +113,7 @@ contains
     do l = 1, l_top
       associate(ins_op => this % ins_op(l), sem_u => ml_op % sem(l))
         if(opt%mixed) then
-          associate(sem_p => this %ml_op_p % sem(l))
+          associate(sem_p => this % ml_op_p % sem(l))
             ins_op = INS_Operator_3D(opt%ins_op, problem, sem_u, sem_p, level=l)
           end associate
         else

@@ -43,18 +43,27 @@ contains
 
     integer :: l, l_top
 
+    character(len=:), allocatable :: prefix
+    logical :: logging
+
     if (this % i_fmg < 0) return
 
     l_top = size(u%level)
 
+    logging = .false.
+    if (log_level_multigrid_cycle > 0) then
+      !$omp master
+      associate(proc => this % ml_ins % ins_op(1) % mesh % proc)
+        logging = proc == 0
+        prefix  = LoggingPrefix('StokesStart', proc)
+      end associate
+      !$omp end master
+    end if
+
     do l = 1, l_top
 
-      if (log_level_multigrid_cycle > 0) then
-        !$omp master
-        if (this % ml_ins % ml_op_u % sem(l) % mesh % part == 0) then
-          write(*,'(99(G0,X))') 'MG Stokes start l =',l
-        end if
-        !$omp end master
+      if (logging) then
+        write(*,'(2A,I0,A,ES12.5)') prefix, 'l = ',l
       end if
 
       call this % ml_ins % ins_op(l) %                                     &

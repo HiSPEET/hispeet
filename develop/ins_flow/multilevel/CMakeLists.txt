@@ -19,12 +19,12 @@ target_link_libraries(test_ml_ins_diffusion_3d HiINSFlow)
 #===============================================================================
 # ml_ins_solver_3d
 
-# add_executable( ml_ins_solver_3d
-#                 ml_ins_solver_3d.f
-#                 ml__ins__time_averaging__3d.f
-#               )
-# 
-# target_link_libraries(ml_ins_solver_3d HiINSFlow)
+add_executable( ml_ins_solver_3d
+                ml_ins_solver_3d.f
+                ml__ins__time_averaging__3d.f
+              )
+
+target_link_libraries(ml_ins_solver_3d HiINSFlow)
 
 #===============================================================================
 # Test cases

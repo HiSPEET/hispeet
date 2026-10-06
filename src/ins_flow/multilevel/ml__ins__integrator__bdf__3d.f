@@ -35,6 +35,9 @@ module ML__INS__Integrator__BDF__3D
   use ML__Mesh_Variable__3D
   use ML__Boundary_Variable__3D
   use ML__INS__Operator__3D
+  use ML__INS__Diffusion__3D
+  use ML__INS__Projection__3D
+  use ML__INS__Stokes__3D
   use ML__INS__Integrator__3D
   implicit none
   private
@@ -47,8 +50,9 @@ module ML__INS__Integrator__BDF__3D
 
   type, extends(ML_INS_Integrator_3D) :: ML_INS_Integrator_BDF_3D
     logical :: coupled !< switch for using coupled Stokes solver
-    integer :: n_fmg   !< num cycles used in FMG start, 0 for cascade
-    integer :: n_cyc   !< num cycles used by coupled Stokes solver
+    type(ML_INS_Diffusion_3D)  :: diffusion  !< ML diffusion solver
+    type(ML_INS_Projection_3D) :: projection !< ML projection step
+    type(ML_INS_Stokes_3D)     :: stokes     !< coupled ML Stokes solver
   contains
     procedure, non_overridable :: Init_ML_INS_Integrator_BDF_3D
     procedure :: TimeStep
@@ -64,8 +68,9 @@ module ML__INS__Integrator__BDF__3D
 
   type, extends(ML_INS_IntegratorOptions_3D) :: ML_INS_Integrator_BDF_Options_3D
     logical :: coupled = .false. !< switch for using coupled Stokes solver
-    integer :: n_fmg   = 0       !< num cycles used in FMG start, 0 for cascade
-    integer :: n_cyc   = 1       !< num cycles used by coupled Stokes solver
+    type(ML_INS_DiffusionOptions_3D)  :: diffusion
+    type(ML_INS_ProjectionOptions_3D) :: projection
+    type(ML_INS_StokesOptions_3D)     :: stokes
   contains
     procedure :: Bcast => Bcast_ML_INS_Integrator_BDF_Options
   end type ML_INS_Integrator_BDF_Options_3D
@@ -99,8 +104,14 @@ contains
     call this % Init_ML_INS_Integrator_3D(ml_ins, opt)
 
     this % coupled = opt % coupled
-    this % n_fmg   = opt % n_fmg
-    this % n_cyc   = opt % n_cyc
+
+    if (this % coupled) then
+      this % stokes = ML_INS_Stokes_3D(opt % stokes, ml_ins)
+    else
+      this % diffusion  = ML_INS_Diffusion_3D  (opt % diffusion , ml_ins)
+      this % projection = ML_INS_Projection_3D (opt % projection, ml_ins)
+    end if
+
 
   end subroutine Init_ML_INS_Integrator_BDF_3D
 
@@ -224,14 +235,13 @@ contains
 
         ! coupled Stokes solver ................................................
 
-        call ml_ins % Stokes_MG_Start(tau, mu, nu, bv, f_d, f, u, this%n_fmg)
-        call ml_ins % Stokes_MG_Cycle(tau, mu, nu, bv, f, u, this%n_cyc)
+        call this % stokes % StokesStep(tau, mu, nu, bv, f_d, f, u)
 
       else
 
         ! projection ...........................................................
 
-        call ml_ins % ProjectionStep(tau, bv, u)
+        call this % projection % ProjectionStep(tau, bv, u)
 
         ! diffusion RHS ........................................................
 
@@ -281,7 +291,7 @@ contains
 
         ! viscous diffusion ....................................................
 
-        call ml_ins % DiffusionStep(tau, mu, nu, bv, f, u)
+        call this % diffusion % DiffusionStep(tau, mu, nu, bv, f, u)
 
       end if
 
@@ -319,8 +329,10 @@ contains
     call this % ML_INS_IntegratorOptions_3D % Bcast(root, comm)
 
     call XMPI_Bcast(this % coupled, root, comm)
-    call XMPI_Bcast(this % n_fmg  , root, comm)
-    call XMPI_Bcast(this % n_cyc  , root, comm)
+
+    call this % diffusion  % Bcast(root, comm)
+    call this % projection % Bcast(root, comm)
+    call this % stokes     % Bcast(root, comm)
 
   end subroutine Bcast_ML_INS_Integrator_BDF_Options
 
