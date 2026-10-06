@@ -158,7 +158,7 @@ contains
       call INS_Integrator_BDF_PrepStep_3D( ins_op, t, dt, u, u1, f_c1, f_d1 &
                                          , tau, mu, nu, f, f_d, bv_u, first )
 
-      call ins_op % StokesSolver(tau, f, bv_u, mu, nu, u, f_d0 = f_d)
+      call ins_op % StokesSolver(tau, mu, nu, bv_u, f_d, f, u)
 
       ! cleanup ................................................................
 

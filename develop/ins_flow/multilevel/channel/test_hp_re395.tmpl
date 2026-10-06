@@ -13,28 +13,28 @@
   flow_problem = 'Channel'
   flow_domain  = 1
 
-  eval_diss    =  T  ! set T for evaluating dissipation
-  char_freq    = 10 ! set frequency of control output
-! avg_rate     = 10 ! sampling rate for averaging, 0 if none
-! vtk_mode     =  3 ! VTK export mode, 0/1/2/3: none/all/active/leafs
+  eval_diss    =  T
+  char_freq    = 10
+  avg_rate     = <avg_rate>
 
-! restart_tag_in  = 'run1'
-! restart_tag_out = 'run1'
+  restart_tag_in  = '<restart_tag_in>'
+  restart_tag_out = '<restart_tag_out>'
+  restart_adjust  = <restart_adjust>
 /
 
 !-------------------------------------------------------------------------------
 ! Mesh
 
 &ml_mesh_options_3d__static
-  l_top          =  5  ! initial top level
-  l_max          =  6  ! final top level
-  l_adapt        =  5  ! first level to be adapted > 1
-  n_bnd          =  2  ! number of boundaries to be adapted
+  l_top   =  <l_top> ! initial top level
+  l_max   =  6       ! final top level
+  l_adapt =  5       ! first level to be adapted > 1
+  n_bnd   =  2       ! number of boundaries to be adapted
 /
 
 &ml_mesh_options_3d__dynamic
   refinement = 3*'c', 2*'s' ! (1:l_max-1)  refinement type {'c','s'}
-  n_parts    = 8 8 8 8 8 64
+  n_parts    = 8 8 8 8 8 32
   adapt_bnd  = 5, 6
 /
 
@@ -45,18 +45,22 @@
 
   po = 2, 4, 7, 3*12
 
-  ml_ins_opt%mixed = T
+  ml_ins_opt%mixed = <mixed>
 
-  ml_ins_opt%ins_op%diffusion_solver = 'SPCG'
+  ml_ins_opt%ins_op%diffusion_solver = 'DPCG'
+
   ml_ins_opt%ins_op%dealiasing  = T
-  ml_ins_opt%ins_op%div_stab    = 1
-  ml_ins_opt%ins_op%mu_0        = 1
-! ml_ins_opt%ins_op%penalty_u   = 10
-! ml_ins_opt%ins_op%penalty_p   = 10
+  ml_ins_opt%ins_op%div_stab    = <div_stab>
+  ml_ins_opt%ins_op%mu_0        = <mu_0>
+  ml_ins_opt%ins_op%penalty_u   = 10
+  ml_ins_opt%ins_op%penalty_p   = 10
+  ml_ins_opt%ins_op%i_max_v     = 100
+  ml_ins_opt%ins_op%r_red       = 1e-08
+  ml_ins_opt%ins_op%r_max       = 1e-12
 
-  ml_ins_opt%ins_op%sgs_model%model    = 2    ! 0/1/2 none/Smagorinsky/sigma ! [0]
-! ml_ins_opt%ins_op%sgs_model%dynamic  = F    ! set F for static model       ! [T]
-! ml_ins_opt%ins_op%sgs_model%c_static = 1.35 ! static model constant        ! [1.35]
+  ml_ins_opt%ins_op%sgs_model%model    = <sgs_model>
+  ml_ins_opt%ins_op%sgs_model%dynamic  = <sgs_dynamic>
+! ml_ins_opt%ins_op%sgs_model%c_static = 1.35
 /
 
 !-------------------------------------------------------------------------------
@@ -64,9 +68,9 @@
 
 &temporal_prm
 
-! t_end  = 0.25
-  dt     = 2e-6
-  nt_max = 1000
+  t_end  = 10
+  dt     = <dt>
+  nt_max = <nt_max>
   smooth_initial_data = T
 
   ml_bdf_opt%projection%p_solver%smooth_method = 3

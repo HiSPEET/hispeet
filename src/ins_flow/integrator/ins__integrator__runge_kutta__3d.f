@@ -273,15 +273,15 @@ contains
           end if
 
           ! diffusion term using standard form with extrapolation at ∂Ωᴼ
-          call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp &
+          call ins_op % GetDiffusionTerm( mu, nu, bv_u      &
+                                        , v, vp, sp         &
                                         , f_d(:,:,:,:,:,1)  &
-                                        , bv_u              &
                                         , xout = .true.     )
 
           ! diffusion term using rotational form with extrapolation at ∂Ωᴼ
-          call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp    &
+          call ins_op % GetDiffusionTerm( mu, nu, bv_u         &
+                                        , v, vp, sp            &
                                         , f_d_rot(:,:,:,:,:,1) &
-                                        , bv_u                 &
                                         , xout = .true.        &
                                         , form = 2             )
 
@@ -391,7 +391,7 @@ contains
 
           ! projection-diffusion step ..........................................
 
-          call ins_op % StokesSolver(tau, f, bv_u, mu, nu, u_i, f_d0)
+          call ins_op % StokesSolver(tau, mu, nu, bv_u, f_d0, f, u_i)
 
         end associate
 
@@ -405,15 +405,15 @@ contains
           end if
 
           ! diffusion term using standard form with extrapolation at ∂Ωᴼ
-          call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp &
+          call ins_op % GetDiffusionTerm( mu, nu, bv_u      &
+                                        , v, vp, sp         &
                                         , f_d(:,:,:,:,:,i)  &
-                                        , bv_u              &
                                         , xout = .true.     )
 
           ! diffusion term using rotational form with extrapolation at ∂Ωᴼ
-          call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp    &
+          call ins_op % GetDiffusionTerm( mu, nu, bv_u         &
+                                        , v, vp, sp            &
                                         , f_d_rot(:,:,:,:,:,i) &
-                                        , bv_u                 &
                                         , xout = .true.        &
                                         , form = 2             )
 

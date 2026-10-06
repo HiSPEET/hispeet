@@ -54,6 +54,7 @@ module INS__SGS__Model__3D
     integer   :: length    = 1      !< element length scale, 1/2/3: mean/max/min
     integer   :: smooth    = 2      !< smoothing, -1/0/1/r: see above
     logical   :: dynamic   = .true. !< switch to dynamic model
+    logical   :: jumps     = .true. !< include jumps in velocity divergence
     real(RNP) :: c_static  = 1.35   !< coefficient of static model
   contains
     procedure :: Bcast => Bcast_INS_SGS_Options_3D
@@ -67,6 +68,7 @@ module INS__SGS__Model__3D
     integer   :: length   !< element length scale, 1/2/3: mean/max/min
     integer   :: smooth   !< smoothing, -1/0/1/2: none/avg/linear/half degree
     logical   :: dynamic  !< switch to dynamic model
+    logical   :: jumps    !< include jumps in velocity divergence
     real(RNP) :: c_static !< coefficient of static model
   contains
     procedure :: Get_SGS_Viscosity
@@ -93,6 +95,7 @@ contains
     call XMPI_Bcast(this % length  , root, comm)
     call XMPI_Bcast(this % smooth  , root, comm)
     call XMPI_Bcast(this % dynamic , root, comm)
+    call XMPI_Bcast(this % jumps   , root, comm)
     call XMPI_Bcast(this % c_static, root, comm)
 
   end subroutine Bcast_INS_SGS_Options_3D
@@ -118,6 +121,7 @@ contains
     this % length   = opt % length
     this % smooth   = opt % smooth
     this % dynamic  = opt % dynamic
+    this % jumps    = opt % jumps
     this % c_static = opt % c_static
 
   end subroutine Init_INS_SGS_Model_3D
@@ -170,7 +174,11 @@ contains
 
       ! velocity gradient ::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-      call GetOuterVectorTraces_3D(mesh, v(:,:,:,:,1:3), vp)
+      if (this % jumps) then
+        call GetOuterVectorTraces_3D(mesh, v(:,:,:,:,1:3), vp)
+      else
+        call GetInnerTraces_3D(mesh, v(:,:,:,:,1:3), vp)
+      end if
 
       do k = 1, 3
         call TPO_Grad(eop, sem, v(:,:,:,:,k), vp(:,:,:,:,k), grad_v(:,:,:,:,:,k))

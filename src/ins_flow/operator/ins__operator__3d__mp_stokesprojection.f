@@ -51,7 +51,7 @@ contains
   !> The optional argument `precon` can be given to run the pressure and
   !> diffusion solvers in preconditioner mode.
 
-  module subroutine StokesProjection(this, tau, f, bv, mu, nu, u, f_d0, precon)
+  module subroutine StokesProjection(this, tau, mu, nu, bv, f_d0, f, u, precon)
 
     ! arguments ................................................................
 
@@ -59,20 +59,20 @@ contains
 
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
-    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
-    !< RHS: f = v₀/τ + F_c + f_s + ...
-    class(BoundaryVariable_3D), intent(in) :: bv(:)
-    !< boundary values
-    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]
-    !!   - Γᴼ :  [ - , - , ∆p, p ]
     real(RNP), contiguous, optional, intent(in) :: mu(:,:,:,:)
     !< μ, kinematic bulk viscosity
     real(RNP), contiguous, optional, intent(in) :: nu(:,:,:,:)
     !< ν, kinematic shear viscosity
-    real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
-    !< u = [v, p], velocity and pressure
+    class(BoundaryVariable_3D), intent(in) :: bv(:)
+    !< boundary values
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]
+    !!   - Γᴼ :  [ - , - , ∆p, p ]
     real(RNP), contiguous, optional, intent(in) :: f_d0(:,:,:,:,:)
     !< approximate diffusion term
+    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
+    !< RHS: f = v₀/τ + F_c + f_s + ...
+    real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
+    !< u = [v, p], velocity and pressure
     logical, optional, intent(in) :: precon
     !< if present, operate as preconditioner (regardless of the value)
 
@@ -142,7 +142,7 @@ contains
 
         else ! corrector
 
-          call this % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_w &
+          call this % GetDiffusionTerm( mu, nu, bv_w, v, vp, sp, f_d &
                                       , xout = .true. , form = 2     )
 
           call this % sem_u % Get_DG_DiagonalMassMatrix( mm )
@@ -222,7 +222,7 @@ contains
 
         end if
 
-        call this % DiffusionSolver(tau, mu, nu, q_d, bv_w, v, precon=precon)
+        call this % DiffusionSolver(tau, mu, nu, bv_w, q_d, v, precon=precon)
 
       end associate
 

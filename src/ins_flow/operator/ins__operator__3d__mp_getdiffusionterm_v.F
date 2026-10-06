@@ -53,7 +53,7 @@ contains
   !> To obtain the node values, apply the inverse mass matrix to `f_d`.
 
   module subroutine GetDiffusionTerm_V &
-      (this, mu, nu, v, vp, sp, f_d, bv_v, xout, form)
+      (this, mu, nu, bv_v, v, vp, sp, f_d, xout, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -63,6 +63,13 @@ contains
 
     real(RNP), contiguous, intent(in) :: nu(:,:,:,:)
     !< kinematic shear viscosity ν (np,np,np,ne)
+
+    class(BoundaryVariable_3D), optional, intent(in) :: bv_v(:)
+    !< boundary values
+    !!   - Γᴰ :  [ v₁, v₂, v₃, -    ]
+    !!   - Γᴼ :  [ - , - , - , τ_nn ],    τ_nn = p + ∆p
+    !!
+    !! skipping `bv_v` yields the homogeneous operator
 
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity (np,np,np,ne,3)
@@ -75,13 +82,6 @@ contains
 
     real(RNP), contiguous, intent(out) :: f_d(:,:,:,:,:)
     !< diffusion term (np,np,np,ne,3)
-
-    class(BoundaryVariable_3D), optional, intent(in) :: bv_v(:)
-    !< boundary values
-    !!   - Γᴰ :  [ v₁, v₂, v₃, -    ]
-    !!   - Γᴼ :  [ - , - , - , τ_nn ],    τ_nn = p + ∆p
-    !!
-    !! skipping `bv_v` yields the homogeneous operator
 
     logical, optional, intent(in) :: xout
     !< extrapolate `∇v` at outflow boundaries [F]

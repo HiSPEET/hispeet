@@ -53,10 +53,15 @@ add_library(HiINSFlow
             multilevel/ml__ins__boundary_fluxes.f
             multilevel/ml__ins__flow_characteristics.f
             multilevel/ml__ins__operator__3d.f
-            multilevel/ml__ins__operator__3d__mp_diffusionstep.f
-            multilevel/ml__ins__operator__3d__mp_projectionstep.f
-            multilevel/ml__ins__operator__3d__mp_stokes_mg_cycle.f
-            multilevel/ml__ins__operator__3d__mp_stokes_mg_start.f
+            multilevel/ml__ins__diffusion__3d.f
+            multilevel/ml__ins__diffusion__3d_mp_diffusionresidual.f
+            multilevel/ml__ins__diffusion__3d_mp_diffusionstep.f
+            multilevel/ml__ins__projection__3d.f
+            multilevel/ml__ins__stokes__3d.f
+            multilevel/ml__ins__stokes__3d__mp_stokescycle.f
+            multilevel/ml__ins__stokes__3d__mp_stokesresidual.f
+            multilevel/ml__ins__stokes__3d__mp_stokesstart.f
+            multilevel/ml__ins__stokes__3d__mp_stokesstep.f
             multilevel/ml__ins__integrator__3d.f
             multilevel/ml__ins__integrator__bdf__3d.f
             multilevel/ml__ins__time_scales__3d.f

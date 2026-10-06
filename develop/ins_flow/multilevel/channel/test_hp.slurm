@@ -22,7 +22,7 @@ then
 fi
 
 PROG=${PROG:-"../ml_ins_solver_3d"}
-CASE=${CASE:-"test_hp"}
+CASE=${CASE:-"test_hp_re395"}
 
 
 RESTART_TAG_IN=${RESTART_TAG_IN:-init}
@@ -48,6 +48,7 @@ MU_0=${MU_0:-"1"}
 # SGS model
 SGS_MODEL=${SGS_MODEL:-"0"}
 SGS_DYNAMIC=${SGS_DYNAMIC:-"F"}
+SGS_JUMPS=${SGS_JUMPS:-"F"}
 
 # step size, may be increased in sucessive runs
 DT=${DT:-"1e-5"}
@@ -68,6 +69,7 @@ echo "DIV_STAB        =" $DIV_STAB
 echo "MU_0            =" $MU_0
 echo "SGS_MODEL       =" $SGS_MODEL
 echo "SGS_DYNAMIC     =" $SGS_DYNAMIC
+echo "SGS_JUMPS       =" $SGS_JUMPS
 echo "DT              =" $DT
 echo "NT_MAX          =" $NT_MAX
 
@@ -89,6 +91,7 @@ if ! compgen -G "*${RESTART_TAG_IN}*.h5" > /dev/null; then
         -e "s/<mu_0>/$MU_0/g" \
         -e "s/<sgs_model>/$SGS_MODEL/g" \
         -e "s/<sgs_dynamic>/$SGS_DYNAMIC/g" \
+        -e "s/<sgs_jumps>/$SGS_JUMPS/g" \
         -e "s/<dt>/$DT/g" \
         -e "s/<nt_max>/$NT_MAX/g" \
         ${CASE}.tmpl > ${CASE}.prm
@@ -117,6 +120,7 @@ for ((k = 1; k <= ${N_RESTART}; k++)); do
         -e "s/<mu_0>/$MU_0/g" \
         -e "s/<sgs_model>/$SGS_MODEL/g" \
         -e "s/<sgs_dynamic>/$SGS_DYNAMIC/g" \
+        -e "s/<sgs_jumps>/$SGS_JUMPS/g" \
         -e "s/<dt>/$DT/g" \
         -e "s/<nt_max>/$NT_MAX/g" \
         ${CASE}.tmpl > ${CASE}.prm

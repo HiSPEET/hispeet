@@ -33,7 +33,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Stokes residual for incompressible flow
 
-  module subroutine GetStokesResidual(this, tau, f, bv, mu, nu, u, r)
+  module subroutine GetStokesResidual(this, tau, mu, nu, bv, f, u, r)
 
     ! arguments ................................................................
 
@@ -41,14 +41,14 @@ contains
     !< incompressible Navier-Stokes operator
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
-    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
-    !< f, nodal RHS, including old values, sources, convection ...
-    class(BoundaryVariable_3D), intent(in)  :: bv(:)
-    !< boundary values
     real(RNP), contiguous, optional, intent(in) :: mu(:,:,:,:)
     !< μ, kinematic bulk viscosity
     real(RNP), contiguous, optional, intent(in) :: nu(:,:,:,:)
     !< ν, kinematic shear viscosity
+    class(BoundaryVariable_3D), intent(in)  :: bv(:)
+    !< boundary values
+    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
+    !< f, nodal RHS, including old values, sources, convection ...
     real(RNP), contiguous, intent(in) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure
     real(RNP), contiguous, intent(out) :: r(:,:,:,:,:)
@@ -97,7 +97,7 @@ contains
       ! contributions ..........................................................
 
       ! diffusion
-      call this % GetDiffusionTerm(mu, nu, v, vp, sp, r_m, bv)
+      call this % GetDiffusionTerm(mu, nu, bv, v, vp, sp, r_m)
 
       ! pressure gradient and velocity divergence
       call GetOuterTraces_3D(this % mesh, p, pp)

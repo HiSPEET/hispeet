@@ -39,7 +39,7 @@ contains
   !-----------------------------------------------------------------------------
   !>  IPCG Diffusion solver with Schwarz preconditioner
 
-  module subroutine DiffusionSolver( this, tau, mu, nu, f, bv, v, i_max &
+  module subroutine DiffusionSolver( this, tau, mu, nu, bv, f, v, i_max &
                                    , precon, ni )
 
     class(INS_Operator_3D), intent(in) :: this
@@ -54,13 +54,13 @@ contains
     real(RNP), contiguous, optional, intent(in) :: nu(:,:,:,:)
     !< kinematic shear viscosity, ν(np,np,np,ne,3)
 
-    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
-    !< sources, f(np,np,np,ne,3)
-
     class(BoundaryVariable_3D), intent(in) :: bv(:)
     !< boundary values at final time t
     !!   - Γᴰ :  vᵇ    in components 1:3
     !!   - Γᴼ :  τ_nn  in component    4
+
+    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
+    !< sources, f(np,np,np,ne,3)
 
     real(RNP), contiguous, intent(inout) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
@@ -119,7 +119,7 @@ contains
       !$omp barrier
 
       ! initial residual
-      call this % GetDiffusionResidual(tau, mu, nu, f, bv, v, r)
+      call this % GetDiffusionResidual(tau, mu, nu, bv, f, v, r)
 
       ! termination conditions
       if (check_convergence) then
@@ -198,7 +198,7 @@ contains
 
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
-          call this % GetDiffusionResidual(tau, mu, nu, f, bv, v, r)
+          call this % GetDiffusionResidual(tau, mu, nu, bv, f, v, r)
         else
           call MergeArrays(ONE, r, -alpha, q, multi = .true.)
         end if
