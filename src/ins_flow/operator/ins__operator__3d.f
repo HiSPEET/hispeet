@@ -514,9 +514,17 @@ contains
     integer, optional, intent(in) :: level
       !< rank in multilevel hierarchy (0 if none) 0[]
 
-    ! problem ..................................................................
+    ! problem, mesh, metrics ...................................................
 
     this % problem => problem
+    this % mesh    => sem_u % mesh
+    this % sem_u   => sem_u
+
+    if (present(sem_p)) then
+      this % sem_p => sem_p
+    else
+      this % sem_p => sem_u
+    end if
 
     ! parameters ...............................................................
 
@@ -559,8 +567,8 @@ contains
 
     ! element operators ........................................................
 
-    this % eop_u = DG_ElementOperators_1D(sem_u % std_op, opt % penalty_u)
-    this % eop_p = DG_ElementOperators_1D(sem_p % std_op, opt % penalty_p)
+    this % eop_u = DG_ElementOperators_1D(this % sem_u % std_op, opt%penalty_u)
+    this % eop_p = DG_ElementOperators_1D(this % sem_p % std_op, opt%penalty_p)
 
     if (this%eop_u%nodes /= 'L' .or. this%eop_p%nodes /= 'L') then
       call Error( 'Init_INS_Operator_3D'               &
@@ -572,9 +580,11 @@ contains
       ! use 3/2 rule for dealiasing
       this % sop_q = StandardElementOperators_1D &
                          (po = ceiling(1.5 * this%eop_u%po), no_vdm = .true.)
+      this % sem_q = SpectralElementMesh_3D(this % mesh, this % sop_q % po)
     else
       ! use velocity Lobatto points for for convection
       this % sop_q = sem_u % std_op
+      this % sem_q = this % sem_u
     end if
 
     ! projection and interpolation operators ...................................
@@ -584,30 +594,13 @@ contains
     this % iop_up = EmbeddedInterpolationOperator_1D( this%eop_u, this%eop_p%x )
     this % iop_uq = EmbeddedInterpolationOperator_1D( this%eop_u, this%sop_q%x )
 
-    ! mesh and metrics .........................................................
-
-    this % mesh  => sem_u % mesh
-    this % sem_u => sem_u
-
-    if (present(sem_p)) then
-      this % sem_p => sem_p
-    else
-      this % sem_p => sem_u
-    end if
-
-    if (opt % dealiasing) then
-      this % sem_q = SpectralElementMesh_3D(this % mesh, this % sop_q % po)
-    else
-      this % sem_q = this % sem_u
-    end if
-
     ! operators and solvers for elliptic subsystems ............................
 
     ! elliptic operator for pressure
-    this % elliptic_p = DG_EllipticOperator_3D( sem_p             &
-                                              , opt % schwarz_p   &
-                                              , opt % penalty_p   &
-                                              , opt % interior_bc )
+    this % elliptic_p = DG_EllipticOperator_3D( this % sem_p       &
+                                              , opt  % schwarz_p   &
+                                              , opt  % penalty_p   &
+                                              , opt  % interior_bc )
 
     ! Schwarz operators for viscous diffusion
     this % schwarz_u = DG_SchwarzOperator_3D( opt  % schwarz_u &
