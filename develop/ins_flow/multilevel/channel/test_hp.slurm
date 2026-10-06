@@ -22,7 +22,7 @@ then
 fi
 
 PROG=${PROG:-"../ml_ins_solver_3d"}
-CASE=${CASE:-"test_hp"}
+CASE=${CASE:-"test_hp_re395"}
 
 
 RESTART_TAG_IN=${RESTART_TAG_IN:-init}
