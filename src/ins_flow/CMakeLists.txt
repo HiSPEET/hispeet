@@ -3,6 +3,22 @@
 
 add_library(HiINSFlow
 
+            problem/ins__problem__3d.f
+            problem/ins__problem__channel__3d.f
+            problem/ins__problem__cylinder_2d__3d.f
+            problem/ins__problem__hagen_poiseuille__3d.f
+            problem/ins__problem__linear_cascade__3d.f
+            problem/ins__problem__no_flow__3d.f
+            problem/ins__problem__poiseuille__3d.f
+            problem/ins__problem__stokes_dkm__3d.f
+            problem/ins__problem__stokes_linke__3d.f
+            problem/ins__problem__transition_tg__3d.f
+            problem/ins__problem__vortex_tg__3d.f
+            problem/ins__problem__variable_viscosity__3d.f
+            problem/ins__problem__test_suite__3d.f
+
+            sgs_model/ins__sgs__model__3d.f
+
             operator/ins__operator__3d.f
             operator/ins__operator__3d__mp_applydiffusionoperator_c.f
             operator/ins__operator__3d__mp_applydiffusionoperator_v.f
@@ -24,20 +40,6 @@ add_library(HiINSFlow
             operator/ins__operator__3d__mp_stokesfgmres.f
             operator/ins__operator__3d__mp_stokesprojection.f
 
-            problem/ins__problem__3d.f
-            problem/ins__problem__channel__3d.f
-            problem/ins__problem__cylinder_2d__3d.f
-            problem/ins__problem__hagen_poiseuille__3d.f
-            problem/ins__problem__linear_cascade__3d.f
-            problem/ins__problem__no_flow__3d.f
-            problem/ins__problem__poiseuille__3d.f
-            problem/ins__problem__stokes_dkm__3d.f
-            problem/ins__problem__stokes_linke__3d.f
-            problem/ins__problem__transition_tg__3d.f
-            problem/ins__problem__vortex_tg__3d.f
-            problem/ins__problem__variable_viscosity__3d.f
-            problem/ins__problem__test_suite__3d.f
-
             integrator/ins__integrator__3d.f
             integrator/ins__integrator__bdf__prepstep__3d.f
             integrator/ins__integrator__bdf__3d.f
@@ -51,10 +53,15 @@ add_library(HiINSFlow
             multilevel/ml__ins__boundary_fluxes.f
             multilevel/ml__ins__flow_characteristics.f
             multilevel/ml__ins__operator__3d.f
-            multilevel/ml__ins__operator__3d__mp_diffusionstep.f
-            multilevel/ml__ins__operator__3d__mp_projectionstep.f
-            multilevel/ml__ins__operator__3d__mp_stokes_mg_cycle.f
-            multilevel/ml__ins__operator__3d__mp_stokes_mg_start.f
+            multilevel/ml__ins__diffusion__3d.f
+            multilevel/ml__ins__diffusion__3d_mp_diffusionresidual.f
+            multilevel/ml__ins__diffusion__3d_mp_diffusionstep.f
+            multilevel/ml__ins__projection__3d.f
+            multilevel/ml__ins__stokes__3d.f
+            multilevel/ml__ins__stokes__3d__mp_stokescycle.f
+            multilevel/ml__ins__stokes__3d__mp_stokesresidual.f
+            multilevel/ml__ins__stokes__3d__mp_stokesstart.f
+            multilevel/ml__ins__stokes__3d__mp_stokesstep.f
             multilevel/ml__ins__integrator__3d.f
             multilevel/ml__ins__integrator__bdf__3d.f
             multilevel/ml__ins__time_scales__3d.f

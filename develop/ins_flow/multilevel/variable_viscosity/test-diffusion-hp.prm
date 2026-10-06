@@ -41,15 +41,17 @@
 
 ! ml_ins_opt%mixed = F
 
-  ml_ins_opt%diffusion%i_max =   5 ! max num cycles                     [ 1]
-  ml_ins_opt%diffusion%ns_1  =   4 ! num pre-smoothing steps            [ 1] 
-  ml_ins_opt%diffusion%ns_2  =   2 ! num post-smoothing steps           [ 1] 
-  ml_ins_opt%diffusion%ns_c  =   2 ! num continuation smoothing steps   [ 1] 
-
   ml_ins_opt%ins_op%diffusion_solver = 'SPCG'
-  ml_ins_opt%ins_op%c_mu             = 1
-  ml_ins_opt%ins_op%schwarz_u%delta  = 0.08
-  ml_ins_opt%ins_op%schwarz_u%no_min = 1
+  ml_ins_opt%ins_op%div_stab         = 5
+  ml_ins_opt%ins_op%mu_0             = 0.1
+! ml_ins_opt%ins_op%schwarz_u%delta  = 0.08
+! ml_ins_opt%ins_op%schwarz_u%no_min = 1
+
+! ml_diff_opt%i_crs = 100 ! max num cycles                     [20]
+  ml_diff_opt%i_max =   5 ! max num cycles                     [ 1]
+  ml_diff_opt%ns_1  =   6 ! num pre-smoothing steps            [ 1] 
+  ml_diff_opt%ns_2  =   2 ! num post-smoothing steps           [ 1] 
+  ml_diff_opt%ns_c  =   4 ! num continuation smoothing steps   [ 1] 
 /
 
 !-------------------------------------------------------------------------------

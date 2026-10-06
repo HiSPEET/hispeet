@@ -179,7 +179,7 @@ contains
       end do
 
       ! diffusion term using rotational form with extrapolation: s⁺ = s⁻ at ∂Ωᴼ
-      call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_u &
+      call ins_op % GetDiffusionTerm( mu, nu, bv_u, v, vp, sp, f_d &
                                     , xout = .true., form = 2      )
 
       ! convection term

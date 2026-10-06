@@ -161,6 +161,10 @@ contains
             do e = 1, mesh_p % n_elem
               if (mesh_p % element(e) % adaptation % refinement >= 1000) then
                 f_p(:,:,:,e,1:3) = r_p(:,:,:,e,1:3)
+                if (this % ml_diffusion_opt % fc_reset_twigs) then
+                  ! reset twigs to projected child solution
+                  v_p(:,:,:,e,1:3) = w_p(:,:,:,e,1:3)
+                end if
               else
                 w_p(:,:,:,e,1:3) = v_p(:,:,:,e,1:3)
               end if
@@ -274,6 +278,5 @@ contains
   end subroutine DiffusionStep
 
   !=============================================================================
-
 
 end submodule MP_DiffusionStep

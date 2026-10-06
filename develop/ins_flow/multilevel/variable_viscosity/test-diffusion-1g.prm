@@ -5,7 +5,7 @@
 
 ! log levels,  set to ≥ 1 for higher verbosity
 ! log_level                 = 0
-! log_level_inner_iteration = 2
+  log_level_inner_iteration = 2
 ! log_level_outer_iteration = 1
   log_level_multigrid_cycle = 1
 
@@ -37,13 +37,14 @@
 
 ! ml_ins_opt%mixed = F
 
-  ml_ins_opt%diffusion%i_max =    10 ! max num cycles                     [ 1]
-  ml_ins_opt%diffusion%ns_1  =     3 ! num pre-smoothing steps            [ 1] 
-  ml_ins_opt%diffusion%ns_2  =     1 ! num post-smoothing steps           [ 1] 
-  ml_ins_opt%diffusion%ns_c  =     2 ! num continuation smoothing steps   [ 1] 
+  ml_ins_opt%ins_op%diffusion_solver = 'SPCG'
+  ml_ins_opt%ins_op%mu_0 = 0
 
-! ml_ins_opt%ins_op%diffusion_solver = 'SPCG'
-  ml_ins_opt%ins_op%c_mu  = 0
+! ml_diff_opt%i_crs =    20 ! max num cycles                     [20]
+  ml_diff_opt%i_max =     1 ! max num cycles                     [ 1]
+  ml_diff_opt%ns_1  =     3 ! num pre-smoothing steps            [ 1] 
+  ml_diff_opt%ns_2  =     1 ! num post-smoothing steps           [ 1] 
+  ml_diff_opt%ns_c  =     2 ! num continuation smoothing steps   [ 1] 
 /
 
 !-------------------------------------------------------------------------------

@@ -37,7 +37,6 @@ module INS__Integrator__Runge_Kutta__3D
   use Boundary_Variable__3D
 
   use INS__Integrator__3D
-  use INS__Problem__3D
   use INS__Operator__3D
 
   implicit none
@@ -51,6 +50,7 @@ module INS__Integrator__Runge_Kutta__3D
 
   type, extends(INS_Integrator_3D) :: INS_Integrator_RungeKutta_3D
     type(IMEX_RK_Method) :: imex_rk !< IMEX Runge-Kutta method
+    logical              :: project !< perform projection step after assembly
   contains
     procedure, non_overridable :: Init_INS_Integrator_RungeKutta_3D
     procedure :: TimeStep
@@ -66,8 +66,9 @@ module INS__Integrator__Runge_Kutta__3D
 
   type, extends(INS_IntegratorOptions_3D) :: &
     INS_Integrator_RungeKutta_Options_3D
-    integer   :: n_stage = 5 !< number of stages
-    integer   :: method  = 1 !< RK method selector, if more than one exist
+    integer   :: n_stage = 5       !< number of stages
+    integer   :: method  = 1       !< RK method selector, if more than one exist
+    logical   :: project = .false. !< projection step after assembly
   contains
     procedure :: Bcast => Bcast_Integrator_RungeKutta_Options
   end type INS_Integrator_RungeKutta_Options_3D
@@ -77,32 +78,31 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor for objects of type INS_Integrator_RungeKutta_3D
 
-  function New_INS_Integrator_RungeKutta_3D(problem, ins_op, opt) result(this)
-    class(INS_Problem_3D),                       intent(in) :: problem
+  function New_INS_Integrator_RungeKutta_3D(ins_op, opt) result(this)
     class(INS_Operator_3D),                      intent(in) :: ins_op
     class(INS_Integrator_RungeKutta_Options_3D), intent(in) :: opt
     type(INS_Integrator_RungeKutta_3D) :: this
 
-    call Init_INS_Integrator_RungeKutta_3D(this, problem, ins_op, opt)
+    call Init_INS_Integrator_RungeKutta_3D(this, ins_op, opt)
 
   end function New_INS_Integrator_RungeKutta_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of a INS_Integrator_RungeKutta_3D object
 
-  subroutine Init_INS_Integrator_RungeKutta_3D(this, problem, ins_op, opt)
+  subroutine Init_INS_Integrator_RungeKutta_3D(this, ins_op, opt)
     class(INS_Integrator_RungeKutta_3D),         intent(inout) :: this
-    class(INS_Problem_3D),                       intent(in)    :: problem
     class(INS_Operator_3D),                      intent(in)    :: ins_op
     class(INS_Integrator_RungeKutta_Options_3D), intent(in)    :: opt
 
     ! intialize parent type
-    call this % Init_INS_Integrator_3D(problem, ins_op, opt)
+    call this % Init_INS_Integrator_3D(ins_op, opt)
 
     ! initialize RK method
     call this % imex_rk % Init_IMEX_RK_Method(opt % n_stage, opt % method)
 
     this % name = 'Runge-Kutta method: '// trim(this % imex_rk % name)
+    this % project = opt % project
 
   end subroutine Init_INS_Integrator_RungeKutta_3D
 
@@ -273,15 +273,15 @@ contains
           end if
 
           ! diffusion term using standard form with extrapolation at ∂Ωᴼ
-          call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp &
+          call ins_op % GetDiffusionTerm( mu, nu, bv_u      &
+                                        , v, vp, sp         &
                                         , f_d(:,:,:,:,:,1)  &
-                                        , bv_u              &
                                         , xout = .true.     )
 
           ! diffusion term using rotational form with extrapolation at ∂Ωᴼ
-          call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp    &
+          call ins_op % GetDiffusionTerm( mu, nu, bv_u         &
+                                        , v, vp, sp            &
                                         , f_d_rot(:,:,:,:,:,1) &
-                                        , bv_u                 &
                                         , xout = .true.        &
                                         , form = 2             )
 
@@ -391,7 +391,7 @@ contains
 
           ! projection-diffusion step ..........................................
 
-          call ins_op % StokesSolver(tau, f, bv_u, mu, nu, u_i, f_d0)
+          call ins_op % StokesSolver(tau, mu, nu, bv_u, f_d0, f, u_i)
 
         end associate
 
@@ -405,15 +405,15 @@ contains
           end if
 
           ! diffusion term using standard form with extrapolation at ∂Ωᴼ
-          call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp &
+          call ins_op % GetDiffusionTerm( mu, nu, bv_u      &
+                                        , v, vp, sp         &
                                         , f_d(:,:,:,:,:,i)  &
-                                        , bv_u              &
                                         , xout = .true.     )
 
           ! diffusion term using rotational form with extrapolation at ∂Ωᴼ
-          call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp    &
+          call ins_op % GetDiffusionTerm( mu, nu, bv_u         &
+                                        , v, vp, sp            &
                                         , f_d_rot(:,:,:,:,:,i) &
-                                        , bv_u                 &
                                         , xout = .true.        &
                                         , form = 2             )
 
@@ -451,45 +451,54 @@ contains
       call SetArray(u, u_i, multi=.true.)
 
       if (.not. globally_stiffly_accurate) then
-        associate( v       =>  u  (:,:,:,:,1:3)   &
-                 , div_v   =>  f_c(:,:,:,:,1  ,1) &
-                 , p       =>  f_c(:,:,:,:,2  ,1) &
-                 , pp      =>  vp (:,:,:,:,1)     &
-                 , grad_p  =>  f_s(:,:,:,:,1:3,1) )
 
-          !$omp do collapse(2)
-          do e = 1, mesh % n_elem
-          do d = 1, 3
-            do i = 1, n_stage
-              v(:,:,:,e,d) = v(:,:,:,e,d)                                 &
-                  + dt * (b_ex(i) - a_ex(n_stage,i)) *   f_c(:,:,:,e,d,i) &
-                  + dt * (b_im(i) - a_im(n_stage,i)) * ( f_d(:,:,:,e,d,i) &
-                                                       + f_s(:,:,:,e,d,i) )
-            end do
+        !$omp do collapse(2)
+        do e = 1, mesh % n_elem
+        do d = 1, 3
+          do i = 1, n_stage
+            u(:,:,:,e,d) = u(:,:,:,e,d)                                 &
+                + dt * (b_ex(i) - a_ex(n_stage,i)) *   f_c(:,:,:,e,d,i) &
+                + dt * (b_im(i) - a_im(n_stage,i)) * ( f_d(:,:,:,e,d,i) &
+                                                     + f_s(:,:,:,e,d,i) )
           end do
-          end do
+        end do
+        end do
+      end if
 
-          ! projection .........................................................
+      !-------------------------------------------------------------------------
+      ! final projection
+
+      if (this % project) then
+        associate( v        =>  u  (:,:,:,:,1:3)   &
+                 , p        =>  u  (:,:,:,:,4)     &
+                 , div_v    =>  f_c(:,:,:,:,1,1)   &
+                 , dp       =>  f_c(:,:,:,:,2,1)   &
+                 , pp       =>  vp (:,:,:,:,1)     &
+                 , grad_dp  =>  f_s(:,:,:,:,1:3,1) )
 
           ! update boundary conditions, if required
           if (t_i /= t) then
             do b = 1, mesh % n_bound
               call problem % GetBoundaryValues(b, bv_x(b)%val, t, bv_u(b)%val)
             end do
+            tau = t - t_i
           end if
 
           ! velocity divergence
-          call GetOuterVectorTraces_3D(mesh, v, vp)    ! vp = v⁺ on Γᴵ and v⁻ on ∂Ω
+          call GetOuterVectorTraces_3D(mesh, v, vp)
           call TPO_Div(ins_op % eop_u, sem_u, v, vp, div_v)
 
-          ! pressure potential
-          call SetArray(p, ZERO)
-          call ins_op % PressureSolver(ONE, bv_u, v, div_v, p)
-
           ! pressure correction
-          call GetOuterTraces_3D(mesh, p, pp)
-          call TPO_Grad(ins_op % eop_u, sem_u, p, pp, grad_p)
-          call MergeArrays(ONE, v, -ONE, grad_p, multi=.true.)
+          call SetArray(dp, ZERO)
+          call ins_op % PressureSolver(tau, bv_u, v, div_v, dp)
+
+          ! velocity update
+          call GetOuterTraces_3D(mesh, dp, pp)
+          call TPO_Grad(ins_op % eop_u, sem_u, dp, pp, grad_dp)
+          call MergeArrays(ONE, v, -ONE, grad_dp, multi=.true.)
+
+          ! pressure update
+          call MergeArrays(ONE, p, ONE, dp)
 
         end associate
       end if
@@ -525,14 +534,15 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    type(MPI_Request) :: request(6)
+    type(MPI_Request) :: request(3)
     integer :: n
 
     call this % INS_IntegratorOptions_3D % Bcast(root, comm)
 
     n = 1
     call XMPI_Ibcast( this % n_stage, root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % method , root, comm, request(n) )
+    call XMPI_Ibcast( this % method , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % project, root, comm, request(n) )
 
     call MPI_Waitall( n, request, MPI_STATUSES_IGNORE )
 

@@ -47,7 +47,7 @@
   ml_ins_opt%pressure%r_max = 1e-12 ! max admissible residual, if > 0    [-1] 
 
 ! ml_ins_opt%ins_op%diffusion_solver = 'SPCG'
-! ml_ins_opt%ins_op%c_mu = 1
+! ml_ins_opt%ins_op%mu_0 = 1
 
   ml_ins_opt%ins_op%dealiasing = T
   ml_ins_opt%ins_op%i_max_v    = 20

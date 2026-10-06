@@ -122,35 +122,35 @@ contains
       do b = 1, n_bound
       do f = 1, boundary(b) % n_face
 
-        associate(pn => bv_pn(b) % val(:,:,:,1))
+        associate(pn => bv_pn(b) % val)
 
           e = boundary(b) % face(f) % element_id
           i = boundary(b) % face(f) % element_face
           select case(i)
           case(1)
-            pn(:,:,1) = p(1,:,:,e) * n(:,:,i,e,1)
-            pn(:,:,2) = p(1,:,:,e) * n(:,:,i,e,2)
-            pn(:,:,3) = p(1,:,:,e) * n(:,:,i,e,3)
+            pn(:,:,f,1) = p(1,:,:,e) * n(:,:,i,e,1)
+            pn(:,:,f,2) = p(1,:,:,e) * n(:,:,i,e,2)
+            pn(:,:,f,3) = p(1,:,:,e) * n(:,:,i,e,3)
           case(2)
-            pn(:,:,1) = p(k,:,:,e) * n(:,:,i,e,1)
-            pn(:,:,2) = p(k,:,:,e) * n(:,:,i,e,2)
-            pn(:,:,3) = p(k,:,:,e) * n(:,:,i,e,3)
+            pn(:,:,f,1) = p(k,:,:,e) * n(:,:,i,e,1)
+            pn(:,:,f,2) = p(k,:,:,e) * n(:,:,i,e,2)
+            pn(:,:,f,3) = p(k,:,:,e) * n(:,:,i,e,3)
           case(3)
-            pn(:,:,1) = p(:,1,:,e) * n(:,:,i,e,1)
-            pn(:,:,2) = p(:,1,:,e) * n(:,:,i,e,2)
-            pn(:,:,3) = p(:,1,:,e) * n(:,:,i,e,3)
+            pn(:,:,f,1) = p(:,1,:,e) * n(:,:,i,e,1)
+            pn(:,:,f,2) = p(:,1,:,e) * n(:,:,i,e,2)
+            pn(:,:,f,3) = p(:,1,:,e) * n(:,:,i,e,3)
           case(4)
-            pn(:,:,1) = p(:,k,:,e) * n(:,:,i,e,1)
-            pn(:,:,2) = p(:,k,:,e) * n(:,:,i,e,2)
-            pn(:,:,3) = p(:,k,:,e) * n(:,:,i,e,3)
+            pn(:,:,f,1) = p(:,k,:,e) * n(:,:,i,e,1)
+            pn(:,:,f,2) = p(:,k,:,e) * n(:,:,i,e,2)
+            pn(:,:,f,3) = p(:,k,:,e) * n(:,:,i,e,3)
           case(5)
-            pn(:,:,1) = p(:,:,1,e) * n(:,:,i,e,1)
-            pn(:,:,2) = p(:,:,1,e) * n(:,:,i,e,2)
-            pn(:,:,3) = p(:,:,1,e) * n(:,:,i,e,3)
+            pn(:,:,f,1) = p(:,:,1,e) * n(:,:,i,e,1)
+            pn(:,:,f,2) = p(:,:,1,e) * n(:,:,i,e,2)
+            pn(:,:,f,3) = p(:,:,1,e) * n(:,:,i,e,3)
           case(6)
-            pn(:,:,1) = p(:,:,k,e) * n(:,:,i,e,1)
-            pn(:,:,2) = p(:,:,k,e) * n(:,:,i,e,2)
-            pn(:,:,3) = p(:,:,k,e) * n(:,:,i,e,3)
+            pn(:,:,f,1) = p(:,:,k,e) * n(:,:,i,e,1)
+            pn(:,:,f,2) = p(:,:,k,e) * n(:,:,i,e,2)
+            pn(:,:,f,3) = p(:,:,k,e) * n(:,:,i,e,3)
           end select
 
         end associate
@@ -209,12 +209,12 @@ contains
       do b = 1, size(this % m)
         write(*,'(I4,2X)',advance='NO') b
         write(*,'(ES10.3,2X)',advance='NO') this % m(b)
-        write(*,'(ES10.3,2X)',advance='NO') this % f_p(b,1)
-        write(*,'(ES10.3,2X)',advance='NO') this % f_p(b,2)
-        write(*,'(ES10.3,2X)',advance='NO') this % f_p(b,3)
-        write(*,'(ES10.3,2X)',advance='NO') this % f_d(b,1)
-        write(*,'(ES10.3,2X)',advance='NO') this % f_d(b,2)
-        write(*,'(ES10.3,2X)'             ) this % f_d(b,3)
+        write(*,'(ES10.3,2X)',advance='NO') this % f_p(1,b)
+        write(*,'(ES10.3,2X)',advance='NO') this % f_p(2,b)
+        write(*,'(ES10.3,2X)',advance='NO') this % f_p(3,b)
+        write(*,'(ES10.3,2X)',advance='NO') this % f_d(1,b)
+        write(*,'(ES10.3,2X)',advance='NO') this % f_d(2,b)
+        write(*,'(ES10.3,2X)'             ) this % f_d(3,b)
       end do
 
     end if

@@ -99,7 +99,7 @@ contains
 
       ! computation ............................................................
 
-      call this % GetDiffusionTerm_V(mu, nu, v, vp, sp, r, bv_v=bv, form=form)
+      call this % GetDiffusionTerm_V(mu, nu, bv, v, vp, sp, r, form=form)
 
       !$omp do collapse(2)
       do e = 1, na

@@ -24,7 +24,8 @@
   po_p = 2
 
   ins_op_opt%dealiasing       = F
-  ins_op_opt%c_mu             = 10000
+  ins_op_opt%div_stab         = 1
+  ins_op_opt%mu_0             = 10000
   ins_op_opt%diffusion_solver = 'DPCG'
   ins_op_opt%i_max_p          = 10000
   ins_op_opt%i_max_v          = 20

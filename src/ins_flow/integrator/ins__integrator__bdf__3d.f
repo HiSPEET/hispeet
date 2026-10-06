@@ -29,7 +29,6 @@ module INS__Integrator__BDF__3D
   use XMPI
   use Boundary_Variable__3D
   use INS__Integrator__3D
-  use INS__Problem__3D
   use INS__Operator__3D
   use INS__Integrator__BDF__PrepStep__3D
 
@@ -67,27 +66,25 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor for objects of type INS_Integrator_BDF_3D
 
-  function New_INS_Integrator_BDF_3D(problem, ins_op, opt) result(this)
-    class(INS_Problem_3D),                intent(in) :: problem
+  function New_INS_Integrator_BDF_3D(ins_op, opt) result(this)
     class(INS_Operator_3D),               intent(in) :: ins_op
     class(INS_Integrator_BDF_Options_3D), intent(in) :: opt
     type(INS_Integrator_BDF_3D) :: this
 
-    call Init_INS_Integrator_BDF_3D(this, problem, ins_op, opt)
+    call Init_INS_Integrator_BDF_3D(this, ins_op, opt)
 
   end function New_INS_Integrator_BDF_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of a INS_Integrator_BDF_3D object
 
-  subroutine Init_INS_Integrator_BDF_3D(this, problem, ins_op, opt)
+  subroutine Init_INS_Integrator_BDF_3D(this, ins_op, opt)
     class(INS_Integrator_BDF_3D),         intent(inout) :: this
-    class(INS_Problem_3D),                intent(in)    :: problem
     class(INS_Operator_3D),               intent(in)    :: ins_op
     class(INS_Integrator_BDF_Options_3D), intent(in)    :: opt
 
     ! intialize parent type
-    call this % Init_INS_Integrator_3D(problem, ins_op, opt)
+    call this % Init_INS_Integrator_3D(ins_op, opt)
 
     this % name = 'BDF method'
 
@@ -161,7 +158,7 @@ contains
       call INS_Integrator_BDF_PrepStep_3D( ins_op, t, dt, u, u1, f_c1, f_d1 &
                                          , tau, mu, nu, f, f_d, bv_u, first )
 
-      call ins_op % StokesSolver(tau, f, bv_u, mu, nu, u, f_d0 = f_d)
+      call ins_op % StokesSolver(tau, mu, nu, bv_u, f_d, f, u)
 
       ! cleanup ................................................................
 

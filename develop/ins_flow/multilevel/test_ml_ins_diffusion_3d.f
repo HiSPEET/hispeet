@@ -46,9 +46,11 @@ program ML_INS_Projection_3D
   use INS__Problem__Test_Suite__3D
 
   use ML__Mesh__3D
+  use ML__Mesh_Operators__3D
   use ML__Mesh_Variable__3D
   use ML__Boundary_Variable__3D
   use ML__INS__Operator__3D
+  use ML__INS__Diffusion__3D
   use ML__INS__Flow_Characteristics__3D
 
   implicit none
@@ -99,10 +101,14 @@ program ML_INS_Projection_3D
   ! spatial operators ..........................................................
 
   integer, allocatable, save :: po(:)
-  type(ML_INS_OperatorOptions_3D), save :: ml_ins_opt
-  type(ML_INS_Operator_3D), save :: ml_ins
+  type(ML_INS_OperatorOptions_3D) , save :: ml_ins_opt
+  type(ML_INS_DiffusionOptions_3D), save :: ml_diff_opt
 
-  namelist/spatial_prm/ po, ml_ins_opt
+  namelist/spatial_prm/ po, ml_ins_opt, ml_diff_opt
+
+  type(ML_MeshOperators_3D), save :: ml_op
+  type(ML_INS_Operator_3D) , save :: ml_ins
+  type(ML_INS_Diffusion_3D), save :: ml_diff
 
   ! time stepping ..............................................................
 
@@ -248,9 +254,12 @@ program ML_INS_Projection_3D
 
   ! globalize
   call XMPI_Bcast(po, 0, comm)
-  call ml_ins_opt % Bcast(0, comm)
+  call ml_ins_opt  % Bcast(0, comm)
+  call ml_diff_opt % Bcast(0, comm)
 
-  ml_ins = ML_INS_Operator_3D(ml_mesh, po, problem, ml_ins_opt)
+  ml_op = ML_MeshOperators_3D(ml_mesh, po)
+  ml_ins = ML_INS_Operator_3D(ml_ins_opt, problem, ml_mesh, ml_op)
+  ml_diff = ML_INS_Diffusion_3D(ml_diff_opt, ml_ins)
 
   call ml_ins % ml_op_u % Get_Volume(volume)
 
@@ -338,7 +347,7 @@ program ML_INS_Projection_3D
   call ml_flow_char % PrintValues()
 
   ! diffusion step
-  call ml_ins % DiffusionStep(dt, mu, nu, bv, f, u)
+  call ml_diff % DiffusionStep(dt, mu, nu, bv, f, u)
 
   call ml_flow_char % Evaluate(ml_ins, t, mu, nu, u, dt, volume, leaf = .true.)
   call ml_flow_char % PrintValues()

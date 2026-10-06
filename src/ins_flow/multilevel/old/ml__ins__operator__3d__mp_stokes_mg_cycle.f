@@ -183,6 +183,10 @@ contains
             do e = 1, mesh_p % n_elem
               if (mesh_p % element(e) % adaptation % refinement >= 1000) then
                 f_p(:,:,:,e,1:4) = r_p(:,:,:,e,1:4)
+                if (this % ml_diffusion_opt % fc_reset_twigs) then
+                  ! reset twigs to projected child solution
+                  u_p(:,:,:,e,1:4) = w_p(:,:,:,e,1:4)
+                end if
               else
                 w_p(:,:,:,e,1:4) = u_p(:,:,:,e,1:4)
               end if

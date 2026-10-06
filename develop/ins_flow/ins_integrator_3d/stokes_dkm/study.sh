@@ -18,7 +18,7 @@ NS=${NS:-"1"}
 V_REF="3.46307"
 
 # bulk viscosity coefficient
-C_MU=${C_MU:-"1"}
+MU_0=${MU_0=:-"1"}
 
 # polynomial orders
 PO_U=${PO_U:-"4"}
@@ -101,11 +101,11 @@ for k in $(seq $KMIN $KMAX) ; do
         echo "DT    =" $DT     >> ${LOGFILE}
         echo "CFL   =" $CFL    >> ${LOGFILE}
         echo "CS    =" $CS     >> ${LOGFILE}
-        echo "C_MU  =" $C_MU   >> ${LOGFILE}
+        echo "MU_0  =" $MU_0   >> ${LOGFILE}
         echo "NPROC =" $NPROC  >> ${LOGFILE}
 
         sed -e "s/<dx>/$DX/g" \
-            -e "s/<c_mu>/$C_MU/g" \
+            -e "s/<mu_0>/$MU_0/g" \
             -e "s/<np>/${NP[$i]}/g" \
             -e "s/<ep>/${EP[$i]}/g" \
             -e "s/<po_u>/$PO_U/g" \

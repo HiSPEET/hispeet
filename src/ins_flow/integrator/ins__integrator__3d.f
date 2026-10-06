@@ -90,13 +90,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Initialization of Integrator object
 
-  subroutine Init_INS_Integrator_3D(this, problem, ins_op, opt)
+  subroutine Init_INS_Integrator_3D(this, ins_op, opt)
     class(INS_Integrator_3D),        intent(inout) :: this
-    class(INS_Problem_3D),   target, intent(in)    :: problem
     class(INS_Operator_3D),  target, intent(in)    :: ins_op
     class(INS_IntegratorOptions_3D), intent(in)    :: opt
 
-    this % problem => problem
+    this % problem => ins_op % problem
     this % ins_op  => ins_op
 
   end subroutine Init_INS_Integrator_3D

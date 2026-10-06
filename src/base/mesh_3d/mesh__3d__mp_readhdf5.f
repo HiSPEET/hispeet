@@ -187,6 +187,8 @@ contains
       mesh % n_elem_1      = mesh_dim(12)
       mesh % n_elem_2      = mesh_dim(13)
       mesh % n_elem_3      = mesh_dim(14)
+      mesh % max_vert_val  = mesh_dim(15)
+      mesh % max_edge_val  = mesh_dim(16)
 
       ! get elements ...........................................................
 

@@ -84,13 +84,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Basic initialization of one-step multilevel IMEX INS integrators
 
-  subroutine Init_ML_INS_Integrator_3D(this, problem, ml_ins, opt)
+  subroutine Init_ML_INS_Integrator_3D(this, ml_ins, opt)
     class(ML_INS_Integrator_3D),        intent(inout) :: this
-    class(INS_Problem_3D),      target, intent(in)    :: problem
     class(ML_INS_Operator_3D),  target, intent(in)    :: ml_ins
     class(ML_INS_IntegratorOptions_3D), intent(in)    :: opt
 
-    this % problem => problem
+    this % problem => ml_ins % problem
     this % ml_ins  => ml_ins
 
   end subroutine Init_ML_INS_Integrator_3D

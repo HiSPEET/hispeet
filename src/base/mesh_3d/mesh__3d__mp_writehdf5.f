@@ -137,7 +137,7 @@ contains
     attrib = MeshAttributes_3D(copy_mesh)
     call move_alloc(attrib%boundary, attrib_bound)
 
-    ! mesh dimensions
+    ! mesh dimensions and max valencies
     mesh_dim = [ copy_mesh % n_vert        &
                , copy_mesh % n_edge        &
                , copy_mesh % n_face        &
@@ -151,7 +151,9 @@ contains
                , copy_mesh % n_parent      &
                , copy_mesh % n_elem_1      &
                , copy_mesh % n_elem_2      &
-               , copy_mesh % n_elem_3      ]
+               , copy_mesh % n_elem_3      &
+               , copy_mesh % max_vert_val  &
+               , copy_mesh % max_edge_val  ]
 
     ! count number of neighbors and coordinates
     allocate(nn_elem(copy_mesh%n_elem), nc_elem(copy_mesh%n_elem))

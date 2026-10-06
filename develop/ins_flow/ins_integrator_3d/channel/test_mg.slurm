@@ -4,11 +4,11 @@
 # SLURM script for channel example using MPI
 # ------------------------------------------------------------------------------
 
-#SBATCH --account=
-#SBATCH --nodes=5
-#SBATCH --ntasks=256                         # max number of MPI-processes
+#SBATCH --account=p_hispeet
+#SBATCH --nodes=1
+#SBATCH --ntasks=64                          # max number of MPI-processes
 #SBATCH --time=00-01:00:00                   # dd-hh:mm:ss
-#SBATCH --job-name=channel_mg_huge           # sensible job name
+#SBATCH --job-name=channel_mg                # sensible job name
 
 # ------------------------------------------------------------------------------
 
@@ -22,11 +22,25 @@ then
 fi
 
 PROG=${PROG:-"../ins_integrator_3d_test"}
-CASE=${CASE:-"test_mg_huge"}
+CASE=${CASE:-"test_mg"}
 
-N_RESTART=${N_RESTART:-1}
 RESTART_TAG_IN=${RESTART_TAG_IN:-init}
 RESTART_TAG_OUT=${RESTART_TAG_OUT:-save}
+
+# number of restart loops
+N_RESTART=${N_RESTART:-"1"}
+
+# averaging rate (0 disabled)
+AVG_RATE=${AVG_RATE:-"0"}
+
+# max number of iterations in diffusion solver
+I_MAX_V=${I_MAX_V:-"50"}
+
+# step size, may be increased in sucessive runs
+DT=${DT:-"1e-5"}
+
+# max number of steps
+NT_MAX=${NT_MAX:-"1000"}
 
 echo "PROG            =" $PROG
 echo "CASE            =" $CASE
@@ -40,12 +54,17 @@ echo "RESTART_TAG_OUT =" $RESTART_TAG_OUT
 date
 
 #module load hispeet/barnard/gnu12
+#module load hispeet/barnard/gnu14
 
 if ! compgen -G "*${RESTART_TAG_IN}*.h5" > /dev/null; then
     echo "starting ==========================================================================="
     # create prm-file
     sed -e "s/<restart_tag_in>//g" \
         -e "s/<restart_tag_out>/$RESTART_TAG_OUT/g" \
+        -e "s/<avg_rate>/$AVG_RATE/g" \
+        -e "s/<i_max_v>/$I_MAX_V/g" \
+        -e "s/<dt>/$DT/g" \
+        -e "s/<nt_max>/$NT_MAX/g" \
         ${CASE}.tmpl > ${CASE}.prm
     # run program
     srun --ntasks $SLURM_NTASKS --cpu_bind=cores --distribution=block:block \
@@ -64,6 +83,10 @@ for ((k = 1; k <= ${N_RESTART}; k++)); do
     # creating prm-file
     sed -e "s/<restart_tag_in>/$RESTART_TAG_IN/g" \
         -e "s/<restart_tag_out>/$RESTART_TAG_OUT/g" \
+        -e "s/<avg_rate>/$AVG_RATE/g" \
+        -e "s/<i_max_v>/$I_MAX_V/g" \
+        -e "s/<dt>/$DT/g" \
+        -e "s/<nt_max>/$NT_MAX/g" \
         ${CASE}.tmpl > ${CASE}.prm
     # run program
     srun --ntasks $SLURM_NTASKS --cpu_bind=cores --distribution=block:block \

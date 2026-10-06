@@ -22,8 +22,9 @@
   po_u = 7
   po_p = 7
 
-  ins_op_opt%c_mu      = 1
-  ins_op_opt%i_max_v   = 20
+  ins_op_opt%div_stab = 1
+  ins_op_opt%mu_0     = 1
+  ins_op_opt%i_max_v  = 20
 /
 
 !-------------------------------------------------------------------------------

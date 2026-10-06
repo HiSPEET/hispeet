@@ -27,7 +27,7 @@
 !> `ml_ins_solver_3d.prm`.
 !===============================================================================
 
-program ML_INS_Projection_3D
+program Test_ML_INS_Projection_3D
   use Kind_Parameters
   use Constants
   use OpenMP_Binding
@@ -46,9 +46,11 @@ program ML_INS_Projection_3D
   use INS__Problem__Test_Suite__3D
 
   use ML__Mesh__3D
+  use ML__Mesh_Operators__3D
   use ML__Mesh_Variable__3D
   use ML__Boundary_Variable__3D
   use ML__INS__Operator__3D
+  use ML__INS__Projection__3D
   use ML__INS__Flow_Characteristics__3D
 
   implicit none
@@ -99,10 +101,14 @@ program ML_INS_Projection_3D
   ! spatial operators ..........................................................
 
   integer, allocatable, save :: po(:)
-  type(ML_INS_OperatorOptions_3D), save :: ml_ins_opt
-  type(ML_INS_Operator_3D), save :: ml_ins
+  type(ML_INS_OperatorOptions_3D)  , save :: ml_ins_opt
+  type(ML_INS_ProjectionOptions_3D), save :: ml_proj_opt
 
-  namelist/spatial_prm/ po, ml_ins_opt
+  namelist/spatial_prm/ po, ml_ins_opt, ml_proj_opt
+
+  type(ML_MeshOperators_3D) , save :: ml_op
+  type(ML_INS_Operator_3D)  , save :: ml_ins
+  type(ML_INS_Projection_3D), save :: ml_proj
 
   ! time stepping ..............................................................
 
@@ -267,9 +273,12 @@ program ML_INS_Projection_3D
 
   ! globalize
   call XMPI_Bcast(po, 0, comm)
-  call ml_ins_opt % Bcast(0, comm)
+  call ml_ins_opt  % Bcast(0, comm)
+  call ml_proj_opt % Bcast(0, comm)
 
-  ml_ins = ML_INS_Operator_3D(ml_mesh, po, problem, ml_ins_opt)
+  ml_op = ML_MeshOperators_3D(ml_mesh, po)
+  ml_ins = ML_INS_Operator_3D(ml_ins_opt, problem, ml_mesh, ml_op)
+  ml_proj = ML_INS_Projection_3D(ml_proj_opt, ml_ins)
 
   call ml_ins % ml_op_u % Get_Volume(volume)
 
@@ -368,7 +377,7 @@ program ML_INS_Projection_3D
   call ml_flow_char % PrintValues()
 
   ! projection step
-  call ml_ins % ProjectionStep(dt, bv, u)
+  call ml_proj % ProjectionStep(dt, bv, u)
 
   ! add disturbed to computed pressure
   do l = 1, l_top
@@ -451,4 +460,4 @@ program ML_INS_Projection_3D
 
   !=============================================================================
 
-end program ML_INS_Projection_3D
+end program Test_ML_INS_Projection_3D

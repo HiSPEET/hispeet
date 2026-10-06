@@ -37,22 +37,69 @@ module Smooth_Mesh_Data__3D
 
   public :: SmoothMeshData_3D
 
+  interface SmoothMeshData_3D
+    module procedure SmoothMeshData_S
+    module procedure SmoothMeshData_A
+  end interface
+
+
 contains
+
+  !-----------------------------------------------------------------------------
+  !> Remove jumps and smooth scalar-valued mesh data
+
+  subroutine SmoothMeshData_S(mesh, eop, u, filter, order)
+    class(Mesh_3D), intent(in) :: mesh
+      !< mesh partition
+    class(StandardElementOperators_1D), intent(in) :: eop
+      !< element operators
+    real(RNP), contiguous, intent(inout) :: u(0:,0:,0:,:)
+      !< mesh data
+    integer, intent(in) :: filter
+      !< 0/1/2/3: none/cut-off/erfc-log/exponential
+    integer, intent(in) :: order
+      !< filter order (0: auto)
+
+    call SmoothMeshData_X(mesh, eop, 1, u, filter, order)
+
+  end subroutine SmoothMeshData_S
+
+  !-----------------------------------------------------------------------------
+  !> Remove jumps and smooth array-valued mesh data
+
+  subroutine SmoothMeshData_A(mesh, eop, u, filter, order)
+    class(Mesh_3D), intent(in) :: mesh
+      !< mesh partition
+    class(StandardElementOperators_1D), intent(in) :: eop
+      !< element operators
+    real(RNP), contiguous, intent(inout) :: u(0:,0:,0:,:,:)
+      !< mesh data
+    integer, intent(in) :: filter
+      !< 0/1/2/3: none/cut-off/erfc-log/exponential
+    integer, intent(in) :: order
+      !< filter order (0: auto)
+
+    call SmoothMeshData_X(mesh, eop, size(u,5), u, filter, order)
+
+  end subroutine SmoothMeshData_A
 
   !-----------------------------------------------------------------------------
   !> Remove jumps and smooth mesh data
 
-  subroutine SmoothMeshData_3D(mesh, eop, u, filter, order)
+  subroutine SmoothMeshData_X(mesh, eop, nc, u, filter, order)
 
-    ! arguments ................................................................
-
-    class(Mesh_3D),                     intent(in) :: mesh  !< mesh partition
-    class(StandardElementOperators_1D), intent(in) :: eop   !< element operators
-    real(RNP), contiguous, intent(inout) :: u(0:,0:,0:,:,:) !< mesh data
-
-    integer, intent(in) :: filter !< 0/1/2/3: none/cut-off/erfc-log/exponential
-    integer, intent(in) :: order  !< filter order (0: auto)
-
+    class(Mesh_3D), intent(in) :: mesh
+      !< mesh partition
+    class(StandardElementOperators_1D), intent(in) :: eop
+      !< element operators
+    integer, intent(in) :: nc
+      !< number of components in `u`
+    real(RNP), intent(inout) :: u(0:eop%po, 0:eop%po, 0:eop%po, mesh%n_elem, nc)
+      !< mesh data
+    integer, intent(in) :: filter
+      !< 0/1/2/3: none/cut-off/erfc-log/exponential
+    integer, intent(in) :: order
+      !< filter order (0: auto)
 
     ! internal variables .......................................................
 
@@ -64,6 +111,8 @@ contains
     integer :: c
 
     ! initialization ...........................................................
+
+    if (mesh % part < 0) return
 
     po = ubound(u,1)
 
@@ -110,7 +159,7 @@ contains
       call Assembly_3D(mesh, s, buf_s, avg=.true.)
       ! step 2: filter
       if (allocated(A)) then
-        call TPO_AAA(A, s(:,:,:,1::mesh%n_elem), u(:,:,:,:,c))
+        call TPO_AAA(A, s(:,:,:,1:mesh%n_elem), u(:,:,:,:,c))
       else
         call SetArray(u(:,:,:,:,c), s(:,:,:,1:mesh%n_elem))
       end if
@@ -120,7 +169,7 @@ contains
     deallocate(s, buf_s)
     !$omp end master
 
-  end subroutine SmoothMeshData_3D
+  end subroutine SmoothMeshData_X
 
   !=============================================================================
 
