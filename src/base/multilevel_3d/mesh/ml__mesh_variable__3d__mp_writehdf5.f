@@ -111,6 +111,7 @@ contains
     n_dims = 5
 
     do l = 1, l_top
+      if (size(this%level(l)%val) == 0) cycle
       dims = shape(this % level(l) % val)
       write(tag,'(I0)') l
       call H5Gcreate_f(file_id, '/ml_variable/level_'//trim(tag), group_id, err)

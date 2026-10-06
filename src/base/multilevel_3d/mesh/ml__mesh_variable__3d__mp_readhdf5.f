@@ -148,6 +148,7 @@ contains
 
     if (exists) then
       do l = 1, l_top
+        if (size(this%level(l)%val) == 0) cycle
         buf = C_Loc(this % level(l) % val(0,0,0,1,1))
         write(tag,'(I0)') l
         call H5Gopen_f(file_id, '/ml_variable/level_'//trim(tag), group_id, err)
