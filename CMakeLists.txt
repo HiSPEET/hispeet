@@ -150,15 +150,6 @@ else ()
 endif ()
 
 #-------------------------------------------------------------------------------
-# VTK XML export
-
-find_package(VTK REQUIRED COMPONENTS IOXML)
-
-# provides: 
-#   - VTK_INCLUDE_DIRS 
-#   - VTK_LIBRARIES
-
-#-------------------------------------------------------------------------------
 # HDF5
 
 find_package(HDF5 REQUIRED COMPONENTS Fortran HL)
