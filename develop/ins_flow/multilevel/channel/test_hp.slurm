@@ -120,6 +120,7 @@ for ((k = 1; k <= ${N_RESTART}; k++)); do
         -e "s/<mu_0>/$MU_0/g" \
         -e "s/<sgs_model>/$SGS_MODEL/g" \
         -e "s/<sgs_dynamic>/$SGS_DYNAMIC/g" \
+        -e "s/<sgs_jumps>/$SGS_JUMPS/g" \
         -e "s/<dt>/$DT/g" \
         -e "s/<nt_max>/$NT_MAX/g" \
         ${CASE}.tmpl > ${CASE}.prm
