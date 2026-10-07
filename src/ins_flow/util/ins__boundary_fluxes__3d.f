@@ -118,8 +118,9 @@ contains
 
       k = size(p,1)
 
-      !$omp do collapse(2)
+      ! no collapse: the inner trip count depends non-linearly on b
       do b = 1, n_bound
+      !$omp do
       do f = 1, boundary(b) % n_face
 
         associate(pn => bv_pn(b) % val)
@@ -155,6 +156,7 @@ contains
 
         end associate
       end do
+      !$omp end do
       end do
     end associate
 

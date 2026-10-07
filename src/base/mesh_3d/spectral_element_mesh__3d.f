@@ -158,6 +158,7 @@ contains
     real(RNP), allocatable, save :: a_loc(:), a_glob(:)
 
     real(RNP), allocatable :: ww(:,:)
+    real(RNP) :: a_b
     logical   :: complete
     integer   :: b, e, f, i, j, s
 
@@ -177,6 +178,7 @@ contains
     allocate(a_loc(this % mesh % n_bound), source = ZERO)
     allocate(a_glob, source = a_loc)
     !$omp end master
+    !$omp barrier
 
     associate( mesh   => this % mesh        &
              , std_op => this % std_op      &
@@ -190,16 +192,21 @@ contains
       end do
       end do
 
+      ! thread-local partial sums, accumulated atomically: gfortran (14) does
+      ! not yet support array elements as reduction list items (OpenMP 5.0)
       do b = 1, mesh % n_bound
-        !$omp do reduction(+:a_loc(b)) schedule(static)
+        a_b = 0
+        !$omp do schedule(static)
         do f = 1, mesh % boundary(b) % n_face
           e = mesh % boundary(b) % face(f) % element_id   ! element ID
           s = mesh % boundary(b) % face(f) % element_face ! element side
           if (complete .or. mesh % element(e) % IsLeaf()) then
-            a_loc(b) = a_loc(b) + sum(ww * a(:,:,s,e))
+            a_b = a_b + sum(ww * a(:,:,s,e))
           end if
         end do
         !$omp end do nowait
+        !$omp atomic
+        a_loc(b) = a_loc(b) + a_b
       end do
       !$omp barrier
 
