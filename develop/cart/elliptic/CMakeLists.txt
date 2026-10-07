@@ -34,3 +34,11 @@ target_link_libraries( elliptic_test__ip_vi HiCart )
 configure_file( elliptic_test__ip_vi.prm
                 elliptic_test__ip_vi.prm COPYONLY )
 
+#===============================================================================
+# separate module directories: sources shared by several executables are
+# compiled per target; a common module directory causes races in parallel builds
+
+foreach (t elliptic_test__ip_ci elliptic_test__ip_vi)
+    set_target_properties(${t} PROPERTIES
+        Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules_${t})
+endforeach ()

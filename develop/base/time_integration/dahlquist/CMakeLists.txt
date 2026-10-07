@@ -71,3 +71,12 @@ file( COPY
 	       eval_stability_series.py
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR} )
+
+#===============================================================================
+# separate module directories: sources shared by several executables are
+# compiled per target; a common module directory causes races in parallel builds
+
+foreach (t dahlquist dahlquist_mlsdc)
+    set_target_properties(${t} PROPERTIES
+        Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules_${t})
+endforeach ()

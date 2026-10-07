@@ -75,3 +75,12 @@ target_link_libraries(mesh3d_test_orientation HiBase)
 
 configure_file( mesh3d_test_orientation.prm
                 mesh3d_test_orientation.prm COPYONLY )
+
+#===============================================================================
+# separate module directories: sources shared by several executables are
+# compiled per target; a common module directory causes races in parallel builds
+
+foreach (t mesh3d_adapt mesh3d_hdf5)
+    set_target_properties(${t} PROPERTIES
+        Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules_${t})
+endforeach ()
