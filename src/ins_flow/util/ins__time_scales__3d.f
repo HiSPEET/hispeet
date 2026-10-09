@@ -110,9 +110,14 @@ contains
     real(RNP), save :: tau_conv_r = huge(ONE)
     real(RNP), save :: tau_diff_r = huge(ONE)
 
-    real(RNP) :: lmb_conv_max, lmb_diff_max
+    real(RNP), save :: lmb_conv_max, lmb_diff_max ! shared: set by master
+
     real(RNP) :: dx_c(3), he, hh, vv
     integer   :: e, i, j, k, np, po
+
+    ! eigenproblems for po > 32 (no block: NVHPC rejects it in OpenMP regions)
+    complex(RDP), allocatable :: lmb_conv(:)
+    real(RDP),    allocatable :: lmb_diff(:), A_conv(:,:), A_diff(:,:)
 
     associate( problem => ins_op % problem &
              , mesh    => ins_op % mesh    &
@@ -164,24 +169,19 @@ contains
           lmb_diff_max = LMB_DIFF(po)
 
         case default
-          block
 
-            complex(RDP), allocatable :: lmb_conv(:)
-            real(RDP),    allocatable :: lmb_diff(:), A_conv(:,:), A_diff(:,:)
+          ! convection problem with unit velocity in standard element
+          allocate(A_conv(po,po), lmb_conv(po))
+          A_conv = eop % D(1:,1:)
+          call SolveNonsymmetricEigenproblem(A_conv, lmb_conv)
+          lmb_conv_max = real(maxval(abs(lmb_conv)), RNP)
 
-            ! convection problem with unit velocity in standard element
-            allocate(A_conv(po,po), lmb_conv(po))
-            A_conv = eop % D(1:,1:)
-            call SolveNonsymmetricEigenproblem(A_conv, lmb_conv)
-            lmb_conv_max = real(maxval(abs(lmb_conv)), RNP)
+          ! diffusion problem with Dirichlet conditions in standard element
+          allocate(A_diff(po-1,po-1), lmb_diff(po-1))
+          A_diff = eop % L(1:po-1,1:po-1)
+          call SolveSymmetricEigenproblem(A_diff, lmb_diff)
+          lmb_diff_max = real(maxval(abs(lmb_diff)), RNP)
 
-            ! diffusion problem with Dirichlet conditions in standard element
-            allocate(A_diff(po-1,po-1), lmb_diff(po-1))
-            A_diff = eop % L(1:po-1,1:po-1)
-            call SolveSymmetricEigenproblem(A_diff, lmb_diff)
-            lmb_diff_max = real(maxval(abs(lmb_diff)), RNP)
-
-          end block
         end select
         !$omp end master
         !$omp barrier
