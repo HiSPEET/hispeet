@@ -12,7 +12,7 @@
 #         1:  generate optimization report (only with Intel, so far)
 #
 #     -D SKIP_LIBXSMM=⟨0|1⟩
-#         0:  use LIBXSMM if available (default)
+#         0:  build and use LIBXSMM from submodule external/libxsmm (default)
 #         1:  do not use LIBXSMM
 #
 #     -D OpenMP=⟨0|1⟩
@@ -50,7 +50,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 #-------------------------------------------------------------------------------
 # OpenMP
 
-if (OpenMP OR NOT SKIP_LIBXSMM)
+if (OpenMP)
    find_package(OpenMP)
 endif ()
 
@@ -128,8 +128,6 @@ if (OpenMP)
     set(CMAKE_CXX_FLAGS        "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set(CMAKE_Fortran_FLAGS    "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-elseif (NOT SKIP_LIBXSMM)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif (OpenMP)
 
 #===============================================================================
@@ -173,9 +171,8 @@ include(external/cmake/hilbert_curve.cmake)
 
 include(external/cmake/libxsmm.cmake)
 
-# provides: 
-#   - LIBXSMM_INCLUDE_DIRS 
-#   - LIBXSMM_LIBRARIES
+# provides (unless SKIP_LIBXSMM):
+#   - imported target LIBXSMM::LIBXSMM
 
 #-------------------------------------------------------------------------------
 # FFTW, ParMeTiS, ppFUnit, SLURM
