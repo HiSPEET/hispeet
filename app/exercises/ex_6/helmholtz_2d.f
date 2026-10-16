@@ -7,7 +7,7 @@
 module Helmholtz_2D
   use Kind_Parameters, only: RDP
   use Constants,       only: ZERO
-  use Gauss_Jacobi,    only: GLL_Points, GLL_Weights, GLL_DiffMatrix
+  use Gauss_Jacobi,    only: LobattoPoints, LobattoWeights, LobattoDiffMatrix
   implicit none
 
   private
@@ -47,9 +47,9 @@ subroutine GetGLLVariables(po, xi, wi, diff, stiff)
   if(allocated(stiff)) deallocate(stiff)
 
   ! allocate and set the GLL variables for the polynomial degree po
-  allocate(xi   (0:po)     , source = GLL_Points     (po))
-  allocate(wi   (0:po)     , source = GLL_Weights    (xi))
-  allocate(diff (0:po,0:po), source = GLL_DiffMatrix (xi))
+  allocate(xi   (0:po)     , source = LobattoPoints     (po))
+  allocate(wi   (0:po)     , source = LobattoWeights    (xi))
+  allocate(diff (0:po,0:po), source = LobattoDiffMatrix (xi))
   allocate(stiff(0:po,0:po), source = StiffnessMatrix(wi,diff))
 
 end subroutine GetGLLVariables

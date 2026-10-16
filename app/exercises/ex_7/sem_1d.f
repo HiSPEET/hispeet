@@ -67,9 +67,9 @@ program SEM_1D
 
   allocate(xi(0:po),D(0:po,0:po),L(0:po,0:po),w(0:po))
 
-  xi = GLL_Points(po)
-  w  = GLL_Weights(xi)
-  D  = GLL_DiffMatrix(xi)
+  xi = LobattoPoints(po)
+  w  = LobattoWeights(xi)
+  D  = LobattoDiffMatrix(xi)
 
   do i = 0, po
   do j = 0, po
