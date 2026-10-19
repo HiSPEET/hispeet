@@ -34,6 +34,7 @@ HPC 4 is a pen-and-paper exercise and has no code.
 ## Adaptations to the current HiSPEET
 
 - `ex_6/helmholtz_2d.f`, `ex_7/sem_1d.f`: `GLL_Points`, `GLL_Weights`, `GLL_DiffMatrix` replaced by `LobattoPoints`, `LobattoWeights`, `LobattoDiffMatrix` (same arguments). These two files did not compile even on the original 2022 branch.
+- `ex_4/tensor_products.py`: `fig.savefig(outfile, layout='tight')` replaced by `fig.tight_layout()` + `fig.savefig(outfile)` (the `layout` argument raises a `TypeError` from Matplotlib 3.6 on, i.e. with the packages of Ubuntu 24.04 to 26.04; older versions silently ignored it); `usetex=True` removed, so no LaTeX installation is needed (labels use Matplotlib's built-in math rendering); non-interactive `Agg` backend set, so the script also works without a display. Tested with Matplotlib 3.1.3, 3.5.1, 3.6.3 and 3.10.8.
 
 ## Merge notes
 
@@ -46,7 +47,6 @@ All 16 programs build with GCC 13 / Open MPI and produce the same results as on 
 ## Known issues (not fixed yet)
 
 - `ex_1/CMakeLists.txt`: `hello` is not linked to `HiBase`, so the intro task (`use Constants`) does not compile.
-- `ex_4/tensor_products.py`: `savefig(..., layout='tight')` fails with current Matplotlib, and `usetex=True` requires a LaTeX installation.
 - `ex_3/helmholtz_1d_study.py` writes `helmholtz_1D_study.pdf` (capital D), while the README says `helmholtz_1d_study.pdf`.
 - `ex_5`: the results of the timed loops are never used, so at the default `-O3` the compiler removes them and the reported times/MLUPS are meaningless.
 - `-D OPT=...` has no effect with GNU compilers (`CMakeLists.txt`, GNU section), so the optimisation-level comparison in HPC 1 cannot be done as described.

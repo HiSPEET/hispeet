@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')   # file output only, works without a display
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -25,7 +27,6 @@ err_h  = np.reshape(A[1::,5],(n_plot[0],n_plot[1]))
 # Create an A4-sized figures with landscape mode (sizes in inch)
 plt.rc('figure', figsize=(11.69,8.27))
 plt.rc('font', family='serif')
-plt.rc('text', usetex=True)
 
 #...............................................................................
 # A short function for the plotting
@@ -56,4 +57,5 @@ CreatePlot(fig.add_subplot(222, projection='3d'),x,y,err_h,r'$\varepsilon$')
 CreatePlot(fig.add_subplot(223, projection='3d'),x,y,du_h_1,r'$\partial_1 u$')
 CreatePlot(fig.add_subplot(224, projection='3d'),x,y,du_h_2,r'$\partial_2 u$')
 
-fig.savefig(outfile, layout = 'tight')
+fig.tight_layout()
+fig.savefig(outfile)
