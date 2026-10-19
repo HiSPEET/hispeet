@@ -24,4 +24,4 @@ Anschauen im Viewer mit
         xdg-open helmholtz_1d.pdf
 und
 
-        xdg-open helmholtz_1d_study.pdf
+        xdg-open helmholtz_1D_study.pdf
