@@ -45,9 +45,3 @@ The merge of the 2022 branch into the current code had conflicts in `CMakeLists.
 ## Verification
 
 All 16 programs build with GCC 13 / Open MPI and produce the same results as on the original 2022 branch. Output files are identical, except for timings and round-off at the 1e-16 level in `tensor_products.dat`.
-
-## Known issues (not fixed yet)
-
-- `ex_5`: the results of the timed loops are never used, so at the default `-O3` the compiler removes them and the reported times/MLUPS are meaningless.
-- `-D OPT=...` has no effect with GNU compilers (`CMakeLists.txt`, GNU section), so the optimisation-level comparison in HPC 1 cannot be done as described.
-- OpenMP is off by default; HPC 2 and the OpenMP part of HPC 3 need `cmake -D OpenMP=1 ..`.
