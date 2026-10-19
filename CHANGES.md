@@ -11,17 +11,18 @@ Only `app/exercises/` differs from `master`. The libraries in `src/`, `develop/`
 
 All exercise programs are declared `EXCLUDE_FROM_ALL`. A plain `make` builds the HiSPEET libraries but no exercises; build them by name, e.g. `make sem_basics`. They link against `HiBase` only.
 
-| Folder | Exercise sheet | Programs | Other files |
-|---|---|---|---|
-| `ex_1` | Intro | `hello`, `calculate_pi`, `jacobi_method` (new) | `jacobi_method.py` |
-| `ex_2` | SEM 1 | `sem_basics` (was `exercise_1`) | `README.md`, `sem_basics.prm`, `sem_basics.py` |
-| `ex_3` | SEM 2 | `helmholtz_1d` | `README.md`, `helmholtz_1d.prm`, `helmholtz_1d.py`, `helmholtz_1d_study.py` |
-| `ex_4` | SEM 3 | `exact_integration`, `tensor_products` | `README.md`, `tensor_products.prm`, `exact_integration.py`, `tensor_products.py` |
-| `ex_5` | HPC 1 | `stencil_test`, `matrix_matrix_test`, `potpourri_1`, `potpourri_2`, `potpourri_3` | `README.md`, `potpourri_print_mlups.f` |
-| `ex_6` | HPC 2 | `test_interpolation`, `potential_flow_solver` | `spectral_element_interpolation.f`, `helmholtz_2d.f`, input files |
-| `ex_7` | HPC 3 | `sem_1d`, `ping_pong` | `input_sem_1d` |
+The exercises are listed in course order, which is also the order of the exercise sheets in the sheets repository (`uebung-sim-tech-stroem`, `Makefile`). The sheets number the SEM and HPC parts separately (SEM 1–3, HPC 1–4), while the folders count straight through: SEM 1 is in `ex_2`, HPC 1 is in `ex_5`.
 
-HPC 4 is a pen-and-paper exercise and has no code.
+| # | Folder | Sheet | Topic | Programs | Other files |
+|---|---|---|---|---|---|
+| 1 | `ex_1` | Intro (`ex_intro`) | Setup, Fortran basics | `hello`, `calculate_pi`, `jacobi_method` (new) | `jacobi_method.py` |
+| 2 | `ex_2` | SEM 1 (`ex_sem1`) | Interpolation: Lagrange bases, Lobatto/Gauss points | `sem_basics` (was `exercise_1`) | `README.md`, `sem_basics.prm`, `sem_basics.py` |
+| 3 | `ex_3` | SEM 2 (`ex_sem2`) | 1D Helmholtz equation with spectral elements | `helmholtz_1d` | `README.md`, `helmholtz_1d.prm`, `helmholtz_1d.py`, `helmholtz_1d_study.py` |
+| 4 | `ex_4` | SEM 3 (`ex_sem3`) | Exact integration, tensor products in 2D | `exact_integration`, `tensor_products` | `README.md`, `tensor_products.prm`, `exact_integration.py`, `tensor_products.py` |
+| 5 | `ex_5` | HPC 1 (`ex_hpc1`) | Amdahl, roofline, stencil, optimisation potpourri, matrix product | `stencil_test`, `matrix_matrix_test`, `potpourri_1`, `potpourri_2`, `potpourri_3` | `README.md`, `potpourri_print_mlups.f` |
+| 6 | `ex_6` | HPC 2 (`ex_hpc2`) | OpenMP: spectral element interpolation | `test_interpolation`, `potential_flow_solver` (not used by any sheet) | `spectral_element_interpolation.f`, `helmholtz_2d.f`, input files |
+| 7 | `ex_7` | HPC 3 (`ex_hpc3`) | MPI: ping-pong, 1D SEM with MPI | `sem_1d`, `ping_pong` | `input_sem_1d` |
+| 8 | – | HPC 4 (`ex_hpc4`) | Halo communication in 2D (pen and paper) | – | – |
 
 ## File-level changes compared to `master`
 
