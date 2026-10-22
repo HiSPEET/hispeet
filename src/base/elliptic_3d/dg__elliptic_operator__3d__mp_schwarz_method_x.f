@@ -62,12 +62,12 @@ contains
     real(RNP), allocatable, save :: r(:,:,:,:)     ! residual, including ghosts
     real(RNP), allocatable, save :: nu_avg(:)      ! element averaged ν
 
-    real(RDP) :: lambda_dp                         ! Helmholtz parameter
+    real(RDP), save :: lambda_dp                   ! Helmholtz parameter
     real(RDP), allocatable, save :: nu_dp(:)       ! subdomain diffusivities
     real(RDP), allocatable, save :: fs_dp(:,:,:,:) ! RHS of subsystems
     real(RDP), allocatable, save :: us_dp(:,:,:,:) ! solution of subsystems
 
-    real(RSP) :: lambda_sp                         ! Helmholtz parameter
+    real(RSP), save :: lambda_sp                   ! Helmholtz parameter
     real(RSP), allocatable, save :: nu_sp(:)       ! subdomain diffusivities
     real(RSP), allocatable, save :: fs_sp(:,:,:,:) ! RHS of subsystems
     real(RSP), allocatable, save :: us_sp(:,:,:,:) ! solution of subsystems
