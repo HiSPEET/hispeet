@@ -362,7 +362,7 @@ contains
 
             call ParentToChildInterpolation_3D(mesh_p, mesh_l, iop_pl, v_p, w_l)
 
-            !$omp do collapse(3)
+            !$omp do collapse(2)
             do c = 1, 3
             do e = mesh_l%n_elem_active+1, mesh_l%n_elem
               v_l(:,:,:,e,c) = w_l(:,:,:,e,c)

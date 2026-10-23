@@ -33,3 +33,12 @@ target_link_libraries(dg_helmholtz HiBase)
 
 configure_file( dg_helmholtz.prm
                 dg_helmholtz.prm COPYONLY )
+
+#===============================================================================
+# separate module directories: sources shared by several executables are
+# compiled per target; a common module directory causes races in parallel builds
+
+foreach (t cg_helmholtz cg_helmholtz_acc dg_helmholtz)
+    set_target_properties(${t} PROPERTIES
+        Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules_${t})
+endforeach ()

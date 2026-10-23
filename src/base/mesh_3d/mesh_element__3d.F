@@ -392,7 +392,7 @@ module Mesh_Element__3D
                                           AlignWithNeighborEdge_RNP
 
     generic   :: AlignWithNeighborFace => AlignWithNeighborFace_IDK, &
-                                          AlignFromNeighborFace_RNP
+                                          AlignWithNeighborFace_RNP
     procedure :: MarkForRefinement
     procedure :: MarkForRemoval
     procedure :: Unmark

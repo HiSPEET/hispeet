@@ -90,7 +90,7 @@ contains
           logging = proc == 0
           prefix  = LoggingPrefix('StokesCycle', proc)
         end associate
-        !$omp master
+        !$omp end master
       end if
 
       !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

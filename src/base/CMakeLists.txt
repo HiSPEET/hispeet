@@ -376,13 +376,9 @@ set_property(TARGET HiBase
              PROPERTY Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)
 
 add_dependencies(HiBase KdTree HilbertCurve)
-if (NOT SKIP_LIBXSMM)
-    add_dependencies(HiBase LIBXSMM)
-endif ()
 
 target_include_directories(HiBase
     PUBLIC  ${PROJECT_BINARY_DIR}/modules
-            ${LIBXSMM_INCLUDE_DIRS}
             ${HDF5_Fortran_INCLUDE_DIRS}
     PRIVATE ${VTK_INCLUDE_DIRS}
             ${ParMETIS_INCLUDE_DIRS}
@@ -395,9 +391,12 @@ target_link_libraries(HiBase
             ${HDF5_Fortran_LIBRARIES}
             ${FFTW_LIBRARIES}
             ${ParMETIS_LIBRARIES}
-            ${LIBXSMM_LIBRARIES}
             KdTree
             HilbertCurve
             MPI::MPI_C
             MPI::MPI_Fortran
             )
+
+if (NOT SKIP_LIBXSMM)
+    target_link_libraries(HiBase PUBLIC LIBXSMM::LIBXSMM)
+endif ()

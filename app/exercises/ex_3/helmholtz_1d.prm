@@ -1,0 +1,8 @@
+&input_helmholtz_1d
+  po     = 15
+  n_ele  = 1
+  lambda = 1
+  n_plot = 100
+  r_max  = 1E-6
+  func   = 1
+/

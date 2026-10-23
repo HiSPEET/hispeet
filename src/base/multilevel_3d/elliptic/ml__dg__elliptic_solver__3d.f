@@ -675,6 +675,7 @@ contains
     call XMPI_Bcast(this % fc_projection  , root, comm)
     call XMPI_Bcast(this % fc_restriction , root, comm)
     call XMPI_Bcast(this % fc_reset_twigs , root, comm)
+    call XMPI_Bcast(this % interior_bc    , root, comm)
     call XMPI_Bcast(this % i_crs          , root, comm)
     call XMPI_Bcast(this % i_max          , root, comm)
     call XMPI_Bcast(this % ns_0           , root, comm)

@@ -65,7 +65,7 @@ subroutine TPO_Grad_R_Gen_RWP(np, ne, Ms, Ds, dx, u, up, v)
       tmp1 = 0
       tmp2 = 0
       do p = 1, np
-        tmp1 = tmp1 + Ds(i,i) * u(p,j,k,e)
+        tmp1 = tmp1 + Ds(i,p) * u(p,j,k,e)
         tmp2 = tmp2 + Ds(j,p) * u(i,p,k,e)
       end do
       v(i,j,k,e,1) = g(1) * tmp1

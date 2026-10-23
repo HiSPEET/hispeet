@@ -1,0 +1,5 @@
+&input_tensor_products
+  po     = 5, 7
+  n_plot = 70, 70
+  func   = 1, 2
+/

@@ -75,3 +75,26 @@ target_link_libraries(mesh3d_test_orientation HiBase)
 
 configure_file( mesh3d_test_orientation.prm
                 mesh3d_test_orientation.prm COPYONLY )
+
+#===============================================================================
+# validate__neighbor_alignment_3d
+
+add_executable( validate__neighbor_alignment_3d
+                validate__neighbor_alignment_3d.f )
+
+target_link_libraries(validate__neighbor_alignment_3d HiBase)
+
+configure_file( validate__neighbor_alignment_3d.prm
+                validate__neighbor_alignment_3d.prm COPYONLY )
+
+configure_file( validate__neighbor_alignment_3d_mutate.prm
+                validate__neighbor_alignment_3d_mutate.prm COPYONLY )
+
+#===============================================================================
+# separate module directories: sources shared by several executables are
+# compiled per target; a common module directory causes races in parallel builds
+
+foreach (t mesh3d_adapt mesh3d_hdf5)
+    set_target_properties(${t} PROPERTIES
+        Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules_${t})
+endforeach ()
