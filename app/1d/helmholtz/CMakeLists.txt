@@ -12,6 +12,9 @@ target_link_libraries(cg_helmholtz HiBase)
 configure_file( cg_helmholtz.prm
                 cg_helmholtz.prm COPYONLY )
 
+file( COPY convergence_cg
+      DESTINATION "${CMAKE_CURRENT_BINARY_DIR}" )
+
 # cg_helmholtz_acc ..........................................................
 
 add_executable( cg_helmholtz_acc

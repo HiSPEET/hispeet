@@ -11,7 +11,7 @@
 &solution_parameters
   po     = 16     ! polynomial degree
   ne     = 2      ! number of elements
-  svv    = T      ! activate SVV 
+  svv    = F      ! activate SVV 
   method = 2      ! 1: conjugate gradients CG, 2: SC+GE
  !i_max  = 10     ! max number iterations with CG
   r_max  = 1e-10  ! Euclidic norm of terminal residual with CG
