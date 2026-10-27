@@ -1,13 +1,25 @@
-## Note
 
-Add 
+## README Übung 1 - Einführung Linux, Fortran
 
-  * tasks, 
-  * instructions and 
-  * hints 
-  
-in the for of MD files please
+### TODO
 
-To build one example type, e.g., 
+Bearbeiten von
 
-    make hello
+  * `hello.f`
+  * `calculate_pi.f`
+  * `calculate_e.f` (Zusatzaufgabe)
+
+### Bauen und Ausführen
+
+Im Verzeichnis `build/app/exercises/ex_1` mit
+
+        make hello
+        ./hello
+
+und analog
+
+        make calculate_pi
+        ./calculate_pi
+
+        make calculate_e
+        ./calculate_e
