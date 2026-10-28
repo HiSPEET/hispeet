@@ -1,4 +1,5 @@
-file( COPY transition_tg.prm
+file( COPY test_mg-p.prm
+           transition_tg.prm
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR} )
 

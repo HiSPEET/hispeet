@@ -1,0 +1,89 @@
+!-------------------------------------------------------------------------------
+! Control
+
+&control_prm
+
+! log levels,  set to ≥ 1 for higher verbosity
+! log_level                 = 0
+! log_level_inner_iteration = 1
+! log_level_outer_iteration = 1
+! log_level_multigrid_cycle = 1
+
+  problem_file = 'transition_tg'
+  flow_problem = 'Transition_TG'
+  flow_domain  = 1
+
+  char_freq    = 10  ! set frequency of control output
+  eval_diss    =  T  ! eval contributions to dissipation
+  vtk_export   =  T  ! set T for generating plot files
+
+! restart_tag_in  = 'run1'
+! restart_tag_out = 'run1'
+/
+
+!-------------------------------------------------------------------------------
+! Spatial
+
+&spatial_prm
+
+  po_u = 16
+  po_p = 1 2 3 7 15  ! degrees to use for multilevel pressure solver (1:l_top)
+
+  ins_op_opt%pressure_solver = 'MG' ! select multilevel pressure solver
+  ins_op_opt%dealiasing      = T
+  ins_op_opt%div_stab        = 2
+  ins_op_opt%mu_0            = 0.1
+  ins_op_opt%i_max_p         = 1000
+  ins_op_opt%i_max_v         = 5
+! ins_op_opt%r_red           = 1e-10
+! ins_op_opt%r_max           = 1e-12
+
+  ! multilevel pressure solver
+  ml_solver_p_opt%i_crs = 1000   ! num coarse grid iterations
+  ml_solver_p_opt%i_max = 3      ! num V-cycles
+  ml_solver_p_opt%r_red = 1e-08
+  ml_solver_p_opt%r_max = 1e-12
+
+  ins_op_opt%sgs_model%model    = 2     ! 0/1/2 none/Smagorinsky/sigma ! [0]
+! ins_op_opt%sgs_model%dynamic  = F     ! set F for static model       ! [T]
+! ins_op_opt%sgs_model%c_static = 1.35  ! static model constant        ! [1.35]
+/
+
+&ml_mesh_options_3d__static
+  l_top          =  5  ! initial top level, l_top = l_max
+  n_parts_root   =  8  ! number of partitions at root level   [1]
+  n_parts_growth =  8  ! partition number growth rate         [1]
+/
+
+&ml_mesh_options_3d__dynamic
+  refinement = 4*'c' ! (1:l_top-1)  refinement type {'c','s'}
+/
+
+!-------------------------------------------------------------------------------
+! Temporal
+
+&temporal_prm
+
+  t_end  = 1.0
+  dt     = 1E-3
+  nt_max = 10000000
+
+  time_method = 2  ! 1/2/3: Euler/BDF/Runge-Kutta
+
+  ! Runge-Kutta               ! ARS443    CB3e
+  ins_ti_rk_opt%n_stage  = 5  !   5        4
+  ins_ti_rk_opt%method   = 1  !   1        2
+/
+
+!-------------------------------------------------------------------------------
+! Domains
+
+&cuboid_cartesian_prm
+  regular    = F ! mimic irregular mesh (elements deformed or of different size)
+  structured = F ! mimic unstructured mesh
+  xo = 3*-3.14159265358979323844
+  lx = 3*6.28318530717958647688
+  np = 1,1,1
+  ep = 3*6
+  periodic = 3*T
+/
