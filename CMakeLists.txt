@@ -24,7 +24,7 @@
 #         0:  with physically motivated bulk viscosity (default)
 #         1:  with ad-hoc grad-div and flux continuity stabilization terms
 
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.13)
 
 project(HiSPEET)
 
