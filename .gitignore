@@ -5,3 +5,8 @@ doc/html/
 **._*
 **.orig
 
+
+# user-defined problems, except the shipped example
+user/ins_problem/*
+!user/ins_problem/README.md
+!user/ins_problem/example/
