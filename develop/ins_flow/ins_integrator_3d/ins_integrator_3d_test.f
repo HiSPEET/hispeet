@@ -700,6 +700,9 @@ program INS_Integrator_3D_Test
       end do
     end do
 
+    ! remove artefacts from λ₂
+    call SmoothMeshData_3D(ins_op%mesh, ins_op%eop_u, lmb_2, filter=2, order=5)
+
     ! export ...................................................................
 
     call VTK_ExportMeshData_3D( x       = ins_op % sem_u % metrics % x &
