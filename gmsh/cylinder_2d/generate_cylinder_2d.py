@@ -8,13 +8,13 @@
 #>   - cylinder with "diameter" is placed at x = y = 0
 #>   - domain structure and size:
 #>
-#>  |-----------------------length------------------------|
-#>  |----width----|
+#>  |--------------------------ld-------------------------|
+#>  |----2 lc----|
 #>   ______nc_____ ________________nx_____________________  _ _
 #>  |\           /|                                       |  |
 #>  |  nr     nr  |                                       |  |
 #>  |    \   /    |                                       |  |  
-#>  nc     O      nc                                      nc |width                 
+#>  nc     O      nc                                      nc | hd              
 #>  |    /   \    |                                       |  |
 #>  |  nr     nr  |                                       |  |
 #>  |/_____nc____\|________________nx_____________________| _|_
@@ -33,7 +33,12 @@ from gmsh_tools import *
 
 gmsh.initialize()
 
-def createGeometryAndMesh(casename, L, N, prog):
+def createGeometryAndMesh(casename, xb1, xb2, xc, dc, N, prog):
+
+    # xb1  corner of the domain closest to -∞
+    # xb2  corner of the domain closest to +∞
+    # xc   center of the cylinder, only x0[0:1] is used
+    # dc   diameter of the cylinder
 
     #---------------------------------------------------------------------------
     # Initialize
@@ -41,39 +46,42 @@ def createGeometryAndMesh(casename, L, N, prog):
     gmsh.clear()
     gmsh.model.add(casename)
 
-    h   = L[0]
-    w   = L[1]
-    l   = L[2]
-    d   = L[3]
+    # auxiliary dimensions
+    lc = xc[0]  - xb1[0]  # distance of cylinder center from inflow boundary
+    hc = xc[1]  - xb1[1]  # distance of cylinder center from bottom wall
+    ld = xb2[0] - xb1[0]  # domain length (∆x)
+    hd = xb2[1] - xb1[1]  # domain height (∆y)
+    wd = xb2[2] - xb1[2]  # domain width  (∆z)
+    
     n_z = N[0] + 1
     n_x = N[1] + 1
     n_c = N[2] + 1
     n_r = N[3] + 1
 
-    M_array_z, M_z = initAffineTransform(z_transl=h)
+    M_array_z, M_z = initAffineTransform(z_transl=wd)
 
     #---------------------------------------------------------------------------
     # Build geometry
 
     # contours of first periodic surface bottom ................................
 
-    # cylinder center
-    gmsh.model.geo.addPoint(0, 0, 0, tag=0)
+    # cylinder center on plane z = xb1[2]
+    gmsh.model.geo.addPoint(xc[0], xc[1], xb1[2], tag=0)
 
-    # corner points
-    gmsh.model.geo.addPoint( w/2   , w/2, 0, tag=1)
-    gmsh.model.geo.addPoint(-w/2   , w/2, 0, tag=2)
-    gmsh.model.geo.addPoint(-w/2   ,-w/2, 0, tag=3)
-    gmsh.model.geo.addPoint( w/2   ,-w/2, 0, tag=4)
-    gmsh.model.geo.addPoint( l-w/2 ,-w/2, 0, tag=5)
-    gmsh.model.geo.addPoint( l-w/2 , w/2, 0, tag=6)
+    # block vertices
+    gmsh.model.geo.addPoint( xb1[0] + 2*lc, xb1[1] + 2*lc, xb1[2], tag=1)
+    gmsh.model.geo.addPoint( xb1[0]       , xb1[1] + 2*lc, xb1[2], tag=2)
+    gmsh.model.geo.addPoint( xb1[0]       , xb1[1]       , xb1[2], tag=3)
+    gmsh.model.geo.addPoint( xb1[0] + 2*lc, xb1[1]       , xb1[2], tag=4)
+    gmsh.model.geo.addPoint( xb2[0]       , xb1[1]       , xb1[2], tag=5)
+    gmsh.model.geo.addPoint( xb2[0]       , xb2[1]       , xb1[2], tag=6)
 
     # cylinder points
-    a = d / (2 * np.sqrt(2) ) 
-    gmsh.model.geo.addPoint( a, a, 0, tag=11)
-    gmsh.model.geo.addPoint(-a, a, 0, tag=12)
-    gmsh.model.geo.addPoint(-a,-a, 0, tag=13)
-    gmsh.model.geo.addPoint( a,-a, 0, tag=14)
+    a = dc / (2 * np.sqrt(2) ) 
+    gmsh.model.geo.addPoint( xc[0] + a, xc[1] + a, xb1[1], tag=11)
+    gmsh.model.geo.addPoint( xc[0] - a, xc[1] + a, xb1[1], tag=12)
+    gmsh.model.geo.addPoint( xc[0] - a, xc[1] - a, xb1[1], tag=13)
+    gmsh.model.geo.addPoint( xc[0] + a, xc[1] - a, xb1[1], tag=14)
 
     # outer bound edges
     gmsh.model.geo.addLine( 1,  2, tag=1)
@@ -102,13 +110,13 @@ def createGeometryAndMesh(casename, L, N, prog):
 
     # extrude points
     for i in range(1,7):
-        gmsh.model.geo.extrude([(0,i)], 0,0,h)
+        gmsh.model.geo.extrude([(0,i)], 0,0,wd)
     for i in range(11,15):
-        gmsh.model.geo.extrude([(0,i)], 0,0,h)
+        gmsh.model.geo.extrude([(0,i)], 0,0,wd)
 
     # extrude outer bounds
     for i in range(1,8):
-        gmsh.model.geo.extrude([(1,i)], 0,0,h)
+        gmsh.model.geo.extrude([(1,i)], 0,0,wd)
     surf_side = [38, 46, 54, 62]
     surf_in   = [42]
     surf_int  = [50]    
@@ -116,12 +124,12 @@ def createGeometryAndMesh(casename, L, N, prog):
 
     # extrude cylinder
     for i in range(11,15):
-        gmsh.model.geo.extrude([(1,i)], 0,0,h)
+        gmsh.model.geo.extrude([(1,i)], 0,0,wd)
     surf_cyl = [66, 70, 74, 78]
 
     # extrude quarters
     for i in range(21,25):
-        gmsh.model.geo.extrude([(1,i)], 0,0,h)
+        gmsh.model.geo.extrude([(1,i)], 0,0,wd)
     surf_qtr = [82, 86, 90, 94]
 
     # group all 1D entities (curves) for better handling
@@ -255,17 +263,24 @@ def createGeometryAndMesh(casename, L, N, prog):
 #===============================================================================
 # user input
 
-# domain size
-height   = 0.15 # span wise direction (z)
-width    = 0.4  # orthogonal to flow (y)
-length   = 2.2  # length of channel starting at cylinder center (x)
-diameter = 0.1  # cylinder diameter
+# corner of the domain closest to -∞
+xb1 = [ 0.00, 0.00, 0.00 ]
 
-# elements
-n_z = 3  # spanwise direction (z) requires >2 for periodicity in HiSPEET
-n_x = 14 # streamwise direction flow channel (x)
-n_c = 2  # circumferential elements per quarter of cylinder (= width of channel)
-n_r = 3  # element layers surounding cylinder
+# corner of the domain closest to +∞
+xb2 = [ 2.20, 0.41, 0.15 ]
+
+# center of the cylinder, only x0[0:1] is used
+xc  = [ 0.20, 0.20, 0.00 ]
+
+# diameter of the cylinder
+dc  = 0.10
+
+
+# number of elements
+n_x =  14  # streamwise direction flow channel (x)
+n_z =   3  # spanwise direction (z), requires > 2 for periodicity in HiSPEET
+n_c =   2  # circumferential per quarter of cylinder
+n_r =   3  # element layers surounding cylinder
 
 #===============================================================================
 # main
@@ -273,7 +288,6 @@ n_r = 3  # element layers surounding cylinder
 # mesh name
 casename = "cylinder_2d_"+str(n_c)+"-"+str(n_r)+"-"+str(n_x)+"-"+str(n_z)
 
-L = [height, width, length, diameter]
 N = [n_z, n_x, n_c, n_r]
 prog = 1
-createGeometryAndMesh(casename, L, N, prog)
+createGeometryAndMesh(casename, xb1, xb2, xc, dc, N, prog)
