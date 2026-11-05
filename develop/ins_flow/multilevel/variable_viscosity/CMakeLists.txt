@@ -3,6 +3,7 @@ file( COPY test-coupled-4g.prm
            test-coupled-4g-mgcg.prm
            test-coupled-hp.prm
            test-coupled-hp-mg.prm
+           test-coupled-hp-mgcg.prm
            test-diffusion-1g.prm
            test-diffusion-3g.prm
            test-diffusion-hp.prm
