@@ -120,7 +120,7 @@ contains
 
     real(RNP) :: rr, r_max, r_new, r_old
     real(RNP) :: alpha, beta, delta
-    logical   :: check_convergence
+    logical   :: active, check_convergence
     integer   :: i, i_max_, l_top_
 
     character(len=:), allocatable :: prefix
@@ -149,11 +149,6 @@ contains
       l_top_ = size(this%ml_op%sem)
     end if
 
-    ! top level MPI group must be a superset of all lower levels
-    if (this%ml_op%sem(l_top_)%mesh%part < 0) then
-      return
-    end if
-
     if (present(i_max)) then
       i_max_ = i_max
     else
@@ -162,20 +157,26 @@ contains
 
     check_convergence = i_max_ > 1 .and. max(this%r_red, this%r_max) > 0
 
+    ! scalar products and calibration are restricted to the active partitions
+    ! of the top level, which may be a subset of those on lower levels
+    active = this % ml_op % sem(l_top_) % mesh % part >= 0
+
     !$omp master
     allocate(r, z)
     call r % Init(this%ml_op, nc = 1, l_top = l_top_)
     call z % Init(this%ml_op, nc = 1, l_top = l_top_)
     !$omp end master
 
-    associate( mesh_top => this % ml_op % sem(l_top_) % mesh              &
-             , comm_top => this % ml_op % sem(l_top_) % mesh % comm_parts &
-             , ell_top  => this % elliptic_op(l_top_)                     &
-             , f_top    => f    % level(l_top_) % val(:,:,:,:,1)          &
-             , u_top    => u    % level(l_top_) % val(:,:,:,:,1)          &
-             , r_top    => r    % level(l_top_) % val(:,:,:,:,1)          &
-             , z_top    => z    % level(l_top_) % val(:,:,:,:,1)          &
-             , bv_top   => bv   % level(l_top_) % var                     )
+    associate( mesh_top => this % ml_op % sem(l_top_) % mesh                 &
+             , comm_top => this % ml_op % sem(l_top_) % mesh % comm_parts    &
+             , comm_all => this % ml_op % sem(l_top_) % mesh % comm_world    &
+             , root     => this % ml_op % sem(l_top_) % mesh % proc_part(0)  &
+             , ell_top  => this % elliptic_op(l_top_)                        &
+             , f_top    => f    % level(l_top_) % val(:,:,:,:,1)             &
+             , u_top    => u    % level(l_top_) % val(:,:,:,:,1)             &
+             , r_top    => r    % level(l_top_) % val(:,:,:,:,1)             &
+             , z_top    => z    % level(l_top_) % val(:,:,:,:,1)             &
+             , bv_top   => bv   % level(l_top_) % var                        )
 
       ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -189,8 +190,10 @@ contains
                      .and. all(bc /= 'D') &
                      .and. mesh_top % n_elem_frozen == 0
 
-      if (mesh_top % part >= 0) then
+      if (active) then
         call XMPI_Allreduce(singular_loc, singular, MPI_LAND, comm_top)
+      else
+        singular = .false.
       end if
 
       !$omp end master
@@ -214,12 +217,19 @@ contains
 
       ! termination conditions
       if (check_convergence) then
-        rr = ScalarProduct(r_top, r_top, comm_top)
-        r_old  = sqrt(rr)
-        r_max  = max(r_old * this%r_red, this%r_max)
+        if (active) then
+          rr    = ScalarProduct(r_top, r_top, comm_top)
+          r_old = sqrt(rr)
+          r_max = max(r_old * this%r_red, this%r_max)
+        else
+          rr    = 0
+          r_old = 0
+          r_max = 0
+        end if
+        r_new = r_old
         !$omp master
         converged = r_old < r_max
-        call XMPI_Bcast(converged, root = 0, comm = comm_top)
+        call XMPI_Bcast(converged, root = root, comm = comm_all)
         if (log_level_outer_iteration > 0 .and. mesh_top%part == 0) then
           print '(A,T8,A,I5,A,ES12.5)', &
                 '#MGCG','>>>  i  =',0,',  |r| =', sqrt(rr)
@@ -249,16 +259,18 @@ contains
                                   , i_max = 1, l_top = l_top_            )
 
         ! set/update search vector
-        if (i == 1) then
-          if (singular) then
-            call CalibrateArray(z_top, comm_top)
+        if (active) then
+          if (i == 1) then
+            if (singular) then
+              call CalibrateArray(z_top, comm_top)
+            end if
+            call SetArray(p, z_top)                           ! p = z
+          else
+            call SetArray(q, r_top)                           ! q = r
+            call MergeArrays(ONE, q, -ONE, s)                 ! q = r - s
+            beta = ScalarProduct(q, z_top, comm_top) / delta  ! β = (q,z) / δ
+            call MergeArrays(beta, p, ONE, z_top)             ! p = beta p + z
           end if
-          call SetArray(p, z_top)                           ! p = z
-        else
-          call SetArray(q, r_top)                           ! q = r
-          call MergeArrays(ONE, q, -ONE, s)                 ! q = r - s
-          beta = ScalarProduct(q, z_top, comm_top) / delta  ! β = (q,z) / δ
-          call MergeArrays(beta, p, ONE, z_top)             ! p = beta p + z
         end if
 
         ! save old residual
@@ -273,38 +285,46 @@ contains
           end associate
         end if
 
-        ! correction
-        delta = ScalarProduct(r_top, z_top, comm_top)       ! δ = (r,z)
-        alpha = delta / ScalarProduct(p, q, comm_top)       ! α = δ / (p,Ap)
-        call MergeArrays(ONE, u_top,  alpha, p)             ! u = u + α p
+        if (active) then
 
-        ! residual
-        if (mod(i,50) == 0) then
-          ! compute true residual to get rid of round-off errors
-          if (present(nu_0)) then
-            call ell_top % &
-                     Residual(bc, lambda, nu_0, f_top, bv_top, u_top, r_top)
+          ! correction
+          delta = ScalarProduct(r_top, z_top, comm_top)       ! δ = (r,z)
+          alpha = delta / ScalarProduct(p, q, comm_top)       ! α = δ / (p,Ap)
+          call MergeArrays(ONE, u_top,  alpha, p)             ! u = u + α p
+
+          ! residual
+          if (mod(i,50) == 0) then
+            ! compute true residual to get rid of round-off errors
+            if (present(nu_0)) then
+              call ell_top % Residual( bc, lambda, nu_0, f_top, bv_top      &
+                                     , u_top, r_top                         )
+            else
+              associate(nu_top => nu_v % level(l_top_) % val(:,:,:,:,1))
+                call ell_top % Residual( bc, lambda, nu_top, f_top, bv_top  &
+                                       , u_top, r_top                       )
+              end associate
+            end if
+            if (singular) then
+              call CalibrateArray(r_top, comm_top)
+            end if
           else
-            associate(nu_top => nu_v % level(l_top_) % val(:,:,:,:,1))
-              call ell_top % &
-                       Residual(bc, lambda, nu_top, f_top, bv_top, u_top, r_top)
-            end associate
+            ! r = r - α Ap
+            call MergeArrays(ONE, r_top, -alpha, q)
           end if
-          if (singular) then
-            call CalibrateArray(r_top, comm_top)
-          end if
-        else
-          ! r = r - α Ap
-          call MergeArrays(ONE, r_top, -alpha, q)
+
         end if
 
         if (check_convergence) then
 
-          r_new = sqrt( ScalarProduct(r_top, r_top, comm_top) )
+          if (active) then
+            r_new = sqrt( ScalarProduct(r_top, r_top, comm_top) )
+          else
+            r_new = 0
+          end if
 
           !$omp master
           converged = r_new <= r_max
-          call XMPI_Bcast(converged, root = 0, comm = comm_top)
+          call XMPI_Bcast(converged, root = root, comm = comm_all)
           if (log_level_outer_iteration > 0 .and. mesh_top%part == 0) then
             print '(A,T8,A,I5,A,ES12.5)', &
                   '#MGCG','>>>  i  =',i,',  |r| =', r_new
@@ -323,16 +343,21 @@ contains
 
       if (present(ni)) then
         !$omp master
-        ni = i
+        ni = min(i, i_max_)
         !$omp end master
       end if
 
       if (present(r_2)) then
         if (.not. check_convergence) then
-          r_new = sqrt( ScalarProduct(r_top, r_top, comm_top) )
+          if (active) then
+            r_new = sqrt( ScalarProduct(r_top, r_top, comm_top) )
+          else
+            r_new = 0
+          end if
         end if
         !$omp master
         r_2 = r_new
+        call XMPI_Bcast(r_2, root = root, comm = comm_all)
         !$omp end master
       end if
 

@@ -116,9 +116,9 @@ contains
     logical, save :: converged
 
     real(RNP) :: rr, r_max, r_new, r_old
-    logical :: check_convergence
-    integer :: i_max_, l_top_
-    integer :: l, m, n
+    logical   :: active, check_convergence
+    integer   :: i_max_, l_top_
+    integer   :: l, m, n
 
     character(len=:), allocatable :: prefix
     logical :: logging
@@ -154,25 +154,32 @@ contains
 
     check_convergence = i_max_ > 1 .and. max(this%r_red, this%r_max) > 0
 
-    associate( sem    => this % ml_op % sem      &
-             , iop_cf => this % ml_op % iop_cf_x &
-             , iop_fc => this % ml_op % iop_fc_x &
-             , pop_fc => this % ml_op % pop_fc_x )
+    ! scalar products are restricted to the active partitions of the top level,
+    ! which may be a subset of those on lower levels
+    active = this % ml_op % sem(l_top_) % mesh % part >= 0
+
+    associate( sem      => this % ml_op % sem                                &
+             , iop_cf   => this % ml_op % iop_cf_x                           &
+             , iop_fc   => this % ml_op % iop_fc_x                           &
+             , pop_fc   => this % ml_op % pop_fc_x                           &
+             , comm_top => this % ml_op % sem(l_top_) % mesh % comm_parts    &
+             , comm_all => this % ml_op % sem(l_top_) % mesh % comm_world    &
+             , root     => this % ml_op % sem(l_top_) % mesh % proc_part(0)  )
 
       ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       !$omp master
       allocate(r)
-      call r % Init(this%ml_op, nc=1)
+      call r % Init(this%ml_op, nc=1, l_top=l_top_)
       !$omp end master
 
       ! termination conditions
       if (check_convergence) then
         l = l_top_
-        associate( mesh_l => sem(l) % mesh              &
-                 , f_l => f % level(l) % val(:,:,:,:,1) &
-                 , u_l => u % level(l) % val(:,:,:,:,1) &
-                 , r_l => r % level(l) % val(:,:,:,:,1) )
+        associate( f_l => f % level(l) % val(:,:,:,:,1)  &
+                 , u_l => u % level(l) % val(:,:,:,:,1)  &
+                 , r_l => r % level(l) % val(:,:,:,:,1)  &
+                 , na  => sem(l) % mesh % n_elem_active  )
 
           !$omp master
           if (present(bv)) then
@@ -189,12 +196,18 @@ contains
             end associate
           end if
 
-          rr = ScalarProduct(r_l, r_l, mesh_l%comm_parts)
-          r_old  = sqrt(rr)
-          r_max  = max(r_old * this%r_red, this%r_max)
+          if (active) then
+            rr    = ScalarProduct(r_l(:,:,:,:na), r_l(:,:,:,:na), comm_top)
+            r_old = sqrt(rr)
+            r_max = max(r_old * this%r_red, this%r_max)
+          else
+            rr    = 0
+            r_old = 0
+            r_max = 0
+          end if
           !$omp master
           converged = r_old < r_max
-          call XMPI_Bcast(converged, root = 0, comm = mesh_l%comm_parts)
+          call XMPI_Bcast(converged, root = root, comm = comm_all)
           !$omp end master
         end associate
       else
@@ -208,7 +221,10 @@ contains
         !$omp master
         deallocate(r)
         if (present(ni)) ni = 0
-        if (present(r_2)) r_2 = r_old
+        if (present(r_2)) then
+          r_2 = r_old
+          call XMPI_Bcast(r_2, root = root, comm = comm_all)
+        end if
         !$omp end master
         return
       end if
@@ -315,7 +331,8 @@ contains
                    , f_l    => f % level(l  ) % val(:,:,:,:,1) &
                    , u_l    => u % level(l  ) % val(:,:,:,:,1) &
                    , v_l    => r % level(l  ) % val(:,:,:,:,1) &
-                   , u_p    => u % level(l-1) % val(:,:,:,:,1) )
+                   , u_p    => u % level(l-1) % val(:,:,:,:,1) &
+                   , na     => sem(l  ) % mesh % n_elem_active )
 
             ! boundary values ..................................................
 
@@ -332,7 +349,7 @@ contains
             call ParentToChildInterpolation_3D &
                      (mesh_p, mesh_l, iop_cf(l-1), u_p, v_l)
 
-            call MergeArrays(ONE, u_l, ONE, v_l)
+            call MergeArrays(ONE, u_l(:,:,:,:na), ONE, v_l(:,:,:,:na))
 
             ! post-smoothing ...................................................
 
@@ -366,7 +383,8 @@ contains
           l = l_top_
           associate( f_l  => f % level(l) % val(:,:,:,:,1) &
                    , u_l  => u % level(l) % val(:,:,:,:,1) &
-                   , r_l  => r % level(l) % val(:,:,:,:,1) )
+                   , r_l  => r % level(l) % val(:,:,:,:,1) &
+                   , na   => sem(l) % mesh % n_elem_active )
 
             !$omp master
             if (present(bv)) then
@@ -382,12 +400,16 @@ contains
               end associate
             end if
 
-            rr = ScalarProduct(r_l, r_l)
+            if (active) then
+              rr = ScalarProduct(r_l(:,:,:,:na), r_l(:,:,:,:na), comm_top)
+            else
+              rr = 0
+            end if
             r_new = sqrt(rr)
           end associate
           !$omp master
           converged = r_new <= r_max
-          call XMPI_Bcast(converged, root = 0, comm = sem(1)%mesh%comm_world)
+          call XMPI_Bcast(converged, root = root, comm = comm_all)
           !$omp end master
           !$omp barrier
 
@@ -410,12 +432,14 @@ contains
         if (check_convergence .and. m < i_max_) then
           !$omp master
           r_2 = r_new
+          call XMPI_Bcast(r_2, root = root, comm = comm_all)
           !$omp end master
         else
           l = l_top_
           associate( f_l  => f  % level(l) % val(:,:,:,:,1) &
                    , u_l  => u  % level(l) % val(:,:,:,:,1) &
-                   , r_l  => r  % level(l) % val(:,:,:,:,1) )
+                   , r_l  => r  % level(l) % val(:,:,:,:,1) &
+                   , na   => sem(l) % mesh % n_elem_active  )
 
             !$omp master
             if (present(bv)) then
@@ -431,10 +455,15 @@ contains
               end associate
             end if
 
-            rr = ScalarProduct(r_l, r_l)
+            if (active) then
+              rr = ScalarProduct(r_l(:,:,:,:na), r_l(:,:,:,:na), comm_top)
+            else
+              rr = 0
+            end if
           end associate
           !$omp master
           r_2 = sqrt(rr)
+          call XMPI_Bcast(r_2, root = root, comm = comm_all)
           !$omp end master
         end if
       end if
