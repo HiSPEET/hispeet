@@ -737,7 +737,7 @@ contains
   !> Write restart data
 
   subroutine WriteRestartData(file, rank, problem, t, u, n_avg, q_avg)
-    use, intrinsic ::  ISO_C_Binding
+    use, intrinsic :: ISO_C_Binding
     use Kind_Parameters
     use HDF5_Binding
     implicit none
@@ -815,7 +815,7 @@ contains
   !> Read restart data
 
   subroutine ReadRestartData(file, rank, problem, t, u, n_avg, q_avg)
-    use, intrinsic ::  ISO_C_Binding
+    use, intrinsic :: ISO_C_Binding
     use Kind_Parameters
     use Execution_Control
     use HDF5_Binding
