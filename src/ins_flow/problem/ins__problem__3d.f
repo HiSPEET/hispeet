@@ -311,6 +311,8 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Dummy procedure for reading problem restart data from HDF5 group
+  !>
+  !> Intended for problem-specific data changing in course of a simulation.
 
   subroutine ReadRestartData(problem, group_id)
     class(INS_Problem_3D), target, intent(inout) :: problem
@@ -323,6 +325,8 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Dummy procedure for writing problem restart data into HDF5 group
+  !>
+  !> Intended for problem-specific data changing in course of a simulation.
 
   subroutine WriteRestartData(problem, group_id)
     class(INS_Problem_3D), target, intent(in) :: problem
