@@ -542,7 +542,7 @@ program INS_Integrator_3D_Test
   if (restart_in) then
 
     data_file = trim(flow_case) // '_' // trim(restart_tag_in) // '_data'
-    call ReadRestartData(data_file, rank, t, u, n_avg, q_avg)
+    call ReadRestartData(data_file, rank, problem, t, u, n_avg, q_avg)
     call XMPI_Bcast(t, 0, comm)
 
   else
@@ -723,7 +723,7 @@ program INS_Integrator_3D_Test
     ! mesh
     call ml_mesh % WriteHDF5(mesh_file)
     ! flow data
-    call WriteRestartData(data_file, rank, t, u, n_avg, q_avg)
+    call WriteRestartData(data_file, rank, problem, t, u, n_avg, q_avg)
   end if
 
   !-----------------------------------------------------------------------------
@@ -736,19 +736,20 @@ contains
   !-----------------------------------------------------------------------------
   !> Write restart data
 
-  subroutine WriteRestartData(file, rank, t, u, n_avg, q_avg)
+  subroutine WriteRestartData(file, rank, problem, t, u, n_avg, q_avg)
     use, intrinsic ::  ISO_C_Binding
     use Kind_Parameters
     use HDF5_Binding
     implicit none
 
-    character(len=*),  intent(in) :: file                !< file base name
-    integer,           intent(in) :: rank                !< process rank
-    real(RNP), target, intent(in) :: t                   !< problem time
-    real(RNP), target, intent(in) :: u(0:,0:,0:,:,:)     !< variables
-    integer,   target, intent(in) :: n_avg               !< averaging counter
-    real(RNP), target, intent(in) :: q_avg(0:,0:,0:,:,:) !< averaged quantities
-
+    character(len=*),      intent(in) :: file            !< file base name
+    integer,               intent(in) :: rank            !< process rank
+    class(INS_Problem_3D), intent(in) :: problem         !< problem class
+    real(RNP),     target, intent(in) :: t               !< problem time
+    real(RNP),     target, intent(in) :: u(0:,0:,0:,:,:) !< variables
+    integer,       target, intent(in) :: n_avg           !< averaging counter
+    real(RNP),     target, intent(in) :: q_avg(0:,0:,0:,:,:) !< averaged
+                                                             !! quantities
     optional :: q_avg
 
     integer(HID_T)    :: data_id, file_id, group_id, space_id
@@ -766,6 +767,9 @@ contains
     ! create HDF5 file and group
     call H5Fcreate_f(file_pr, H5F_ACC_TRUNC_F, file_id, err)
     call H5Gcreate_f(file_id, 'data', group_id, err)
+
+    ! problem-specific data
+    call problem % WriteRestartData(group_id)
 
     ! time
     dims_t = 1
@@ -810,20 +814,21 @@ contains
   !-----------------------------------------------------------------------------
   !> Read restart data
 
-  subroutine ReadRestartData(file, rank, t, u, n_avg, q_avg)
+  subroutine ReadRestartData(file, rank, problem, t, u, n_avg, q_avg)
     use, intrinsic ::  ISO_C_Binding
     use Kind_Parameters
     use Execution_Control
     use HDF5_Binding
     implicit none
 
-    character(len=*),  intent(in)    :: file                !< file base name
-    integer,           intent(in)    :: rank                !< process rank
-    real(RNP), target, intent(inout) :: t                   !< problem time
-    real(RNP), target, intent(inout) :: u(0:,0:,0:,:,:)     !< variables
-    integer,   target, intent(inout) :: n_avg               !< averaging counter
-    real(RNP), target, intent(inout) :: q_avg(0:,0:,0:,:,:) !< averaged quantities
-
+    character(len=*),      intent(in)    :: file            !< file base name
+    integer,               intent(in)    :: rank            !< process rank
+    class(INS_Problem_3D), intent(inout) :: problem         !< problem class
+    real(RNP),     target, intent(inout) :: t               !< problem time
+    real(RNP),     target, intent(inout) :: u(0:,0:,0:,:,:) !< variables
+    integer,       target, intent(inout) :: n_avg           !< averaging counter
+    real(RNP),     target, intent(inout) :: q_avg(0:,0:,0:,:,:) !< averaged
+                                                                !! quantities
     optional :: q_avg
 
     integer(HID_T)    :: data_id, file_id, group_id, space_id, type_id
@@ -846,6 +851,9 @@ contains
     ! open HDF5 file and group for reading
     call H5Fopen_f(file_pr, H5F_ACC_RDWR_F, file_id, err)
     call H5Gopen_f(file_id, 'data', group_id, err)
+
+    ! problem-specific data
+    call problem % ReadRestartData(group_id)
 
     ! time
     buf = C_Loc(t)
