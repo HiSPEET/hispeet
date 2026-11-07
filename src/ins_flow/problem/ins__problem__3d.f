@@ -28,6 +28,7 @@ module INS__Problem__3D
   use Constants,       only: ZERO
   use Execution_Control
   use Array_Assignments
+  use HDF5_Binding, only: HID_T
   use MPI_Binding
 
   implicit none
@@ -83,6 +84,9 @@ module INS__Problem__3D
     procedure :: GetExactDiffusiveTerm
 
     procedure :: SetPressureBC
+
+    procedure :: ReadRestartData
+    procedure :: WriteRestartData
 
     procedure(SetProblem),         deferred :: SetProblem
     procedure(GetInitialValues),   deferred :: GetInitialValues
@@ -304,6 +308,34 @@ contains
     call SetArray(F_d, ZERO, multi=.true.)
 
   end subroutine GetExactDiffusiveTerm
+
+  !-----------------------------------------------------------------------------
+  !> Dummy procedure for reading problem restart data from HDF5 group
+  !>
+  !> Intended for problem-specific data changing in course of a simulation.
+
+  subroutine ReadRestartData(problem, group_id)
+    class(INS_Problem_3D), target, intent(inout) :: problem
+    integer(HID_T), intent(in) :: group_id !< HDF5 group ID
+
+    ! prevent compiler warnings ;)
+    if (problem % nc == 0 .or. group_id == 0) return
+
+  end subroutine ReadRestartData
+
+  !-----------------------------------------------------------------------------
+  !> Dummy procedure for writing problem restart data into HDF5 group
+  !>
+  !> Intended for problem-specific data changing in course of a simulation.
+
+  subroutine WriteRestartData(problem, group_id)
+    class(INS_Problem_3D), target, intent(in) :: problem
+    integer(HID_T), intent(in) :: group_id !< HDF5 group ID
+
+    ! prevent compiler warnings ;)
+    if (problem % nc == 0 .or. group_id == 0) return
+
+  end subroutine WriteRestartData
 
   !=============================================================================
 

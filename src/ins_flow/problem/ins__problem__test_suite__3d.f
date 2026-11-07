@@ -35,9 +35,11 @@ module INS__Problem__Test_Suite__3D
   use INS__Problem__Stokes_DKM__3D        , only: INS_Problem_Stokes_DKM_3D
   use INS__Problem__Stokes_Linke__3D      , only: INS_Problem_Stokes_Linke_3D
   use INS__Problem__Transition_TG__3D     , only: INS_Problem_TransitionTG_3D
+  use INS__Problem__User__3D              , only: INS_Problem_User_3D
   use INS__Problem__Variable_Viscosity__3D, only: INS_Problem_VariableViscosity_3D
   use INS__Problem__Vortex_TG__3D         , only: INS_Problem_Vortex_TG_3D
 
+  use Execution_Control
   use XMPI
 
   implicit none
@@ -49,7 +51,10 @@ module INS__Problem__Test_Suite__3D
 contains
 
   !-----------------------------------------------------------------------------
+  !> Allocates the problem with the given name and initializes it
   !>
+  !> The name 'User' selects the user-defined problem INS_Problem_User_3D,
+  !> see user/ins_problem/README.md.
 
   subroutine Set_INS_TestProblem_3D(problem, name, file, n_bound, comm)
     class(INS_Problem_3D), allocatable, intent(out) :: problem
@@ -77,11 +82,16 @@ contains
       allocate(INS_Problem_Stokes_Linke_3D      :: problem)
     case('Transition_TG')
       allocate(INS_Problem_TransitionTG_3D      :: problem)
+    case('User')
+      allocate(INS_Problem_User_3D              :: problem)
     case('VariableViscosity')
       allocate(INS_Problem_VariableViscosity_3D :: problem)
     case('Vortex_TG')
       allocate(INS_Problem_Vortex_TG_3D         :: problem)
     case default
+      call Error( 'Set_INS_TestProblem_3D'                  &
+                , 'unknown problem "' // trim(name) // '"'  &
+                , 'INS__Problem__Test_Suite__3D'            )
     end select
 
     call problem % SetProblem(n_bound, file, comm)

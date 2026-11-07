@@ -137,7 +137,7 @@ contains
           call this % elliptic_p % SchwarzPCG_Method &
                           (bc_p, ZERO, ONE, q, g, bv_q, i_max, r_red, r_max, ni)
         case('MG','MGCG')
-          call ML_PressureSolver(this, q, g, bv_q, ni)
+          call ML_PressureSolver(this, q, g, bv_q, i_max, ni)
         end select
 
         ! interpolate result to order po

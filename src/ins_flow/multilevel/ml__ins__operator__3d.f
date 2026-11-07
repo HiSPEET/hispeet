@@ -30,6 +30,7 @@ module ML__INS__Operator__3D
   use Volume_Integrals__3D
   use INS__Problem__3D
   use INS__Operator__3D
+  use ML__DG__Elliptic_Solver__3D
   use ML__Mesh__3D
   use ML__Mesh_Operators__3D
   use ML__Mesh_Variable__3D
@@ -44,8 +45,12 @@ module ML__INS__Operator__3D
   !> Multilevel DG-SEM INS operator options
 
   type ML_INS_OperatorOptions_3D
-    logical :: mixed = .true. !< T/F: use mixed/equal order for (v,p)
-    type(INS_OperatorOptions_3D) :: ins_op !< INS operator options
+    logical                        :: mixed = .true.
+      !< T/F: use mixed/equal order for (v,p)
+    type(INS_OperatorOptions_3D)   :: ins_op
+      !< INS operator options
+    type(ML_DG_EllipticOptions_3D) :: ml_solver_p
+      !< options of the ML pressure solver used with 'MG' and 'MGCG'
   contains
     procedure :: Bcast => Bcast_ML_INS_OperatorOptions_3D
   end type ML_INS_OperatorOptions_3D
@@ -54,11 +59,13 @@ module ML__INS__Operator__3D
   !> Multilevel DG-SEM operators for incompressible Navier-Stokes problems
 
   type ML_INS_Operator_3D
-    class(INS_Problem_3D),         pointer     :: problem
-    class(ML_Mesh_3D),             pointer     :: ml_mesh
-    class(ML_MeshOperators_3D),    pointer     :: ml_op_u
-    type (ML_MeshOperators_3D),    allocatable :: ml_op_p
-    type (INS_Operator_3D),        allocatable :: ins_op(:)
+    class(INS_Problem_3D),          pointer     :: problem
+    class(ML_Mesh_3D),              pointer     :: ml_mesh
+    class(ML_MeshOperators_3D),     pointer     :: ml_op_u
+    type (ML_MeshOperators_3D),     allocatable :: ml_op_p
+    type (ML_DG_EllipticSolver_3D), allocatable :: ml_solver_p
+      !< ML pressure solver, allocated only with 'MG' and 'MGCG'
+    type (INS_Operator_3D),         allocatable :: ins_op(:)
   contains
     procedure :: Init_ML_INS_Operator_3D
     procedure :: CalibratePressure
@@ -109,15 +116,30 @@ contains
       end associate
     end if
 
+    ! multilevel pressure solver, shared by the operators on all levels
+    select case(opt % ins_op % pressure_solver)
+    case('MG','MGCG')
+      if (opt % mixed) then
+        this % ml_solver_p = ML_DG_EllipticSolver_3D( this % ml_op_p     &
+                                                    , opt % ml_solver_p  )
+      else
+        this % ml_solver_p = ML_DG_EllipticSolver_3D(ml_op, opt % ml_solver_p)
+      end if
+    end select
+
     allocate(this%ins_op(l_top))
     do l = 1, l_top
       associate(ins_op => this % ins_op(l), sem_u => ml_op % sem(l))
         if(opt%mixed) then
           associate(sem_p => this % ml_op_p % sem(l))
-            ins_op = INS_Operator_3D(opt%ins_op, problem, sem_u, sem_p, level=l)
+            ins_op = INS_Operator_3D( opt%ins_op, problem, sem_u, sem_p  &
+                                    , ml_solver_p = this % ml_solver_p   &
+                                    , level = l                          )
           end associate
         else
-          ins_op = INS_Operator_3D(opt%ins_op, problem, sem_u, level=l)
+          ins_op = INS_Operator_3D( opt%ins_op, problem, sem_u           &
+                                  , ml_solver_p = this % ml_solver_p     &
+                                  , level = l                            )
         end if
       end associate
     end do
@@ -184,7 +206,8 @@ contains
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
     call XMPI_Bcast(this % mixed, root, comm)
-    call this % ins_op % Bcast(root, comm)
+    call this % ins_op      % Bcast(root, comm)
+    call this % ml_solver_p % Bcast(root, comm)
 
   end subroutine Bcast_ML_INS_OperatorOptions_3D
 

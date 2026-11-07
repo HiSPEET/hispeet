@@ -612,6 +612,12 @@ contains
       this % ml_solver_p => ml_solver_p
     else
       this % ml_solver_p => null()
+      select case(this % pressure_solver)
+      case('MG','MGCG')
+        call Error( 'Init_INS_Operator_3D'                               &
+                  , trim(this%pressure_solver)//' requires ml_solver_p'  &
+                  , 'INS__Operator__3D'                                  )
+      end select
     end if
 
     ! subgrid-scale model

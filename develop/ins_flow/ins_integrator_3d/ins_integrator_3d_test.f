@@ -38,14 +38,15 @@ program INS_Integrator_3D_Test
   use Logging_Levels
 
   use Mesh__3D
-  use Boundary_Variable__3D
-  use TPO__Div__3D
   use Trace_Operators__3D
-  use Volume_Integrals__3D
-  use Surface_Integrals__3D
-  use Smooth_Mesh_Data__3D
-  use VTK__Export_Mesh_Data__3D
+  use Boundary_Variable__3D
   use Spectral_Element_Mesh__3D
+  use TPO__Grad__3D
+  use Smooth_Mesh_Data__3D
+  use Surface_Integrals__3D
+  use Volume_Integrals__3D
+  use Vortex_Sensors__3D
+  use VTK__Export_Mesh_Data__3D
 
   use INS__Problem__3D
   use INS__Problem__Test_Suite__3D
@@ -214,6 +215,7 @@ program INS_Integrator_3D_Test
   real(RNP), pointer, contiguous, save :: mu(:,:,:,:)      ! bulk viscosity μ
   real(RNP), pointer, contiguous, save :: nu(:,:,:,:)      ! shear viscosity ν
   real(RNP), pointer, contiguous, save :: div_v(:,:,:,:)   ! ∇⋅v
+  real(RNP), pointer, contiguous, save :: lmb_2(:,:,:,:)   ! λ₂
 
   real(RNP), pointer, contiguous, save :: u_ex(:,:,:,:,:)  ! u_ex = [v_ex, p_ex]
   real(RNP), pointer, contiguous, save :: v_ex(:,:,:,:,:)  ! exact velocity
@@ -225,8 +227,8 @@ program INS_Integrator_3D_Test
 
   real(RNP), pointer, contiguous, save :: q_avg(:,:,:,:,:) ! averaged quantities
 
-  real(RNP), allocatable, save :: vp(:,:,:,:,:)  ! velocity trace
-  real(RNP), allocatable, save :: w(:,:,:,:,:)   ! workspace
+  real(RNP), allocatable, save :: vp(:,:,:,:,:)       ! velocity trace
+  real(RNP), allocatable, save :: grad_v(:,:,:,:,:,:) ! velocity gradient
 
   ! auxiliaries ................................................................
 
@@ -234,12 +236,12 @@ program INS_Integrator_3D_Test
   character(:), allocatable :: mesh_file
   character(:), allocatable :: data_file
 
-  real(RNP) :: volume
   logical   :: exists, last, restart_in, restart_out
   integer   :: io, stat
   integer   :: n_avg, n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var
   integer   :: l_top
-  integer   :: i, nt
+  integer   :: e, i, j, k, nt
+  real(RNP) :: volume, grad_vp(3,3)
   real(RDP) :: time
 
   !-----------------------------------------------------------------------------
@@ -470,7 +472,7 @@ program INS_Integrator_3D_Test
 
   ! variables ..................................................................
 
-  n_var = 7
+  n_var = 8
 
   if (problem % HasExactSolution()) then
     n_var = n_var + 8
@@ -489,11 +491,12 @@ program INS_Integrator_3D_Test
   mu(0:,0:,0:,1:)    =>  var(:,:,:,:,5)
   nu(0:,0:,0:,1:)    =>  var(:,:,:,:,6)
   div_v(0:,0:,0:,1:) =>  var(:,:,:,:,7)
+  lmb_2(0:,0:,0:,1:) =>  var(:,:,:,:,8)
 
-  var_name(1:7) = [ 'v_x  ', 'v_y  ', 'v_z  ', 'p    ' &
-                  , 'mu   ', 'nu   ', 'div_v'          ]
+  var_name(1:8) = [ 'v_x  ', 'v_y  ', 'v_z  ', 'p    ' &
+                  , 'mu   ', 'nu   ', 'div_v', 'lmb_2' ]
 
-  i = 7
+  i = 8
 
   if (problem % HasExactSolution()) then
 
@@ -532,14 +535,14 @@ program INS_Integrator_3D_Test
   end if
 
   allocate(vp(0:po_u,0:po_u,1:6,1:n_elem,1:3))
-  allocate(w (0:po_u,0:po_u,0:po_u,1:n_elem,1:4) )
+  allocate(grad_v(0:po_u,0:po_u,0:po_u,1:n_elem,1:3,1:3))
 
   ! initial conditions .........................................................
 
   if (restart_in) then
 
     data_file = trim(flow_case) // '_' // trim(restart_tag_in) // '_data'
-    call ReadRestartData(data_file, rank, t, u, n_avg, q_avg)
+    call ReadRestartData(data_file, rank, problem, t, u, n_avg, q_avg)
     call XMPI_Bcast(t, 0, comm)
 
   else
@@ -669,9 +672,38 @@ program INS_Integrator_3D_Test
 
   if (vtk_export .and. ins_op % mesh%part >= 0) then
 
-    ! compute divergence
+    ! velocity gradient ........................................................
+
     call GetOuterVectorTraces_3D(ins_op%mesh, v, vp)   ! vp = v⁺
-    call TPO_Div(ins_op%eop_u, ins_op%sem_u, v, vp, div_v)
+
+    ! grad_v(:,i) = ∇vᵢ
+    do i = 1, 3
+      call TPO_Grad( eop = ins_op%eop_u          &
+                   , sem = ins_op%sem_u          &
+                   , u   = v(:,:,:,:,i)          &
+                   , up  = vp(:,:,:,:,i)         &
+                   , v   = grad_v(:,:,:,:,1:3,i) )
+    end do
+
+    ! div(v) and λ₂ ............................................................
+
+    !$omp do
+    do e = 1, n_elem
+      do k = 0, po_u
+      do j = 0, po_u
+      do i = 0, po_u
+        grad_vp = grad_v(i,j,k,e,1:3,1:3)
+        div_v(i,j,k,e) = grad_vp(1,1) + grad_vp(2,2) + grad_vp(3,3)
+        lmb_2(i,j,k,e) = Lambda2(grad_vp)
+      end do
+      end do
+      end do
+    end do
+
+    ! remove artefacts from λ₂
+    call SmoothMeshData_3D(ins_op%mesh, ins_op%eop_u, lmb_2, filter=2, order=5)
+
+    ! export ...................................................................
 
     call VTK_ExportMeshData_3D( x       = ins_op % sem_u % metrics % x &
                               , s       = var                          &
@@ -691,7 +723,7 @@ program INS_Integrator_3D_Test
     ! mesh
     call ml_mesh % WriteHDF5(mesh_file)
     ! flow data
-    call WriteRestartData(data_file, rank, t, u, n_avg, q_avg)
+    call WriteRestartData(data_file, rank, problem, t, u, n_avg, q_avg)
   end if
 
   !-----------------------------------------------------------------------------
@@ -704,19 +736,20 @@ contains
   !-----------------------------------------------------------------------------
   !> Write restart data
 
-  subroutine WriteRestartData(file, rank, t, u, n_avg, q_avg)
-    use, intrinsic ::  ISO_C_Binding
+  subroutine WriteRestartData(file, rank, problem, t, u, n_avg, q_avg)
+    use, intrinsic :: ISO_C_Binding
     use Kind_Parameters
     use HDF5_Binding
     implicit none
 
-    character(len=*),  intent(in) :: file                !< file base name
-    integer,           intent(in) :: rank                !< process rank
-    real(RNP), target, intent(in) :: t                   !< problem time
-    real(RNP), target, intent(in) :: u(0:,0:,0:,:,:)     !< variables
-    integer,   target, intent(in) :: n_avg               !< averaging counter
-    real(RNP), target, intent(in) :: q_avg(0:,0:,0:,:,:) !< averaged quantities
-
+    character(len=*),      intent(in) :: file            !< file base name
+    integer,               intent(in) :: rank            !< process rank
+    class(INS_Problem_3D), intent(in) :: problem         !< problem class
+    real(RNP),     target, intent(in) :: t               !< problem time
+    real(RNP),     target, intent(in) :: u(0:,0:,0:,:,:) !< variables
+    integer,       target, intent(in) :: n_avg           !< averaging counter
+    real(RNP),     target, intent(in) :: q_avg(0:,0:,0:,:,:) !< averaged
+                                                             !! quantities
     optional :: q_avg
 
     integer(HID_T)    :: data_id, file_id, group_id, space_id
@@ -734,6 +767,9 @@ contains
     ! create HDF5 file and group
     call H5Fcreate_f(file_pr, H5F_ACC_TRUNC_F, file_id, err)
     call H5Gcreate_f(file_id, 'data', group_id, err)
+
+    ! problem-specific data
+    call problem % WriteRestartData(group_id)
 
     ! time
     dims_t = 1
@@ -778,20 +814,21 @@ contains
   !-----------------------------------------------------------------------------
   !> Read restart data
 
-  subroutine ReadRestartData(file, rank, t, u, n_avg, q_avg)
-    use, intrinsic ::  ISO_C_Binding
+  subroutine ReadRestartData(file, rank, problem, t, u, n_avg, q_avg)
+    use, intrinsic :: ISO_C_Binding
     use Kind_Parameters
     use Execution_Control
     use HDF5_Binding
     implicit none
 
-    character(len=*),  intent(in)    :: file                !< file base name
-    integer,           intent(in)    :: rank                !< process rank
-    real(RNP), target, intent(inout) :: t                   !< problem time
-    real(RNP), target, intent(inout) :: u(0:,0:,0:,:,:)     !< variables
-    integer,   target, intent(inout) :: n_avg               !< averaging counter
-    real(RNP), target, intent(inout) :: q_avg(0:,0:,0:,:,:) !< averaged quantities
-
+    character(len=*),      intent(in)    :: file            !< file base name
+    integer,               intent(in)    :: rank            !< process rank
+    class(INS_Problem_3D), intent(inout) :: problem         !< problem class
+    real(RNP),     target, intent(inout) :: t               !< problem time
+    real(RNP),     target, intent(inout) :: u(0:,0:,0:,:,:) !< variables
+    integer,       target, intent(inout) :: n_avg           !< averaging counter
+    real(RNP),     target, intent(inout) :: q_avg(0:,0:,0:,:,:) !< averaged
+                                                                !! quantities
     optional :: q_avg
 
     integer(HID_T)    :: data_id, file_id, group_id, space_id, type_id
@@ -814,6 +851,9 @@ contains
     ! open HDF5 file and group for reading
     call H5Fopen_f(file_pr, H5F_ACC_RDWR_F, file_id, err)
     call H5Gopen_f(file_id, 'data', group_id, err)
+
+    ! problem-specific data
+    call problem % ReadRestartData(group_id)
 
     ! time
     buf = C_Loc(t)

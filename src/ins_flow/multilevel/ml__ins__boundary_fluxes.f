@@ -136,6 +136,7 @@ contains
           write(*,'(I4,2X,7(ES10.3,2X))') b, m, f_p, f_d
 
         end do
+        write(*,*)
       end associate
     end if
 

@@ -18,9 +18,23 @@
 ! along with HiSPEET. If not, see <http://www.gnu.org/licenses/>.              !
 !------------------------------------------------------------------------------!
 
-!> summary:  Cylinder flow
+!> summary:  2D Cylinder benchmark
 !> author:   Matthias Frey, Joerg Stiller
-!> date:     2023/10/11
+!> date:     2023/10/11, revised 2026/11/02
+!>
+!> References
+!>
+!> 1. Schäfer M, Turek S. The benchmark problem 'flow around a cylinder’.
+!>    In Flow Simulation with High-Performance Computers II, Hirschel EH (ed.).
+!>    Notes Num Fluid Mech 52. Vieweg: Braunschweig 547–566, 1996
+!>
+!> 2. John V. Reference values for drag and lift of a two‐dimensional
+!>    time‐dependent flow around a cylinder.
+!>    Int J Num Meth Fluids, 44(7):777-788, 2004
+!>
+!> Problem 1 is the case 2D-2 with stationary inflow at Re = 100, and
+!> problem 2 is the case 2D-3 with oscillating inflow at Re = 100.
+!>
 !===============================================================================
 
 module INS__Problem__Cylinder_2D__3D
@@ -105,8 +119,6 @@ contains
 
     ! parameters ...............................................................
 
-    ! default BC (pressure is ignored)
-
     allocate(bc_v(nb), source = 'D')
 
     bc_v(2) = 'O'
@@ -121,10 +133,11 @@ contains
       call XMPI_Bcast(bc_v     , 0, comm)
     end if
 
+    problem % test_case       =  test_case
     problem % stokes          =  .false.
     problem % exact_solution  =  .false.
-    problem % nu_ref          =  1E-3_RNP
-    problem % test_case       =  test_case
+    problem % v_ref           =  1.5E+0_RNP
+    problem % nu_ref          =  1.0E-3_RNP
 
     call move_alloc(bc_v, problem % bc_v)
     call problem % SetPressureBC()
@@ -156,9 +169,8 @@ contains
     real(RNP), intent(out) :: ub(:,:,:,:)   !< flow variables
 
     real(RNP), parameter :: hc = 0.41_RNP
-    real(RNP), parameter :: vm = 0.30_RNP
 
-    real(RNP) :: c0, c1, c2, y
+    real(RNP) :: c0, y
     integer   :: np, nf, nc
     integer   :: i, j, k
 
@@ -172,42 +184,22 @@ contains
 
     select case(problem % test_case)
     case(1)
-
-      ! steady case ..........................................................
-
-      c0 = 4 * vm / hc ** 2
-      c1 = 0.20_RNP
-      c2 = 0.21_RNP
-
-      !$omp do collapse(3)
-      do k = 1, nf
-      do j = 1, np
-      do i = 1, np
-        y = xb(i,j,k,2)
-        ub(i,j,k,1) = c0 * (y + c1) * (hc - (y + c2))
-      end do
-      end do
-      end do
-
+      ! steady, Re = 100
+      c0 = 4 * problem % v_ref / hc ** 2
     case(2)
-
-      ! unsteady case ........................................................
-
-      c0 = real(6 * sin(PI * t/8) / 0.41_RNP ** 2, RNP)
-      c1 = 0.20_RNP
-      c2 = 0.21_RNP
-
-      !$omp do collapse(3)
-      do k = 1, nf
-      do j = 1, np
-      do i = 1, np
-        y = xb(i,j,k,2)
-        ub(i,j,k,1) = c0 * (y + c1) * (c2 - y)
-      end do
-      end do
-      end do
-
+      ! unsteady steady, Re = 100
+      c0 = real(4 * problem % v_ref * sin(PI * t/8) / hc ** 2, RNP)
     end select
+
+    !$omp do collapse(3)
+    do k = 1, nf
+    do j = 1, np
+    do i = 1, np
+      y = xb(i,j,k,2)
+      ub(i,j,k,1) = c0 * y * (hc - y)
+    end do
+    end do
+    end do
 
   end subroutine GetBoundaryValues
 

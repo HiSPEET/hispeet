@@ -217,7 +217,7 @@ set( UTIL_3D ${UTIL_3D}
      util_3d/transfer/element_transfer_buffer__3d__sm_real_rsp.F
      util_3d/transfer/element_face_transfer_buffer__3d.f
      util_3d/transfer/element_face_transfer_buffer__3d__sm_real_rdp.F
-    )
+   )
 
 set( UTIL_3D ${UTIL_3D}
      util_3d/ops/assembly__3d.f
@@ -226,7 +226,11 @@ set( UTIL_3D ${UTIL_3D}
      util_3d/ops/volume_integrals__3d.f
      util_3d/ops/surface_integrals__3d.f
      util_3d/ops/smooth_mesh_data__3d.f
-    )
+   )
+
+set( UTIL_3D ${UTIL_3D}
+     util_3d/postprocessing/vortex_sensors__3d.f
+   )
 
 #===============================================================================
 # elliptic_1d
